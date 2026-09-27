@@ -39,8 +39,10 @@ Drizzle şeması `src/main/db/schema/` altında alan başına dosya. Her tabloda
 silinebilenlerde `deleted_at`. Aşağısı başlangıç taslağıdır; aşamalarda genişler.
 
 **Çekirdek**
-- `dump_items`: tür (text/image/file), içerik, media referansı, durum (bekliyor/işleniyor/işlendi/atlandı), iş id.
-- `media`: hash, yol, mime, boyut, orijinal ad.
+- `dump_items`: tür (text/image/file; ek yoksa text, varsa ilk ekin türü), içerik, durum (bekliyor/işleniyor/işlendi/atlandı), iş id.
+- `dump_attachments`: döküm id, media id, sıra. Bir döküm = bir gönderim (metin + birden çok ek).
+- `media`: hash (sha256, unique), dosya adı, mime, boyut, orijinal ad. Satırlar silinmez; aynı içerik tek dosya.
+  Renderer dosyaları `sm-media://m/<hash>.<ext>` protokolüyle okur (salt okunur, sadece `media/`, ad biçimi doğrulanır).
 - `notes`: başlık, `body_md`, koleksiyon, bağlam (`project_id` | `course_id` | `week_id` | null), sabitlenmiş, AI'a kapalı.
 - `notes_fts`: FTS5 sanal tablo (başlık + gövde), trigger'larla senkron.
 - `tags`, `note_tags`.
@@ -50,7 +52,8 @@ silinebilenlerde `deleted_at`. Aşağısı başlangıç taslağıdır; aşamalar
 - `routines`: ad, tekrar kuralı (gün + saat + süre).
 - `schedule_blocks`: gün, başlangıç, bitiş, tür (ders/sınav/görev/rutin), kaynak id, sabit mi.
 - `ideas`: başlık, not, `incubate_until`, durum (kuluçka/proje oldu/arşiv).
-- `activity_log`: kim (Taha/AI/tarama), işlem, hedef tablo+id, önceki değer, yeni değer, geri alındı mı.
+- `activity_log`: kim (`taha`/`ai`/`scan`), işlem (`create`/`update`/`delete`/`restore`), hedef tablo+id,
+  `before_json`, `after_json`, `group_id` (birlikte uygulananlar), `undone_at`. Değişiklikle aynı transaction'da yazılır.
 
 **Projeler** (ayrıntı `docs/PROJELER.md`)
 - `projects`, `project_folders`, `milestones`, `project_docs` (ağaç), `sessions`, `commits`, `code_todos`, `scan_snapshots`, `project_decisions`, `assets`.
@@ -67,6 +70,10 @@ silinebilenlerde `deleted_at`. Aşağısı başlangıç taslağıdır; aşamalar
 - `proposals`: iş id, işlem türü, JSON yük, kaynak döküm id'leri, durum (bekliyor/onaylandı/reddedildi/düzenlendi), uygulama log id'si.
 
 Profil ("Beni tanı" metni) ve ayarlar `settings` tablosunda anahtar-değer.
+
+**Migration ve geri dönüş:** Migration'lar mümkün olduğunca sadece ekleme yapar. Açılışta bekleyen migration varsa önce
+`backups/pre-migrate-<n>-<zaman>.db` kopyası alınır (`VACUUM INTO`). Her migration'ın elle çalıştırılacak geri dönüşü
+`src/main/db/migrations/down/<ad>.down.sql` dosyasındadır.
 
 ## Tarama (Güncelle)
 

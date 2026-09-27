@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router'
 import { Moon, Settings, Sun } from 'lucide-react'
+import { usePendingDumpCount } from '../features/dokum/useDumps'
 import { FAKE_COUNTS, FAKE_PROJECTS } from '../lib/fake'
 import { useSetSetting, useSetting } from '../lib/settings'
 import { Badge, cn } from '../ui'
@@ -11,15 +12,20 @@ const LINK =
 const LINK_ACTIVE = 'bg-ink text-on-ink hover:bg-ink hover:text-on-ink'
 
 // Sayı rozetleri: Döküm'de işlenmemiş öğe, Onay Kutusu'nda bekleyen öneri.
-const BADGES: Partial<Record<PanelId, { count: number; tone: 'dump' | 'today'; noun: string }>> = {
-  dokum: { count: FAKE_COUNTS.dump, tone: 'dump', noun: 'işlenmemiş' },
-  onay: { count: FAKE_COUNTS.inbox, tone: 'today', noun: 'öneri' },
+// Sayı 0 ise rozet gösterilmez.
+const BADGES: Partial<Record<PanelId, { tone: 'dump' | 'today'; noun: string }>> = {
+  dokum: { tone: 'dump', noun: 'işlenmemiş' },
+  onay: { tone: 'today', noun: 'öneri' },
 }
 
 export function Sidebar() {
   const theme = useSetting('theme')
   const setTheme = useSetSetting('theme')
   const dark = theme.data === 'dark'
+  const counts: Partial<Record<PanelId, number>> = {
+    dokum: usePendingDumpCount(),
+    onay: FAKE_COUNTS.inbox,
+  }
 
   return (
     <nav
@@ -31,20 +37,21 @@ export function Sidebar() {
       </span>
 
       {PANELS.map(({ id, path, label, icon: Icon }) => {
-        const badge = BADGES[id]
+        const count = counts[id] ?? 0
+        const badge = count > 0 ? BADGES[id] : undefined
         return (
           <NavLink
             key={id}
             to={path}
             end={path === '/'}
-            aria-label={badge ? `${label}, ${badge.count} ${badge.noun}` : label}
+            aria-label={badge ? `${label}, ${count} ${badge.noun}` : label}
             title={label}
             className={({ isActive }) => cn(LINK, 'h-12', isActive && LINK_ACTIVE)}
           >
             <Icon size={20} strokeWidth={1.75} aria-hidden />
             {badge && (
               <Badge
-                count={badge.count}
+                count={count}
                 tone={badge.tone}
                 size="sm"
                 className="absolute top-0.5 right-0"

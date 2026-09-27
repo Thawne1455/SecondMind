@@ -23,6 +23,7 @@ export interface DataPaths {
   db: string
   media: string
   ai: string
+  backups: string
   onOneDrive: boolean
 }
 
@@ -34,6 +35,7 @@ export function ensureDataPaths(): DataPaths {
     db: join(root, 'secondmind.db'),
     media: join(root, 'media'),
     ai: join(root, 'ai'),
+    backups: join(root, 'backups'),
     onOneDrive: isUnderOneDrive(root, process.env),
   }
   for (const dir of [paths.root, paths.media, paths.ai]) mkdirSync(dir, { recursive: true })

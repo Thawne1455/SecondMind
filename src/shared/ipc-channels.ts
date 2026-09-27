@@ -2,7 +2,16 @@
 // şema kütüphanesi girmesin diye `ipc.ts`'ten ayrı. `ipc.ts`'teki sözleşme bu listeyle derleme
 // zamanında birebir eşleşmek zorunda.
 
-export const ipcChannels = ['settings:get', 'settings:set', 'app:info'] as const
+export const ipcChannels = [
+  'settings:get',
+  'settings:set',
+  'app:info',
+  'dump:create',
+  'dump:list',
+  'dump:count',
+  'dump:delete',
+  'dump:restore',
+] as const
 export type IpcChannel = (typeof ipcChannels)[number]
 
 export type Theme = 'light' | 'dark'

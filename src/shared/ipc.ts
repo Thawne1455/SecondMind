@@ -1,7 +1,9 @@
 import { z } from 'zod'
 import type { IpcChannel, Theme } from './ipc-channels'
+import { dumpCreateInputSchema, dumpItemSchema, dumpStatusSchema } from './schemas/dump'
 
 export * from './ipc-channels'
+export * from './schemas/dump'
 
 // IPC sözleşmesinin tek kaynağı. Kanal adları `alan:eylem` biçiminde.
 // Ana süreç her girdiyi burada tanımlı şemayla doğrular.
@@ -38,6 +40,27 @@ export const ipcContract = {
       dataDirOnOneDrive: z.boolean(),
       version: z.string(),
     }),
+  },
+  'dump:create': {
+    input: dumpCreateInputSchema,
+    output: dumpItemSchema,
+  },
+  'dump:list': {
+    input: z.object({ status: dumpStatusSchema }),
+    output: z.array(dumpItemSchema),
+  },
+  'dump:count': {
+    input: z.void(),
+    output: z.object({ pending: z.number() }),
+  },
+  /** Soft delete: öğe çöp kutusuna gider, `activity_log`'a yazılır. */
+  'dump:delete': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  'dump:restore': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
   },
 } as const satisfies Record<IpcChannel, { input: z.ZodType; output: z.ZodType }>
 

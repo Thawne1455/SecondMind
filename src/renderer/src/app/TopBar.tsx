@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Plus, RefreshCw } from 'lucide-react'
-import { FAKE_COUNTS } from '../lib/fake'
+import { usePendingDumpCount } from '../features/dokum/useDumps'
 import { Badge, Button, cn } from '../ui'
 import { useShell } from './shell-context'
 
@@ -15,6 +15,7 @@ type TopBarProps = {
 /** Üst çubuk: solda sayfa başlığı, sağda arama ve genel eylemler. Her sayfa kendisi yerleştirir. */
 export function TopBar({ title, status, className }: TopBarProps) {
   const { openPalette, openQuickDump } = useShell()
+  const dumpCount = usePendingDumpCount()
 
   return (
     <header className={cn('flex h-[42px] shrink-0 items-center gap-2.5', className)}>
@@ -26,7 +27,7 @@ export function TopBar({ title, status, className }: TopBarProps) {
         type="button"
         onClick={openPalette}
         className={cn(
-          'flex h-[42px] w-[250px] cursor-pointer items-center justify-between gap-2 rounded-full bg-s2 px-5',
+          'flex h-[42px] w-[250px] shrink-0 cursor-pointer items-center justify-between gap-2 rounded-full bg-s2 px-5 text-[15px] whitespace-nowrap',
           'font-medium text-ink2 transition-colors duration-150 hover:bg-s3',
           'focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-indigo',
         )}
@@ -42,7 +43,7 @@ export function TopBar({ title, status, className }: TopBarProps) {
       </Button>
       <Button variant="ai">
         AI ile İşle
-        <Badge count={FAKE_COUNTS.dump} className="ml-2" />
+        {dumpCount > 0 && <Badge count={dumpCount} className="ml-2" />}
       </Button>
       <Button icon={Plus} onClick={openQuickDump}>
         Döküm

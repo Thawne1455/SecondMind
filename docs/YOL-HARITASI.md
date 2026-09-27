@@ -21,10 +21,11 @@ Her aşamanın sonunda uygulama açılır ve çalışır durumdadır.
 - [x] Diğer paneller için boş sayfa + boş durum
 **Bitti sayılır:** Bugün ekranı ekran görüntüsüyle yan yana konunca aynı görünüyor.
 
-## Aşama 2 — Veri, Döküm, Bilgi
-- [ ] Çekirdek tablolar (MIMARI.md), `activity_log`, soft delete
-- [ ] Media deposu (hash'li dosya adları), resim yapıştırma ve sürükleme
-- [ ] Döküm: kaydet, listele, sil; Hızlı Döküm gerçekten kaydeder
+## Aşama 2 — Veri, Döküm, Bilgi · AKTİF
+2a: çekirdek tablolar, activity_log, soft delete, media, Döküm. 2b: Bilgi. 2c: Fikirler, kuluçka, seed.
+- [x] Çekirdek tablolar (MIMARI.md), `activity_log`, soft delete (2a: `media`, `dump_items`, `dump_attachments`, `activity_log`; diğerleri kendi aşamasında)
+- [x] Media deposu (hash'li dosya adları), resim yapıştırma ve sürükleme
+- [x] Döküm: kaydet, listele, sil; Hızlı Döküm gerçekten kaydeder
 - [ ] Bilgi: koleksiyonlar, etiketler, TipTap editör (markdown saklama, resim), FTS5 arama, komut paletinde notlar
 - [ ] Fikirler ve kuluçka (`domain/incubation` + test)
 - [ ] `npm run seed` ile gerçekçi örnek veri

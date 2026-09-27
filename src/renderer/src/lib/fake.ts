@@ -15,7 +15,7 @@ export const FAKE_PROJECTS: FakeProject[] = [
   { id: 'album', name: 'Albüm', color: '#F59BE6', silentDays: 16 },
 ]
 
-export const FAKE_COUNTS = { dump: 5, inbox: 7, missedReminders: 2 }
+export const FAKE_COUNTS = { inbox: 7, missedReminders: 2 }
 
 /** Tasarımdaki an; gerçek saat Aşama 3'te. */
 export const FAKE_NOW = '13:40'

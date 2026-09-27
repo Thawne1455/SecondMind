@@ -4,7 +4,9 @@ import { THEME_ARG_PREFIX, type Theme } from '@shared/ipc'
 import { closeDb, getDb, openDb } from './db/client'
 import { getSetting } from './db/settings'
 import { registerAppIpc } from './ipc/app'
+import { registerDumpIpc } from './ipc/dump'
 import { registerSettingsIpc } from './ipc/settings'
+import { handleMediaProtocol, registerMediaScheme } from './mediaProtocol'
 import { ensureDataPaths } from './paths'
 
 // tokens.css'teki --bg ile aynı; ilk boyamadan önce pencere zemini.
@@ -55,6 +57,8 @@ function createWindow(theme: Theme): void {
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
+  registerMediaScheme()
+
   app.on('second-instance', () => {
     if (mainWindow?.isMinimized()) mainWindow.restore()
     mainWindow?.focus()
@@ -62,9 +66,11 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     const paths = ensureDataPaths()
-    openDb(paths.db)
+    openDb(paths.db, paths.backups)
+    handleMediaProtocol(paths.media)
 
     registerAppIpc(paths)
+    registerDumpIpc(paths)
     registerSettingsIpc((key) => {
       if (key === 'theme') applyTheme(getSetting(getDb(), 'theme'))
     })
