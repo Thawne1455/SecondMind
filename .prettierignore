@@ -1,0 +1,9 @@
+out
+dist
+node_modules
+package-lock.json
+src/main/db/migrations
+design
+docs
+*.md
+src/renderer/src/styles/tokens.css

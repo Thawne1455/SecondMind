@@ -1,0 +1,60 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@font-face { font-family: "Archivo"; font-weight: 400 900; font-stretch: 62% 125%; font-display: swap;
+  src: url("/fonts/archivo-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Archivo"; font-weight: 400 900; font-stretch: 62% 125%; font-display: swap;
+  src: url("/fonts/archivo-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+:root {
+  --bg: #FFFFFF; --s2: #F4F4F7; --s3: #EAEAF0; --line: #E3E3EA;
+  --ink: #131316; --ink2: #4A4A55; --ink3: #5F5F6B;
+  --band: #131316; --on-ink: #FFFFFF; --hover: rgba(19,19,22,.06);
+  --indigo: #3D3DF5; --t-coral: #C4321F;
+}
+.dark {
+  --bg: #0F0F13; --s2: #1A1A21; --s3: #24242D; --line: #2A2A33;
+  --ink: #F2F2F5; --ink2: #B5B5C2; --ink3: #9C9CAA;
+  --band: #1D1D25; --on-ink: #0F0F13; --hover: rgba(255,255,255,.07);
+  --indigo: #5454FF; --t-coral: #FF8A7A;
+}
+
+@theme inline {
+  --color-bg: var(--bg); --color-s2: var(--s2); --color-s3: var(--s3); --color-line: var(--line);
+  --color-ink: var(--ink); --color-ink2: var(--ink2); --color-ink3: var(--ink3);
+  --color-band: var(--band); --color-on-ink: var(--on-ink); --color-hover: var(--hover);
+  --color-indigo: var(--indigo); --color-t-coral: var(--t-coral);
+
+  /* Dolgu renkleri iki temada da aynı */
+  --color-amber: #FFB21E; --color-green: #3BE08F; --color-sky: #7CC4FF;
+  --color-lilac: #DAD5FF; --color-lilac2: #BDB3FF; --color-teal: #5FE3D0;
+  --color-coral: #D93A26; --color-orange: #FF8A3D; --color-pink: #F59BE6;
+  --color-fill-ink: #131316;
+
+  /* Isı haritası (yeşil ölçek) */
+  --color-hm0: var(--s3); --color-hm1: #CFF7E2; --color-hm2: #96ECC0; --color-hm3: #3BE08F; --color-hm4: #138A52;
+
+  --font-sans: "Archivo", system-ui, sans-serif;
+  --radius-modal: 32px; --radius-tile: 28px; --radius-field: 14px; --radius-block: 14px;
+}
+
+@utility wide { font-stretch: 125%; }
+/* Tasarımdaki adlar: .x = geniş + tabular, .cx = etiket stili */
+@utility x { font-stretch: 125%; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+@utility cx { font-size: 13px; font-weight: 800; font-stretch: 125%; text-transform: uppercase; letter-spacing: .04em; }
+
+@layer base {
+  html { color-scheme: light; }
+  html.dark { color-scheme: dark; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+}

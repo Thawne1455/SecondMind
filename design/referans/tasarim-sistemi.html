@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="tr"><head>
+<meta charset="utf-8">
+<title>SecondMind — Tasarım sistemi (Poster)</title>
+
+</head>
+<body>
+<x-dc>
+<helmet>
+<!-- @font-face blokları çıkarıldı: resources/fonts ve docs/TASARIM.md -->
+<style>
+body{margin:0}
+.pc{--bg:#FFFFFF;--s2:#F4F4F7;--s3:#EAEAF0;--line:#E3E3EA;--ink:#131316;--ink2:#4A4A55;--ink3:#5F5F6B;--band:#131316;--on-ink:#FFFFFF;--hover:rgba(19,19,22,.06);--indigo:#3D3DF5;--amber:#FFB21E;--green:#3BE08F;--sky:#7CC4FF;--lilac:#DAD5FF;--lilac2:#BDB3FF;--teal:#5FE3D0;--coral:#D93A26;--orange:#FF8A3D;--pink:#F59BE6;--t-coral:#C4321F;font-family:'Archivo',system-ui,sans-serif;font-size:15px;line-height:1.5;color:var(--ink);-webkit-font-smoothing:antialiased}
+.pc-dark{--bg:#0F0F13;--s2:#1A1A21;--s3:#24242D;--line:#2A2A33;--ink:#F2F2F5;--ink2:#B5B5C2;--ink3:#9C9CAA;--band:#1D1D25;--on-ink:#0F0F13;--hover:rgba(255,255,255,.07);--indigo:#5454FF;--t-coral:#FF8A7A}
+.pc *{box-sizing:border-box}
+.x{font-stretch:125%;font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
+.cx{font-stretch:125%;font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;font-variant-numeric:tabular-nums}
+.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.i16{width:16px;height:16px}
+.b{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:42px;padding:0 20px;border-radius:999px;border:0;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;white-space:nowrap;text-decoration:none;transition:transform .15s ease,background .15s ease}
+.b:active{transform:scale(.96)}
+.b:focus-visible{outline:3px solid var(--indigo);outline-offset:2px}
+.b:disabled{opacity:.38;cursor:not-allowed;transform:none}
+.b-ink{background:var(--ink);color:var(--on-ink)}
+.b-indigo{background:var(--indigo);color:#FFFFFF}
+.b-soft{background:var(--s2);color:var(--ink)}
+.b-amber{background:var(--amber);color:#131316}
+.b-coral{background:var(--coral);color:#FFFFFF}
+.b-on{background:rgba(19,19,22,.1);color:#131316}
+.b-dark{background:#131316;color:#FFFFFF}
+.b-white{background:#FFFFFF;color:#131316}
+.b-sm{height:34px;padding:0 14px;font-size:14px}
+.tile{border-radius:28px;padding:18px 20px;display:flex;flex-direction:column;gap:8px;min-height:0;color:#131316;transition:transform .18s ease}
+.tile:hover{transform:translateY(-2px)}
+.seg{flex-grow:1;height:40px;border-radius:12px;border:0;background:rgba(19,19,22,.08);font-family:inherit;font-stretch:125%;font-size:15px;font-weight:800;color:#131316;cursor:pointer}
+.seg-on{background:#131316;color:#FFFFFF}
+.sh{display:flex;align-items:baseline;gap:20px;padding-bottom:14px;border-bottom:3px solid var(--ink)}
+.sh h2{margin:0;font-stretch:125%;font-size:28px;font-weight:900;text-transform:uppercase;letter-spacing:-0.01em;line-height:1.1}
+.sh p{margin:0;color:var(--ink2);font-size:15px}
+.cap{font-size:13px;color:var(--ink3);font-weight:600;line-height:1.35}
+.inp{height:46px;padding:0 16px;border-radius:14px;border:2px solid transparent;background:var(--s2);font-family:inherit;font-size:15px;font-weight:500;color:var(--ink);outline:none;width:100%}
+.inp::placeholder{color:var(--ink3)}
+.inp:focus{border-color:var(--ink);background:var(--bg)}
+.lbl{font-size:13px;font-weight:800;font-stretch:125%;text-transform:uppercase;letter-spacing:.04em}
+.fl{display:flex;flex-direction:column;gap:6px}
+.hm0{background:var(--s3)}.hm1{background:#CFF7E2}.hm2{background:#96ECC0}.hm3{background:#3BE08F}.hm4{background:#138A52}
+.sk{border-radius:12px;background:linear-gradient(90deg,var(--s2) 0%,var(--s3) 50%,var(--s2) 100%);background-size:200% 100%;animation:sk 1.4s ease-in-out infinite}
+.spin{animation:spin .8s linear infinite}
+mark{background:var(--amber);color:#131316;border-radius:4px;padding:0 2px}
+@keyframes sk{0%{background-position:100% 0}100%{background-position:-100% 0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hb{position:absolute;top:72px;height:60px;border-radius:14px;padding:6px 10px;display:flex;flex-direction:column;justify-content:center;line-height:1.25;overflow:hidden;color:#131316}
+.hr{position:absolute;top:34px;bottom:30px;width:1px;background:rgba(255,255,255,.08)}
+</style>
+</helmet>
+<div class="pc" style="width: 1440px; height: 4700px; background: var(--bg); padding: 64px 72px; display: flex; flex-direction: column; gap: 64px; overflow: hidden">
+
+<header style="display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; align-items: center; gap: 14px"><span class="x" style="width: 56px; height: 56px; border-radius: 18px; background: var(--indigo); color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 26px">S</span><span class="cx" style="font-size: 15px">SecondMind · v0.2 · 27 Eylül 2026</span></div>
+<h1 class="x" style="margin: 0; font-size: 112px; font-weight: 900; line-height: .88; text-transform: uppercase">Tasarım<br>sistemi</h1>
+<div style="display: flex; gap: 40px; align-items: flex-end">
+<p style="margin: 0; max-width: 640px; font-size: 18px; line-height: 1.5; color: var(--ink2)">Poster yönü: beyaz zemin, siyah akış bandı, büyük ve geniş başlıklar, düz renk karolar. Her karo tek bir soruya cevap verir; renk o sorunun alanını söyler. Gölge yok, derinliği renk ve boyut verir.</p>
+<span style="flex-grow: 1"></span>
+<div style="display: flex; gap: 8px"><span class="b b-sm b-soft" style="cursor: default">Archivo 62–125 genişlik</span><span class="b b-sm b-soft" style="cursor: default">Lucide 1.75</span></div>
+</div>
+</header>
+
+<section style="display: flex; flex-direction: column; gap: 24px">
+<div class="sh"><h2>Renk</h2><p>Dolgu renkleri iki temada da aynı; üstündeki metin hep #131316 (mercan ve indigo hariç: beyaz).</p></div>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 14px">
+<div class="tile" style="height: 190px; background: var(--indigo); color: #FFFFFF"><span class="cx">Bugün</span><span style="flex-grow: 1"></span><span class="x" style="font-size: 22px; font-weight: 900">indigo</span><span style="font-size: 13px; font-weight: 600">#3D3DF5 · beyaz metin AA</span></div>
+<div class="tile" style="height: 190px; background: var(--amber)"><span class="cx">Döküm</span><span style="flex-grow: 1"></span><span class="x" style="font-size: 22px; font-weight: 900">amber</span><span style="font-size: 13px; font-weight: 600">#FFB21E · metin AAA</span></div>
+<div class="tile" style="height: 190px; background: var(--green)"><span class="cx">Projeler</span><span style="flex-grow: 1"></span><span class="x" style="font-size: 22px; font-weight: 900">yeşil</span><span style="font-size: 13px; font-weight: 600">#3BE08F · metin AAA</span></div>
+<div class="tile" style="height: 190px; background: var(--sky)"><span class="cx">Okul</span><span style="flex-grow: 1"></span><span class="x" style="font-size: 22px; font-weight: 900">gök</span><span style="font-size: 13px; font-weight: 600">#7CC4FF · metin AAA</span></div>
+<div class="tile" style="height: 190px; background: var(--lilac)"><span class="cx">Zihin</span><span style="flex-grow: 1"></span><span class="x" style="font-size: 22px; font-weight: 900">leylak</span><span style="font-size: 13px; font-weight: 600">#DAD5FF · metin AAA<br>koyu ton #BDB3FF</span></div>
+<div class="tile" style="height: 190px; background: var(--teal)"><span class="cx">Bilgi</span><span style="flex-grow: 1"></span><span class="x" style="font-size: 22px; font-weight: 900">turkuaz</span><span style="font-size: 13px; font-weight: 600">#5FE3D0 · metin AAA</span></div>
+<div class="tile" style="height: 190px; background: var(--coral); color: #FFFFFF"><span class="cx">Uyarı</span><span style="flex-grow: 1"></span><span class="x" style="font-size: 22px; font-weight: 900">mercan</span><span style="font-size: 13px; font-weight: 600">#D93A26 · beyaz metin AA</span></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+<div style="border-radius: 28px; border: 2px solid var(--line); padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<span class="cx">Nötr · açık</span>
+<div style="display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 10px">
+<div class="fl"><div style="height: 52px; border-radius: 14px; background: #FFFFFF; border: 2px solid var(--line)"></div><span class="cap">bg<br>#FFFFFF</span></div>
+<div class="fl"><div style="height: 52px; border-radius: 14px; background: #F4F4F7"></div><span class="cap">s2<br>#F4F4F7</span></div>
+<div class="fl"><div style="height: 52px; border-radius: 14px; background: #EAEAF0"></div><span class="cap">s3<br>#EAEAF0</span></div>
+<div class="fl"><div style="height: 52px; border-radius: 14px; background: #E3E3EA"></div><span class="cap">line<br>#E3E3EA</span></div>
+<div class="fl"><div style="height: 52px; border-radius: 14px; background: #5F5F6B"></div><span class="cap">ink3<br>#5F5F6B</span></div>
+<div class="fl"><div style="height: 52px; border-radius: 14px; background: #4A4A55"></div><span class="cap">ink2<br>#4A4A55</span></div>
+<div class="fl"><div style="height: 52px; border-radius: 14px; background: #131316"></div><span class="cap">ink<br>#131316</span></div>
+<div class="fl"><div style="height: 52px; border-radius: 14px; background: #131316; box-shadow: inset 0 0 0 3px #FFB21E"></div><span class="cap">band<br>#131316</span></div>
+</div>
+</div>
+<div class="pc pc-dark" style="border-radius: 28px; background: var(--bg); padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<span class="cx">Nötr · koyu</span>
+<div style="display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 10px">
+<div class="fl"><div style="height: 52px; border-radius: 14px; background: #0F0F13; border: 2px solid var(--line)"></div><span class="cap">bg<br>#0F0F13</span></div>
+<div class="fl"><div style="height: 52px; border-radius: 14px; background: #1A1A21"></div><span class="cap">s2<br>#1A1A21</span></div>
+<div class="fl"><div style="height: 52px; border-radius: 14px; background: #24242D"></div><span class="cap">s3<br>#24242D</span></div>
+<div class="fl"><div style="height: 52px; border-radius: 14px; background: #2A2A33"></div><span class="cap">line<br>#2A2A33</span></div>
+<div class="fl"><div style="height: 52px; border-radius: 14px; background: #9C9CAA"></div><span class="cap">ink3<br>#9C9CAA</span></div>
+<div class="fl"><div style="height: 52px; border-radius: 14px; background: #B5B5C2"></div><span class="cap">ink2<br>#B5B5C2</span></div>
+<div class="fl"><div style="height: 52px; border-radius: 14px; background: #F2F2F5"></div><span class="cap">ink<br>#F2F2F5</span></div>
+<div class="fl"><div style="height: 52px; border-radius: 14px; background: #1D1D25; box-shadow: inset 0 0 0 3px #FFB21E"></div><span class="cap">band<br>#1D1D25</span></div>
+</div>
+</div>
+</div>
+<div class="cap" style="display: flex; gap: 20px; align-items: center"><span style="color: var(--ink); font-weight: 800">Proje renkleri</span><span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 4px; background: var(--green)"></span>Runika</span><span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 4px; background: var(--orange)"></span>SecondMind #FF8A3D</span><span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 4px; background: var(--pink)"></span>Albüm #F59BE6</span><span>Koyu temada indigo #5454FF olur, geri kalan dolgular aynı kalır.</span></div>
+</section>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 40px; align-items: start">
+<section style="display: flex; flex-direction: column; gap: 8px">
+<div class="sh" style="margin-bottom: 8px"><h2>Tipografi</h2><p>Archivo. Başlıklar geniş (125) ve büyük harf; gövde normal genişlik.</p></div>
+<div style="display: flex; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line)"><span class="x" style="flex-grow: 1; font-size: 64px; font-weight: 900; line-height: .95; text-transform: uppercase">Müziği kırp</span><span class="cap">Poster · 64/900 · wdth 125</span></div>
+<div style="display: flex; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line)"><span class="x" style="flex-grow: 1; font-size: 56px; font-weight: 900; line-height: 1">12 · 16 · 1:20</span><span class="cap">Büyük sayı · 56/900 · tabular</span></div>
+<div style="display: flex; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line)"><span class="x" style="flex-grow: 1; font-size: 28px; font-weight: 900; text-transform: uppercase">Pazar 27 Eylül</span><span class="cap">Sayfa başlığı · 28/900</span></div>
+<div style="display: flex; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line)"><span style="flex-grow: 1; font-size: 20px; font-weight: 800; line-height: 1.2">Ders notlarından bilgi kartı çıkaran mod</span><span class="cap">Karo başlığı · 20/800</span></div>
+<div style="display: flex; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line)"><span class="cx" style="flex-grow: 1">Kuluçka · 14 gün doldu</span><span class="cap">Etiket · 13/800 · büyük harf</span></div>
+<div style="display: flex; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line)"><span style="flex-grow: 1; font-size: 15px">Aklındakini dök, gerisini SecondMind halleder. Ğğ Şş İı Çç Öö Üü</span><span class="cap">Gövde · 15/400</span></div>
+<div style="display: flex; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line)"><span style="flex-grow: 1; font-size: 15px; font-weight: 700">Erdem'in doğum günü — mesaj at</span><span class="cap">Gövde vurgu · 15/700</span></div>
+<div style="display: flex; align-items: baseline; gap: 16px; padding: 10px 0"><span style="flex-grow: 1; font-size: 13px; font-weight: 600; color: var(--ink3)">Son tarama 2 saat önce</span><span class="cap">İkincil · 13/600 · en küçük</span></div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 16px">
+<div class="sh"><h2>Şekil</h2></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+<div class="fl"><div style="height: 84px; border-radius: 32px; background: var(--s2)"></div><span class="cap">Modal · 32</span></div>
+<div class="fl"><div style="height: 84px; border-radius: 28px; background: var(--s2)"></div><span class="cap">Karo, bant · 28</span></div>
+<div class="fl"><div style="height: 84px; border-radius: 14px; background: var(--s2)"></div><span class="cap">Input, akış bloğu · 14</span></div>
+<div class="fl"><div style="height: 42px; border-radius: 999px; background: var(--s2); margin-top: 21px; margin-bottom: 21px"></div><span class="cap">Buton, etiket · pill</span></div>
+</div>
+<div style="border-radius: 28px; background: var(--s2); padding: 18px 20px; display: flex; flex-direction: column; gap: 10px">
+<span class="cx">Derinlik</span>
+<span style="font-size: 14px; color: var(--ink2)">Karo ve bantta gölge ve kenarlık yok. Hover'da karo 2px yükselir. Gölge yalnızca modal ve açılır menüde.</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px"><span class="cx">Boşluk</span>
+<div style="display: flex; align-items: flex-end; gap: 14px">
+<div class="fl" style="align-items: center"><div style="width: 6px; height: 6px; border-radius: 2px; background: var(--ink)"></div><span class="cap">6</span></div>
+<div class="fl" style="align-items: center"><div style="width: 10px; height: 10px; border-radius: 3px; background: var(--ink)"></div><span class="cap">10</span></div>
+<div class="fl" style="align-items: center"><div style="width: 16px; height: 16px; border-radius: 4px; background: var(--ink)"></div><span class="cap">16</span></div>
+<div class="fl" style="align-items: center"><div style="width: 20px; height: 20px; border-radius: 5px; background: var(--ink)"></div><span class="cap">20</span></div>
+<div class="fl" style="align-items: center"><div style="width: 32px; height: 32px; border-radius: 7px; background: var(--ink)"></div><span class="cap">32</span></div>
+<div class="fl" style="align-items: center"><div style="width: 64px; height: 64px; border-radius: 10px; background: var(--ink)"></div><span class="cap">64</span></div>
+</div></div>
+</section>
+</div>
+
+<section style="display: flex; flex-direction: column; gap: 24px">
+<div class="sh"><h2>Butonlar</h2><p>Hepsi pill. Basılıyken %96. Yükleniyor genişliği korur.</p></div>
+<div style="display: grid; grid-template-columns: 160px repeat(5, minmax(0, 1fr)); gap: 18px 12px; align-items: center">
+<span></span><span class="cx" style="color: var(--ink3)">Normal</span><span class="cx" style="color: var(--ink3)">Hover</span><span class="cx" style="color: var(--ink3)">Basılı</span><span class="cx" style="color: var(--ink3)">Devre dışı</span><span class="cx" style="color: var(--ink3)">Yükleniyor</span>
+<span style="font-weight: 800">Birincil</span>
+<div><button class="b b-ink">Döküme at</button></div><div><button class="b b-ink" style="background: #2C2C33">Döküme at</button></div><div><button class="b b-ink" style="background: #2C2C33; transform: scale(.96)">Döküme at</button></div><div><button class="b b-ink" disabled="">Döküme at</button></div><div><button class="b b-ink" aria-busy="true"><svg class="i i16 spin" sc-camel-view-box="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.22-8.56"></path></svg>Kaydediliyor</button></div>
+<span style="font-weight: 800">Eylem (Başla)</span>
+<div><button class="b b-indigo">Başla</button></div><div><button class="b b-indigo" style="background: #2B2BD9">Başla</button></div><div><button class="b b-indigo" style="background: #2B2BD9; transform: scale(.96)">Başla</button></div><div><button class="b b-indigo" disabled="">Başla</button></div><div><button class="b b-indigo" aria-busy="true"><svg class="i i16 spin" sc-camel-view-box="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.22-8.56"></path></svg>Açılıyor</button></div>
+<span style="font-weight: 800">İkincil</span>
+<div><button class="b b-soft">Güncelle</button></div><div><button class="b b-soft" style="background: var(--s3)">Güncelle</button></div><div><button class="b b-soft" style="background: var(--s3); transform: scale(.96)">Güncelle</button></div><div><button class="b b-soft" disabled="">Güncelle</button></div><div><button class="b b-soft" aria-busy="true"><svg class="i i16 spin" sc-camel-view-box="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.22-8.56"></path></svg>3 klasör taranıyor…</button></div>
+<span style="font-weight: 800">AI</span>
+<div><button class="b b-amber">AI ile İşle · 5</button></div><div><button class="b b-amber" style="background: #F2A300">AI ile İşle · 5</button></div><div><button class="b b-amber" style="background: #F2A300; transform: scale(.96)">AI ile İşle · 5</button></div><div><button class="b b-amber" disabled="">AI ile İşle</button></div><div><button class="b b-amber" aria-busy="true"><svg class="i i16 spin" sc-camel-view-box="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.22-8.56"></path></svg>İşleniyor 3/5</button></div>
+<span style="font-weight: 800">Tehlike</span>
+<div><button class="b b-coral">Klasörü kaldır</button></div><div><button class="b b-coral" style="background: #BE2F1D">Klasörü kaldır</button></div><div><button class="b b-coral" style="background: #BE2F1D; transform: scale(.96)">Klasörü kaldır</button></div><div><button class="b b-coral" disabled="">Klasörü kaldır</button></div><div><button class="b b-coral" aria-busy="true"><svg class="i i16 spin" sc-camel-view-box="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.22-8.56"></path></svg>Kaldırılıyor</button></div>
+<span style="font-weight: 800">Karo üstünde</span>
+<div style="grid-column: span 5; display: flex; gap: 12px">
+<div style="display: flex; gap: 8px; padding: 12px; border-radius: 22px; background: var(--green)"><button class="b b-sm b-dark">Projeye çevir</button><button class="b b-sm b-on">Arşivle</button></div>
+<div style="display: flex; gap: 8px; padding: 12px; border-radius: 22px; background: var(--coral)"><button class="b b-sm b-white">Aç</button><button class="b b-sm" style="background: rgba(19,19,22,.2); color: #FFFFFF">Arşivle</button></div>
+<div style="display: flex; gap: 8px; padding: 12px; border-radius: 22px; background: var(--band)"><button class="b b-sm" style="background: rgba(255,255,255,.12); color: #FFFFFF">Yeniden yerleştir</button></div>
+<button class="b b-sm b-soft" style="width: 34px; padding: 0; align-self: center" aria-label="Kapat"><svg class="i i16" sc-camel-view-box="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+</div>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 24px">
+<div class="sh"><h2>Karolar</h2><p>Dört tür. Karo rengi alanı söyler; içinde tek soru, en fazla iki eylem.</p></div>
+<div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 16px; align-items: stretch">
+<div class="fl" style="gap: 8px"><div class="tile" style="height: 200px; background: var(--bg); color: var(--ink); border: 3px solid var(--ink); justify-content: flex-end">
+<span class="cx" style="display: flex; align-items: center; gap: 8px; color: var(--ink2)"><span style="width: 10px; height: 10px; border-radius: 999px; background: var(--green)"></span>Şimdi · Runika</span>
+<span class="x" style="font-size: 34px; font-weight: 900; line-height: .95; text-transform: uppercase">Menü müziğini 1:20'ye kırp</span>
+<div style="display: flex; gap: 8px; padding-top: 4px"><button class="b b-sm b-indigo">Başla</button><button class="b b-sm b-soft">Oturumu kapat</button></div>
+</div><span class="cap">Vurgulu · sıradaki ilk adım (proje detayında)</span></div>
+<div class="fl" style="gap: 8px"><div class="tile" style="height: 200px; background: var(--s2); color: var(--ink)">
+<span class="cx">Hatırlatmalar</span>
+<div style="display: flex; align-items: center; gap: 10px"><span class="x" style="width: 64px; height: 26px; border-radius: 999px; background: var(--amber); color: #131316; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">20:00</span><span style="font-weight: 600">Erdem'e mesaj</span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span class="x" style="width: 64px; height: 26px; border-radius: 999px; background: var(--s3); font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">Sal</span><span style="font-weight: 600">Olasılık ödevi 2</span></div>
+</div><span class="cap">Standart · nötr</span></div>
+<div class="fl" style="gap: 8px"><div class="tile" style="height: 200px; background: var(--coral); color: #FFFFFF">
+<div style="display: flex; align-items: flex-end; gap: 10px"><span class="x" style="font-size: 56px; font-weight: 900; line-height: .9">16</span><span class="cx" style="padding-bottom: 5px">gün sessiz</span></div>
+<span style="font-weight: 700">Albüm projesi açılmadı.</span>
+<div style="flex-grow: 1"></div>
+<div style="display: flex; gap: 8px"><button class="b b-sm b-white">Aç</button><button class="b b-sm" style="background: rgba(19,19,22,.2); color: #FFFFFF">Arşivle</button></div>
+</div><span class="cap">Uyarı · radar</span></div>
+<div class="fl" style="gap: 8px"><div class="tile" style="height: 200px; background: var(--green)">
+<span class="cx">Kuluçka · 14 gün</span>
+<span style="font-size: 18px; font-weight: 800; line-height: 1.2">Ritim tabanlı bulmaca oyunu</span>
+<span style="font-weight: 600; color: #0B3D24">Hâlâ heyecanlandırıyor mu?</span>
+<div style="flex-grow: 1"></div>
+<div style="display: flex; gap: 8px"><button class="b b-sm b-dark">Evet</button><button class="b b-sm b-on">Arşivle</button></div>
+</div><span class="cap">Soru · kuluçka, karar</span></div>
+</div>
+</section>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; align-items: start">
+<section style="display: flex; flex-direction: column; gap: 24px">
+<div class="sh"><h2>Etiket ve rozet</h2></div>
+<div class="fl" style="gap: 10px"><span class="lbl">Alan etiketleri</span>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<span class="b b-sm" style="cursor: default; height: 30px; background: var(--indigo); color: #FFFFFF">Bugün</span>
+<span class="b b-sm" style="cursor: default; height: 30px; background: var(--amber); color: #131316">Döküm</span>
+<span class="b b-sm" style="cursor: default; height: 30px; background: var(--green); color: #131316">Runika</span>
+<span class="b b-sm" style="cursor: default; height: 30px; background: var(--sky); color: #131316">Veri Yapıları</span>
+<span class="b b-sm" style="cursor: default; height: 30px; background: var(--lilac); color: #131316">Zihin</span>
+<span class="b b-sm" style="cursor: default; height: 30px; background: var(--teal); color: #131316">Konsept Fikirleri</span>
+</div></div>
+<div class="fl" style="gap: 10px"><span class="lbl">İşlem türü</span>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<span class="b b-sm b-soft" style="cursor: default; height: 30px">+ Yeni görev</span>
+<span class="b b-sm b-soft" style="cursor: default; height: 30px">Not güncelleme</span>
+<span class="b b-sm b-soft" style="cursor: default; height: 30px">Hatırlatma</span>
+<span class="b b-sm b-soft" style="cursor: default; height: 30px">Proje durumu</span>
+</div></div>
+<div style="display: flex; gap: 40px">
+<div class="fl" style="gap: 10px"><span class="lbl">Sayı</span><div style="display: flex; gap: 8px">
+<span class="x" style="min-width: 24px; height: 24px; padding: 0 6px; border-radius: 999px; background: var(--indigo); color: #FFFFFF; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">7</span>
+<span class="x" style="min-width: 24px; height: 24px; padding: 0 6px; border-radius: 999px; background: var(--amber); color: #131316; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">5</span>
+<span class="x" style="min-width: 24px; height: 24px; padding: 0 6px; border-radius: 999px; background: var(--coral); color: #FFFFFF; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">2</span>
+</div></div>
+<div class="fl" style="gap: 10px"><span class="lbl">Durum</span><div style="display: flex; gap: 8px; flex-wrap: wrap">
+<span class="cx" style="height: 28px; padding: 0 12px; border-radius: 999px; background: var(--green); color: #131316; display: flex; align-items: center">Aktif</span>
+<span class="cx" style="height: 28px; padding: 0 12px; border-radius: 999px; background: var(--teal); color: #131316; display: flex; align-items: center">Kuluçkada · 5 gün</span>
+<span class="cx" style="height: 28px; padding: 0 12px; border-radius: 999px; background: var(--coral); color: #FFFFFF; display: flex; align-items: center">Gecikti</span>
+<span class="cx" style="height: 28px; padding: 0 12px; border-radius: 999px; background: var(--s3); color: var(--ink2); display: flex; align-items: center">Arşiv</span>
+</div></div>
+</div>
+<div class="fl" style="gap: 10px"><span class="lbl">Filtre</span>
+<div style="display: flex; gap: 8px"><button class="b b-sm b-ink">Tümü</button><button class="b b-sm b-soft">Görevler</button><button class="b b-sm b-soft">Notlar</button><button class="b b-sm b-soft">Resimler</button></div></div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 24px">
+<div class="sh"><h2>Form</h2><p>Dolgulu alan; odakta 2px mürekkep kenar.</p></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<div class="fl"><label class="lbl" for="p1">Proje adı</label><input id="p1" class="inp" type="text" placeholder="Örn. Runika"></div>
+<div class="fl"><label class="lbl" for="p2">Sıradaki ilk adım</label><input id="p2" class="inp" type="text" value="Boss fazı 2 müziğini hızlandır" style="border-color: var(--ink); background: var(--bg)"></div>
+<div class="fl" style="grid-column: span 2"><label class="lbl" for="p3">Not</label><textarea id="p3" class="inp" style="height: 80px; padding: 12px 16px; resize: none; line-height: 1.5" placeholder="Nerede bıraktın?"></textarea></div>
+<div class="fl"><label class="lbl" for="p4">Model</label><div style="position: relative"><sc-raw-select id="p4" class="inp" style="appearance: none; padding-right: 40px; cursor: pointer; font-weight: 700"><option>Derin</option><option>Hızlı</option></sc-raw-select><svg class="i i16" sc-camel-view-box="0 0 24 24" style="position: absolute; right: 16px; top: 15px; pointer-events: none"><path d="m6 9 6 6 6-6"></path></svg></div></div>
+<div class="fl"><span class="lbl">Ruh hâli</span><div style="display: flex; gap: 6px; padding: 3px; border-radius: 14px; background: var(--lilac)"><button class="seg">1</button><button class="seg">2</button><button class="seg">3</button><button class="seg seg-on">4</button><button class="seg">5</button></div></div>
+<div class="fl"><label class="lbl" for="p5">Sınav tarihi</label><input id="p5" class="inp x" type="text" value="9 Eki 2026, Cuma" style="font-weight: 700"></div>
+<div class="fl"><label class="lbl" for="p6">Saat</label><input id="p6" class="inp x" type="text" value="09:00" style="font-weight: 700"></div>
+<div style="height: 88px; border-radius: 20px; border: 2px dashed var(--line); display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--ink2); font-weight: 600"><svg class="i" sc-camel-view-box="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"></path></svg>Resim ya da dosya bırak</div>
+<div style="height: 88px; border-radius: 20px; border: 2px dashed #131316; background: var(--amber); color: #131316; display: flex; align-items: center; justify-content: center; gap: 10px"><span class="x" style="font-size: 18px; font-weight: 900; text-transform: uppercase">Bırak · 2 dosya</span></div>
+</div>
+</section>
+</div>
+
+<section style="display: flex; flex-direction: column; gap: 24px">
+<div class="sh"><h2>Akış bandı</h2><p>08–24 tek satır. Üst şerit hatırlatmalar, alt şerit bloklar. Geçmiş bloklar %72 opaklık.</p></div>
+<div style="height: 164px; border-radius: 28px; background: var(--band); color: #FFFFFF; position: relative">
+<div style="position: absolute; left: 24px; right: 24px; top: 0; bottom: 0">
+<div class="x" style="position: absolute; left: 0; right: 0; top: 12px; height: 18px; font-size: 13px; font-weight: 700; color: #A5A5B4; line-height: 18px"><span style="position: absolute; left: 0">08</span><span style="position: absolute; left: 12.5%">10</span><span style="position: absolute; left: 25%">12</span><span style="position: absolute; left: 37.5%">14</span><span style="position: absolute; left: 50%">16</span><span style="position: absolute; left: 62.5%">18</span><span style="position: absolute; left: 75%">20</span><span style="position: absolute; left: 87.5%">22</span><span style="position: absolute; right: 0">24</span></div>
+<div class="hr" style="left: 0"></div><div class="hr" style="left: 12.5%"></div><div class="hr" style="left: 25%"></div><div class="hr" style="left: 37.5%"></div><div class="hr" style="left: 50%"></div><div class="hr" style="left: 62.5%"></div><div class="hr" style="left: 75%"></div><div class="hr" style="left: 87.5%"></div><div class="hr" style="right: 0"></div>
+<div style="position: absolute; top: 38px; left: 75%; height: 26px; padding: 0 10px 0 4px; border-radius: 999px; background: var(--amber); color: #131316; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700"><span class="x" style="height: 18px; padding: 0 6px; border-radius: 999px; background: #131316; color: #FFFFFF; display: flex; align-items: center">20:00</span>Hatırlatma pini</div>
+<div class="hb" style="left: 6.25%; width: calc(11.46% - 4px); background: var(--sky); opacity: .72"><span style="font-weight: 800">Ders</span><span style="font-size: 13px">geçmiş · sabit</span></div>
+<div class="hb" style="left: 18.75%; width: calc(6.25% - 4px); background: repeating-linear-gradient(135deg, #7CC4FF 0 6px, #B9DFFF 6px 12px)"><span style="font-weight: 800; font-size: 13px">Sınav</span><span style="font-size: 13px">bloğu</span></div>
+<div class="hb" style="left: 31.25%; width: calc(9.375% - 4px); background: var(--green); box-shadow: 0 0 0 3px #FFFFFF"><span style="font-weight: 800; font-size: 13px">Görev</span><span style="font-size: 13px">şu an</span></div>
+<div class="hb" style="left: 43.75%; width: calc(11.46% - 4px); background: var(--sky)"><span style="font-weight: 800">Ders</span><span style="font-size: 13px">sabit</span></div>
+<div class="hb" style="left: 56.25%; width: calc(12.5% - 4px); background: transparent; border: 1.5px dashed rgba(255,255,255,.35); color: #C8C8D4; align-items: center"><span style="font-size: 13px; font-weight: 700">boş · 2 sa</span></div>
+<div class="hb" style="left: 68.75%; width: calc(3.125% - 4px); background: #55555F; padding: 0"></div>
+<div style="position: absolute; top: 72px; height: 60px; left: calc(71.875% + 6px); display: flex; align-items: center; font-size: 13px; color: #C8C8D4">Rutin (kısa: etiket dışarıda)</div>
+<div style="position: absolute; top: 34px; bottom: 26px; left: 35.42%; width: 2px; background: #FF5A45"></div>
+<div class="x" style="position: absolute; bottom: 8px; left: calc(35.42% - 24px); height: 22px; padding: 0 8px; border-radius: 999px; background: #FF5A45; color: #FFFFFF; font-size: 13px; font-weight: 800; display: flex; align-items: center">13:40</div>
+</div>
+</div>
+<div class="cap">Görev blokları sürüklenebilir; ders blokları sabit. Hover'da blok tam başlığını ve saatini ipucu olarak gösterir. Okul ekranındaki haftalık program aynı bloğu dikey kullanır.</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 24px">
+<div class="sh"><h2>Grafik</h2><p>Kalın çizgi, tam yuvarlak çubuk, dolgu renkleri, eksen neredeyse yok.</p></div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+<div class="tile" style="background: var(--s2); color: var(--ink); height: 260px">
+<div style="display: flex; align-items: baseline"><span class="cx" style="flex-grow: 1">Ruh hâli · 30 gün</span></div>
+<div style="position: relative; flex-grow: 1">
+<svg sc-camel-view-box="0 0 300 150" style="width: 100%; height: 150px; display: block" aria-label="Ruh hâli ve enerji">
+<path d="M233.7 4V146" style="stroke: var(--sky); stroke-width: 3; stroke-dasharray: 2 6; stroke-linecap: round; fill: none"></path>
+<polyline points="{{energyPts}}" style="fill: none; stroke: var(--amber); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round"></polyline>
+<polyline points="{{moodPts}}" style="fill: none; stroke: var(--indigo); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round"></polyline>
+<circle cx="144.8" cy="75" r="7" style="fill: var(--indigo); stroke: var(--s2); stroke-width: 3"></circle>
+</svg>
+<div class="x" style="position: absolute; left: 96px; top: 12px; padding: 6px 10px; border-radius: 12px; background: #131316; color: #FFFFFF; font-size: 13px; font-weight: 700; line-height: 1.35">12 Eyl · ruh 3 · enerji 3</div>
+</div>
+<div class="cap" style="display: flex; gap: 14px"><span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 4px; border-radius: 2px; background: var(--indigo)"></span>ruh hâli</span><span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 4px; border-radius: 2px; background: var(--amber)"></span>enerji</span><span>┆ quiz</span></div>
+</div>
+<div class="tile" style="background: var(--s2); color: var(--ink); height: 260px">
+<div style="display: flex; align-items: baseline"><span class="cx" style="flex-grow: 1">Runika · 8 hafta</span><span class="x" style="font-weight: 900">59</span></div>
+<div style="flex-grow: 1; display: flex; align-items: flex-end; gap: 10px">
+<div style="flex-grow: 1; height: 34%; border-radius: 999px; background: var(--green); opacity: .55"></div>
+<div style="flex-grow: 1; height: 58%; border-radius: 999px; background: var(--green); opacity: .55"></div>
+<div style="flex-grow: 1; height: 25%; border-radius: 999px; background: var(--green); opacity: .55"></div>
+<div style="flex-grow: 1; height: 75%; border-radius: 999px; background: var(--green); opacity: .55"></div>
+<div style="flex-grow: 1; height: 50%; border-radius: 999px; background: var(--green); opacity: .55"></div>
+<div style="flex-grow: 1; height: 83%; border-radius: 999px; background: var(--green); opacity: .55"></div>
+<div style="flex-grow: 1; height: 66%; border-radius: 999px; background: var(--green); opacity: .55"></div>
+<div style="flex-grow: 1; height: 100%; border-radius: 999px; background: var(--green)"></div>
+</div>
+<div class="cap" style="display: flex; justify-content: space-between"><span>8 hafta önce</span><span>bu hafta · 12</span></div>
+</div>
+<div class="tile" style="background: var(--s2); color: var(--ink); height: 260px">
+<span class="cx">Verim · gün × saat</span>
+<div style="display: flex; flex-direction: column; gap: 5px; flex-grow: 1; justify-content: center">
+<sc-for list="{{heat}}" as="row" hint-placeholder-count="7">
+<div style="display: grid; grid-template-columns: 34px repeat(8, minmax(0, 1fr)); gap: 5px; align-items: center">
+<span class="cap">{{row.day}}</span>
+<sc-for list="{{row.cells}}" as="c" hint-placeholder-count="8"><div class="{{c}}" style="height: 16px; border-radius: 6px"></div></sc-for>
+</div>
+</sc-for>
+</div>
+<div class="cap" style="display: flex; justify-content: space-between; padding-left: 39px"><span>08</span><span>14</span><span>22</span></div>
+</div>
+<div class="tile" style="background: var(--s2); color: var(--ink); height: 260px">
+<span class="cx">Uyku × ruh hâli</span>
+<svg sc-camel-view-box="0 0 300 150" style="width: 100%; height: 150px; display: block; flex-grow: 1" aria-label="Uyku ve ruh hâli dağılımı">
+<path d="M16 124L290 36" style="stroke: var(--ink3); stroke-width: 2; stroke-dasharray: 2 6; stroke-linecap: round; fill: none"></path>
+<path d="{{dotsPath}}" style="fill: var(--indigo); stroke: var(--s2); stroke-width: 2"></path>
+</svg>
+<div class="cap" style="display: flex; justify-content: space-between"><span>5 sa</span><span>9 sa uyku</span></div>
+</div>
+</div>
+</section>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; align-items: start">
+<section style="display: flex; flex-direction: column; gap: 24px">
+<div class="sh"><h2>Fark</h2><p>Not güncelleme önerileri.</p></div>
+<div style="border-radius: 28px; background: var(--s2); overflow: hidden">
+<div style="display: flex; align-items: center; gap: 10px; padding: 14px 18px"><span class="b b-sm" style="cursor: default; height: 28px; background: var(--green); color: #131316">Runika</span><span style="font-weight: 800; flex-grow: 1">Ses listesi</span><span class="x" style="font-size: 14px; font-weight: 900"><span style="color: #0B7A45">+2</span> <span style="color: var(--t-coral)">−1</span></span></div>
+<div class="x" style="font-size: 14px; font-stretch: 100%; line-height: 1.5; padding: 4px 8px 8px; display: flex; flex-direction: column; gap: 2px">
+<div style="display: flex; gap: 12px; padding: 5px 12px; color: var(--ink2)"><span style="width: 12px"></span>Ana tema: 2:40, döngülü</div>
+<div style="display: flex; gap: 12px; padding: 5px 12px; border-radius: 10px; background: #FFD9D3; color: #131316"><span style="width: 12px; font-weight: 900; color: #A62816">−</span><span style="text-decoration: line-through">Menü müziği: 2:10, döngü yok</span></div>
+<div style="display: flex; gap: 12px; padding: 5px 12px; border-radius: 10px; background: #C6F6DC; color: #131316"><span style="width: 12px; font-weight: 900; color: #0B7A45">+</span>Menü müziği: 1:20'ye kırpılacak, döngü 0:58</div>
+<div style="display: flex; gap: 12px; padding: 5px 12px; border-radius: 10px; background: #C6F6DC; color: #131316"><span style="width: 12px; font-weight: 900; color: #0B7A45">+</span>Boss müziği ikinci fazda hızlanacak</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; padding: 12px 18px; border-top: 2px solid var(--bg)"><span class="cap" style="flex-grow: 1">Döküm'den · bugün 10:12</span><button class="b b-sm b-soft" style="background: var(--bg)">Reddet</button><button class="b b-sm b-soft" style="background: var(--bg)">Düzenle</button><button class="b b-sm b-ink">Onayla</button></div>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 24px">
+<div class="sh"><h2>Bildirim · menü</h2></div>
+<div style="display: flex; gap: 16px; align-items: flex-start">
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 12px; padding: 14px 14px 14px 20px; border-radius: 22px; background: #131316; color: #FFFFFF; box-shadow: 0 16px 40px rgba(19,19,22,.22)">
+<span style="flex-grow: 1; display: flex; flex-direction: column; line-height: 1.4"><span class="cx" style="color: var(--green)">Tarama bitti</span><span style="font-weight: 600">Runika'da 4 yeni commit, SecondMind'da 1 değişiklik.</span></span>
+<button class="b b-sm" style="background: rgba(255,255,255,.14); color: #FFFFFF">Gör</button>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 20px; border-radius: 22px; background: var(--amber); color: #131316; box-shadow: 0 16px 40px rgba(19,19,22,.16)">
+<span style="flex-grow: 1; font-weight: 800">7 öneri Onay Kutusu'nda</span>
+<button class="b b-sm b-dark">Aç</button>
+</div>
+</div>
+<div role="menu" aria-label="AI ile İşle" style="width: 270px; flex-shrink: 0; padding: 8px; border-radius: 24px; background: var(--bg); box-shadow: 0 16px 40px rgba(19,19,22,.16), 0 0 0 2px var(--line); display: flex; flex-direction: column; gap: 4px">
+<button role="menuitem" style="display: flex; flex-direction: column; align-items: flex-start; padding: 10px 14px; border-radius: 16px; border: 0; background: var(--amber); font-family: inherit; text-align: left; cursor: pointer; color: #131316; line-height: 1.35"><span class="cx" style="font-size: 15px">Hızlı ✓</span><span style="font-size: 13px; font-weight: 600">Kısa metin dökümleri</span></button>
+<button role="menuitem" style="display: flex; flex-direction: column; align-items: flex-start; padding: 10px 14px; border-radius: 16px; border: 0; background: transparent; font-family: inherit; text-align: left; cursor: pointer; color: var(--ink); line-height: 1.35"><span class="cx" style="font-size: 15px">Derin</span><span style="font-size: 13px; font-weight: 600; color: var(--ink3)">Resimler, uzun notlar, özet</span></button>
+<span class="cap" style="padding: 6px 14px">5 döküm işlenecek</span>
+</div>
+</div>
+</section>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; align-items: start">
+<section style="display: flex; flex-direction: column; gap: 24px">
+<div class="sh"><h2>Modal</h2><p>Köşe 32. Üst şerit alan rengini taşır.</p></div>
+<div role="dialog" aria-label="Oturumu kapat" style="border-radius: 32px; background: var(--bg); box-shadow: 0 30px 80px rgba(19,19,22,.18), 0 0 0 2px var(--line); overflow: hidden">
+<div style="background: var(--green); padding: 16px 16px 16px 24px; display: flex; align-items: center; gap: 12px; color: #131316"><span class="x" style="flex-grow: 1; font-size: 20px; font-weight: 900; text-transform: uppercase">Runika oturumunu kapat</span><button class="b b-sm b-on" style="width: 36px; height: 36px; padding: 0" aria-label="Kapat"><svg class="i i16" sc-camel-view-box="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"></path></svg></button></div>
+<div style="padding: 20px 24px; display: flex; flex-direction: column; gap: 16px">
+<div class="fl"><label class="lbl" for="m1">Nerede bıraktın? <span style="font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--ink3); font-stretch: 100%">isteğe bağlı</span></label><textarea id="m1" class="inp" style="height: 70px; padding: 10px 16px; resize: none; line-height: 1.5">Menü sahnesinde ses geçişleri tamam, müzik hâlâ uzun.</textarea></div>
+<div class="fl"><label class="lbl" for="m2">Sıradaki ilk somut adım ne?</label><input id="m2" class="inp" type="text" value="Menü müziğini 1:20'ye kırp" style="border-color: var(--ink); background: var(--bg); font-weight: 700"><span class="cap">Yarın Bugün ekranında ilk bunu göreceksin.</span></div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; padding: 14px 24px; background: var(--s2)"><span class="cap" style="flex-grow: 1">Enter kaydeder</span><button class="b b-sm b-soft" style="background: var(--bg)">Vazgeç</button><button class="b b-sm b-ink">Kapat ve kaydet</button></div>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 24px">
+<div class="sh"><h2>Komut paleti</h2><p>Ctrl K. Eşleşme amber vurgulu.</p></div>
+<div role="dialog" aria-label="Komut paleti" style="border-radius: 32px; background: var(--bg); box-shadow: 0 30px 80px rgba(19,19,22,.18), 0 0 0 2px var(--line); overflow: hidden">
+<label style="display: flex; align-items: center; gap: 12px; padding: 18px 24px; border-bottom: 2px solid var(--s2)"><svg class="i" sc-camel-view-box="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg><input type="text" value="runika" aria-label="Ara veya komut yaz" class="x" style="flex-grow: 1; border: 0; outline: none; background: transparent; font-family: inherit; font-size: 22px; font-weight: 800; color: var(--ink)"></label>
+<div style="padding: 8px; display: flex; flex-direction: column; gap: 2px">
+<span class="cx" style="padding: 8px 16px 4px; color: var(--ink3)">Projeler</span>
+<div style="display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 18px; background: var(--ink); color: var(--on-ink)"><span style="width: 12px; height: 12px; border-radius: 4px; background: var(--green)"></span><span style="flex-grow: 1; font-weight: 700"><mark>Runika</mark> — projeyi aç</span><span class="cx">Enter</span></div>
+<span class="cx" style="padding: 8px 16px 4px; color: var(--ink3)">Komutlar</span>
+<div style="display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 18px"><span style="flex-grow: 1; font-weight: 600">Oturumu kapat: <mark>Runika</mark></span></div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 18px"><span style="flex-grow: 1; font-weight: 600"><mark>Runika</mark> klasörünü tara</span></div>
+<span class="cx" style="padding: 8px 16px 4px; color: var(--ink3)">Notlar</span>
+<div style="display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 18px"><span style="flex-grow: 1; font-weight: 600"><mark>Runika</mark> ses listesi</span><span class="cap">2 gün önce</span></div>
+</div>
+</div>
+</section>
+</div>
+
+<section style="display: flex; flex-direction: column; gap: 24px">
+<div class="sh"><h2>Durumlar</h2><p>Boş: tek cümle, tek eylem. Yükleniyor: iskelet. Hata: ne oldu ve tekrar dene.</p></div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+<div class="tile" style="background: var(--s2); color: var(--ink); height: 240px; justify-content: flex-end; gap: 10px">
+<span class="x" style="font-size: 30px; font-weight: 900; line-height: 1; text-transform: uppercase">Henüz proje yok</span>
+<span style="color: var(--ink2)">Bir klasör bağla, SecondMind takibe başlasın.</span>
+<div><button class="b b-ink">+ Klasör bağla</button></div>
+</div>
+<div class="tile" style="background: var(--s2); height: 240px; gap: 12px" aria-busy="true" aria-label="Yükleniyor">
+<div class="sk" style="width: 40%; height: 16px"></div>
+<div class="sk" style="width: 90%; height: 34px"></div>
+<div class="sk" style="width: 70%; height: 34px"></div>
+<div style="flex-grow: 1"></div>
+<div style="display: flex; gap: 8px"><div class="sk" style="width: 96px; height: 34px; border-radius: 999px"></div><div class="sk" style="width: 80px; height: 34px; border-radius: 999px"></div></div>
+</div>
+<div class="tile" style="background: var(--coral); color: #FFFFFF; height: 240px; justify-content: flex-end; gap: 10px">
+<span class="x" style="font-size: 30px; font-weight: 900; line-height: 1; text-transform: uppercase">Tarama olmadı</span>
+<span style="font-weight: 600">D:\Oyunlar\Runika bulunamadı. Klasör taşındıysa Ayarlar'dan yeniden bağla.</span>
+<div><button class="b b-white">Tekrar dene</button></div>
+</div>
+</div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:4700}}">
+class Component extends DCLogic {
+renderVals() {
+var mood = [3,4,4,3,2,3,4,4,5,4,3,3,4,4,3,2,2,3,3,4,4,3,2,2,3,4,4,5,4,4];
+var energy = [3,3,4,3,2,2,3,4,4,4,3,2,3,4,3,2,1,2,3,3,4,3,2,1,2,3,4,4,3,4];
+var step = 280 / 29;
+var toPts = function (arr) {
+return arr.map(function (v, i) { return (10 + i * step).toFixed(1) + ',' + (135 - (v - 1) * 30); }).join(' ');
+};
+var days = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+var m = [[1,3,2,1,2,1,2,0],[1,4,3,1,1,2,2,1],[0,3,2,2,1,1,3,1],[1,4,3,1,2,1,2,0],[1,3,2,1,1,0,1,0],[0,2,2,3,2,1,1,1],[0,1,2,2,3,2,1,0]];
+var heat = days.map(function (d, r) { return { day: d, cells: m[r].map(function (l) { return 'hm' + l; }) }; });
+var pts = [[5.5,2],[6,2],[6,3],[6.5,3],[7,3],[7,4],[7.5,4],[7.5,3],[8,4],[8,5],[8.5,4],[6.2,2],[5,1],[7.2,4],[8.2,4],[6.8,3],[9,4],[5.8,3]];
+var dotsPath = pts.map(function (p, i) {
+var x = 16 + (p[0] - 5) * 68;
+var y = 132 - (p[1] - 1) * 28 + ((i % 3) - 1) * 5;
+return 'M' + (x - 7) + ' ' + y + 'a7 7 0 1 0 14 0a7 7 0 1 0 -14 0';
+}).join('');
+return { moodPts: toPts(mood), energyPts: toPts(energy), heat: heat, dotsPath: dotsPath };
+}
+}
+</script>
+
+
+</body></html>

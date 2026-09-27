@@ -1,0 +1,12 @@
+node_modules/
+out/
+dist/
+*.db
+*.db-wal
+*.db-shm
+media/
+*.log
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+*.tsbuildinfo

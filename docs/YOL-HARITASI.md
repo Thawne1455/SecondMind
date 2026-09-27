@@ -1,0 +1,77 @@
+# Yol haritası
+
+Sadece **Aktif** işaretli aşamada çalış. Aşama bitince Taha onaylar, sonra bir sonraki aktif yapılır.
+Her aşamanın sonunda uygulama açılır ve çalışır durumdadır.
+
+## Aşama 0 — Kurulum · AKTİF
+- [x] electron-vite ile React + TypeScript projesi, `contextIsolation`, preload köprüsü
+- [x] Tailwind v4, `tokens.css` (TASARIM.md), Archivo fontları `src/renderer/public/fonts`'tan, açık/koyu tema geçişi
+- [x] ESLint + Prettier, Vitest, `package.json` script'leri (CLAUDE.md'deki adlarla)
+- [x] better-sqlite3 + Drizzle, veri klasörü oluşturma, ilk migration (`settings` tablosu); native rebuild gerekmedi (N-API hazır dosya)
+- [x] `src/shared/ipc.ts` iskeleti ve bir örnek kanal (`settings:get`) uçtan uca
+**Bitti sayılır:** `npm run dev` pencereyi açar, tema değişir, ayar DB'ye yazılıp okunur, typecheck/lint/test temiz.
+
+## Aşama 1 — İskelet ve tasarım sistemi
+- [ ] `ui/` bileşenleri: Button (tüm türler ve durumlar), Tile (4 tür), Tag, Badge, Field, Scale (1–5), DropZone, Modal, Toast, Menu, Skeleton, EmptyState, ErrorState
+- [ ] Geliştirme için `/tasarim` sayfası: tüm bileşenler, `tasarim-sistemi.png` ile yan yana karşılaştırılabilir
+- [ ] Kenar çubuğu (80px), üst çubuk, yönlendirme, komut paleti iskeleti (Ctrl K)
+- [ ] Bugün ekranı **sahte veriyle**, tasarımla birebir (açık ve koyu), akış bandı bileşeni
+- [ ] Hızlı Döküm modalı (Ctrl N), henüz kaydetmeden
+- [ ] Diğer paneller için boş sayfa + boş durum
+**Bitti sayılır:** Bugün ekranı ekran görüntüsüyle yan yana konunca aynı görünüyor.
+
+## Aşama 2 — Veri, Döküm, Bilgi
+- [ ] Çekirdek tablolar (MIMARI.md), `activity_log`, soft delete
+- [ ] Media deposu (hash'li dosya adları), resim yapıştırma ve sürükleme
+- [ ] Döküm: kaydet, listele, sil; Hızlı Döküm gerçekten kaydeder
+- [ ] Bilgi: koleksiyonlar, etiketler, TipTap editör (markdown saklama, resim), FTS5 arama, komut paletinde notlar
+- [ ] Fikirler ve kuluçka (`domain/incubation` + test)
+- [ ] `npm run seed` ile gerçekçi örnek veri
+**Bitti sayılır:** Taha bir gün boyunca döküm ve not alabiliyor, arama çalışıyor.
+
+## Aşama 3 — Bugün gerçek veriyle
+- [ ] Görevler, rutinler, hatırlatmalar; hatırlatma zamanlayıcısı ve sistem bildirimi; kaçırılanlar
+- [ ] `domain/scheduler` (yerleştirme + yeniden yerleştirme + gün sonu kaydırma) ve testleri; erteleme sayacı
+- [ ] Akış bandında sürükleme, "şimdi" bölümü, sıradaki adımlar
+- [ ] Zihin günlük kaydı karosu (veri yazımı), hatırlatma karosu
+**Bitti sayılır:** Bugün ekranı sahte veri olmadan tasarımdaki gibi doluyor.
+
+## Aşama 4 — AI akışı ve Onay Kutusu
+- [ ] `resources/ai-agent/CLAUDE.md` gözden geçirilir, veri klasörüne kopyalanır
+- [ ] İş paketi hazırlama (bağlam kırpma dahil), `claude` sürecini başlatma, zaman aşımı, iptal, ilerleme
+- [ ] `changesSchema` (zod) + her işlem türü için uygulayıcı + önizleme bileşeni
+- [ ] Onay Kutusu: gruplar, fark karosu, onayla / reddet / düzenle, tümünü onayla, işlem günlüğü ve geri al
+- [ ] Ayarlar > AI: Claude Code yolu ve test butonu, model seçimi
+**Bitti sayılır:** 5 karışık döküm (metin + tahta fotoğrafı) işlenip doğru önerilere dönüşüyor, onaylananlar yerine yazılıyor, geri alınabiliyor.
+
+## Aşama 5 — Projeler
+- [ ] 5a: Proje oluşturma (tür, renk, klasör), liste şeritleri, proje başlığı bandı, Kokpit, oturum başlat/kapat
+- [ ] 5b: Tarayıcılar: git, Unity (alan kuralları, sahneler, sürüm), TODO taraması, git'siz envanter; Güncelle ve toast; sessizlik ve radar
+- [ ] 5c: Görevler kanbanı (türler, hata alanları, erteleme), Yol haritası (taşlar, çıkış kriterleri, Steam şablonu, proje takvimi)
+- [ ] 5d: Dokümantasyon ağacı + şablonlar + ADR, Günlük (devlog), Varlıklar (resim, PDF, ses oynatıcı)
+- [ ] 5e: Claude Code köprüsü: `BAGLAM.md` üretimi, oturum raporu ayrıştırma, önerilerin Onay Kutusu'na düşmesi, `Köprüyü kur`
+**Bitti sayılır:** Runika klasörü bağlanıyor, tarama commit'leri ve TODO'ları doğru gösteriyor, bir Claude Code oturum raporu öneriye dönüşüyor.
+
+## Aşama 6 — Okul
+- [ ] Dönem, ders, program, hoca kurulumu (Ayarlar + ilk kurulum sihirbazı)
+- [ ] Dönem panosu: üst bant, sınav şeridi, dikey haftalık program, not durumu tablosu, bu hafta teslim
+- [ ] Ders detayı: Hafta hafta defteri (PDF görüntüleme, anlamadım ve hoca vurguladı işaretleri), Sınavlar ve notlar (hesaplayıcı), Hoca, Ödevler, Devamsızlık
+- [ ] Sınav hazırlık ekranı ve `buildStudyPlan` / `redistribute`; GANO ekranı
+- [ ] `domain/school` testleri
+**Bitti sayılır:** Gerçek dönem programı girilmiş, bir sınav için plan üretilip Bugün'e yerleşiyor, not hesaplayıcı doğru sonuç veriyor.
+
+## Aşama 7 — Zihin
+- [ ] Eğilimler grafikleri (SVG bileşenleri), içgörü üretimi (`domain/insights` + test)
+- [ ] Kararlar ve gözden geçirme, Başarılar zaman çizelgesi
+- [ ] Haftalık değerlendirme (AI akışı, `weekly_review`)
+
+## Aşama 8 — Cilalama ve paketleme
+- [ ] Yedekleme ve geri yükleme, veri klasörünü taşıma
+- [ ] electron-builder ile Windows kurulum dosyası, uygulama ikonu
+- [ ] Performans (büyük not listeleri, uzun commit geçmişi), erişilebilirlik kontrolü
+
+**Not (paketleme):** better-sqlite3'ün `.node` dosyası (`node_modules/better-sqlite3/prebuilds/*.node`) `asarUnpack` ile
+asar paketinin dışında kalmalı; asar içinden native modül yüklenemez. Migration klasörü de `extraResources` ile
+`resources/migrations`'a kopyalanır (`src/main/db/client.ts` bunu bekliyor).
+Electron yükseltmelerinde önce bunu kontrol et: better-sqlite3 hazır dosyası yeni Electron'da açılıyor mu
+(`ELECTRON_RUN_AS_NODE=1 npx electron -e "require('better-sqlite3')(':memory:')"`), paketli sürümde de açılıyor mu.
