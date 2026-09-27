@@ -88,7 +88,7 @@ Gövde: 15px, satır aralığı 1.5, `-webkit-font-smoothing: antialiased`.
 | Poster | 64 / 900 | wdth 125, büyük harf, line-height .95 | MENÜ MÜZİĞİNİ 1:20'YE KIRP |
 | Büyük sayı | 56 / 900 | wdth 125, tabular | 12 · 16 · 1:20 |
 | Sayfa başlığı | 28 / 900 | wdth 125, büyük harf | PAZAR 27 EYLÜL |
-| Karo başlığı | 20 / 800 | normal genişlik | Ders notlarından bilgi kartı çıkaran mod |
+| Karo başlığı | 20 / 800 (soru karosunda 18) | normal genişlik | Ders notlarından bilgi kartı çıkaran mod |
 | Etiket | 13 / 800 | wdth 125, büyük harf, letter-spacing .04em | KULUÇKA · 14 GÜN DOLDU |
 | Gövde | 15 / 400 | | Aklındakini dök... |
 | Gövde vurgu | 15 / 700 | | Erdem'in doğum günü — mesaj at |

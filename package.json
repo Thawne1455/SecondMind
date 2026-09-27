@@ -24,6 +24,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-router": "8.4.0",
+    "tailwind-merge": "3.7.0",
     "ulid": "3.0.2",
     "zod": "4.6.5"
   },

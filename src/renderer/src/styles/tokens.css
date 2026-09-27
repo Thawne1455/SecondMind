@@ -38,12 +38,22 @@
 
   --font-sans: "Archivo", system-ui, sans-serif;
   --radius-modal: 32px; --radius-tile: 28px; --radius-field: 14px; --radius-block: 14px;
+
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+  --animate-spin: spin .8s linear infinite;
+  --animate-toast-in: toast-in .18s ease-out;
+  @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 }
 
 @utility wide { font-stretch: 125%; }
 /* Tasarımdaki adlar: .x = geniş + tabular, .cx = etiket stili */
 @utility x { font-stretch: 125%; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 @utility cx { font-size: 13px; font-weight: 800; font-stretch: 125%; text-transform: uppercase; letter-spacing: .04em; }
+
+/* Açılır yüzeylerin gölgesi (sadece modal ve menü; karo ve bantta gölge yok) */
+@utility shadow-pop { box-shadow: 0 16px 40px rgba(19,19,22,.16), 0 0 0 2px var(--line); }
+@utility shadow-modal { box-shadow: 0 30px 80px rgba(19,19,22,.18), 0 0 0 2px var(--line); }
 
 @layer base {
   html { color-scheme: light; }
@@ -57,4 +67,8 @@
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
   }
+  /* Arama eşleşmesi (komut paleti) */
+  mark { background: var(--color-amber); color: #131316; border-radius: 4px; padding: 0 2px; }
+  /* Modal arkası: sayfa bulanık ve kararmış (hizli-dokum-modal.png) */
+  dialog::backdrop { background: rgba(19,19,22,.4); backdrop-filter: blur(8px); }
 }

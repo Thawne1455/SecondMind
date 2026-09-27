@@ -3,7 +3,7 @@
 Sadece **Aktif** işaretli aşamada çalış. Aşama bitince Taha onaylar, sonra bir sonraki aktif yapılır.
 Her aşamanın sonunda uygulama açılır ve çalışır durumdadır.
 
-## Aşama 0 — Kurulum · AKTİF
+## Aşama 0 — Kurulum · BİTTİ
 - [x] electron-vite ile React + TypeScript projesi, `contextIsolation`, preload köprüsü
 - [x] Tailwind v4, `tokens.css` (TASARIM.md), Archivo fontları `src/renderer/public/fonts`'tan, açık/koyu tema geçişi
 - [x] ESLint + Prettier, Vitest, `package.json` script'leri (CLAUDE.md'deki adlarla)
@@ -11,13 +11,14 @@ Her aşamanın sonunda uygulama açılır ve çalışır durumdadır.
 - [x] `src/shared/ipc.ts` iskeleti ve bir örnek kanal (`settings:get`) uçtan uca
 **Bitti sayılır:** `npm run dev` pencereyi açar, tema değişir, ayar DB'ye yazılıp okunur, typecheck/lint/test temiz.
 
-## Aşama 1 — İskelet ve tasarım sistemi
-- [ ] `ui/` bileşenleri: Button (tüm türler ve durumlar), Tile (4 tür), Tag, Badge, Field, Scale (1–5), DropZone, Modal, Toast, Menu, Skeleton, EmptyState, ErrorState
-- [ ] Geliştirme için `/tasarim` sayfası: tüm bileşenler, `tasarim-sistemi.png` ile yan yana karşılaştırılabilir
-- [ ] Kenar çubuğu (80px), üst çubuk, yönlendirme, komut paleti iskeleti (Ctrl K)
-- [ ] Bugün ekranı **sahte veriyle**, tasarımla birebir (açık ve koyu), akış bandı bileşeni
-- [ ] Hızlı Döküm modalı (Ctrl N), henüz kaydetmeden
-- [ ] Diğer paneller için boş sayfa + boş durum
+## Aşama 1 — İskelet ve tasarım sistemi · BİTTİ
+1a: `ui/` bileşenleri + `/tasarim` sayfası. 1b: kenar çubuğu, üst çubuk, Bugün, akış bandı, Hızlı Döküm, boş sayfalar.
+- [x] `ui/` bileşenleri: Button (tüm türler ve durumlar), Tile (4 tür), Tag, Badge, Field, Scale (1–5), DropZone, Modal, Toast, Menu, Skeleton, EmptyState, ErrorState
+- [x] Geliştirme için `/tasarim` sayfası: tüm bileşenler, `tasarim-sistemi.png` ile yan yana karşılaştırılabilir
+- [x] Kenar çubuğu (80px), üst çubuk, yönlendirme, komut paleti iskeleti (Ctrl K)
+- [x] Bugün ekranı **sahte veriyle**, tasarımla birebir (açık ve koyu), akış bandı bileşeni
+- [x] Hızlı Döküm modalı (Ctrl N), henüz kaydetmeden
+- [x] Diğer paneller için boş sayfa + boş durum
 **Bitti sayılır:** Bugün ekranı ekran görüntüsüyle yan yana konunca aynı görünüyor.
 
 ## Aşama 2 — Veri, Döküm, Bilgi

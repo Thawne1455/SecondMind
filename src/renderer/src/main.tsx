@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { HashRouter } from 'react-router'
 import { App } from './App'
 import { settingQueryKey } from './lib/settings'
+import { ToastProvider } from './ui'
 import { applyThemeClass } from './lib/theme'
 import './styles/tokens.css'
 
@@ -21,9 +22,11 @@ if (!root) throw new Error('#root bulunamadı')
 createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <HashRouter>
-        <App />
-      </HashRouter>
+      <ToastProvider>
+        <HashRouter>
+          <App />
+        </HashRouter>
+      </ToastProvider>
     </QueryClientProvider>
   </StrictMode>,
 )
