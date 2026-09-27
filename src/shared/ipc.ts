@@ -1,9 +1,24 @@
 import { z } from 'zod'
 import type { IpcChannel, Theme } from './ipc-channels'
 import { dumpCreateInputSchema, dumpItemSchema, dumpStatusSchema } from './schemas/dump'
+import {
+  collectionCreateInputSchema,
+  collectionDeleteInputSchema,
+  collectionRenameInputSchema,
+  collectionSummarySchema,
+  mediaStoreInputSchema,
+  noteCreateInputSchema,
+  noteListInputSchema,
+  noteSchema,
+  noteSearchResultSchema,
+  noteSummarySchema,
+  noteUpdateInputSchema,
+  tagSummarySchema,
+} from './schemas/knowledge'
 
 export * from './ipc-channels'
 export * from './schemas/dump'
+export * from './schemas/knowledge'
 
 // IPC sözleşmesinin tek kaynağı. Kanal adları `alan:eylem` biçiminde.
 // Ana süreç her girdiyi burada tanımlı şemayla doğrular.
@@ -61,6 +76,74 @@ export const ipcContract = {
   'dump:restore': {
     input: z.object({ id: z.string() }),
     output: z.void(),
+  },
+  'collection:list': {
+    input: z.void(),
+    output: z.array(collectionSummarySchema),
+  },
+  'collection:create': {
+    input: collectionCreateInputSchema,
+    output: collectionSummarySchema,
+  },
+  'collection:rename': {
+    input: collectionRenameInputSchema,
+    output: z.void(),
+  },
+  /** Soft delete; `withNotes`'ta notlar da aynı `group_id` ile çöp kutusuna gider. */
+  'collection:delete': {
+    input: collectionDeleteInputSchema,
+    output: z.void(),
+  },
+  /** Son silmeyi grubuyla birlikte geri alır (koleksiyonsuz bırakılan notlar da geri bağlanır). */
+  'collection:restore': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** Etiketler `note:update` ile örtük oluşur; sadece canlı notu olanlar listelenir. */
+  'tag:list': {
+    input: z.void(),
+    output: z.array(tagSummarySchema),
+  },
+  'note:list': {
+    input: noteListInputSchema,
+    output: z.array(noteSummarySchema),
+  },
+  /** Silinmiş ya da bulunamayan not için null. */
+  'note:get': {
+    input: z.object({ id: z.string() }),
+    output: noteSchema.nullable(),
+  },
+  'note:create': {
+    input: noteCreateInputSchema,
+    output: noteSchema,
+  },
+  /** Kısmi güncelleme; `tags` verilirse etiket listesinin tamamının yerine geçer. */
+  'note:update': {
+    input: noteUpdateInputSchema,
+    output: noteSummarySchema,
+  },
+  'note:delete': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  'note:restore': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** FTS5; son kelime önek eşleşir. */
+  'note:search': {
+    input: z.object({ query: z.string().max(200) }),
+    output: z.array(noteSearchResultSchema),
+  },
+  /** Komut paletinin Notlar grubu. */
+  'note:titles': {
+    input: z.void(),
+    output: z.array(z.object({ id: z.string(), title: z.string() })),
+  },
+  /** Editöre yapıştırılan / sürüklenen resim; `media/`'ya yazılır. */
+  'media:store': {
+    input: mediaStoreInputSchema,
+    output: z.object({ url: z.string() }),
   },
 } as const satisfies Record<IpcChannel, { input: z.ZodType; output: z.ZodType }>
 

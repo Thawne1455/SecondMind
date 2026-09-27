@@ -26,7 +26,7 @@ Her aşamanın sonunda uygulama açılır ve çalışır durumdadır.
 - [x] Çekirdek tablolar (MIMARI.md), `activity_log`, soft delete (2a: `media`, `dump_items`, `dump_attachments`, `activity_log`; diğerleri kendi aşamasında)
 - [x] Media deposu (hash'li dosya adları), resim yapıştırma ve sürükleme
 - [x] Döküm: kaydet, listele, sil; Hızlı Döküm gerçekten kaydeder
-- [ ] Bilgi: koleksiyonlar, etiketler, TipTap editör (markdown saklama, resim), FTS5 arama, komut paletinde notlar
+- [x] Bilgi: koleksiyonlar, etiketler, TipTap editör (markdown saklama, resim), FTS5 arama, komut paletinde notlar
 - [ ] Fikirler ve kuluçka (`domain/incubation` + test)
 - [ ] `npm run seed` ile gerçekçi örnek veri
 **Bitti sayılır:** Taha bir gün boyunca döküm ve not alabiliyor, arama çalışıyor.

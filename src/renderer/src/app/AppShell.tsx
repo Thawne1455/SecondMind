@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Outlet, useNavigate } from 'react-router'
+import { useNoteTitles } from '../features/bilgi/useKnowledge'
 import { FAKE_PROJECTS } from '../lib/fake'
 import { useSetSetting, useSetting } from '../lib/settings'
 import { CommandPalette, type PaletteItem } from './CommandPalette'
@@ -40,7 +41,7 @@ export function AppShell() {
   )
 
   const dark = theme.data === 'dark'
-  // Notlar grubu Aşama 2'de (FTS5 arama) dolar.
+  const noteTitles = useNoteTitles().data
   const items = useMemo<PaletteItem[]>(
     () => [
       ...FAKE_PROJECTS.map((p) => ({
@@ -85,8 +86,14 @@ export function AppShell() {
             },
           ]
         : []),
+      ...(noteTitles ?? []).map((n) => ({
+        id: `note-${n.id}`,
+        group: 'Notlar' as const,
+        label: n.title || 'Adsız not',
+        run: () => navigate(`/bilgi/${n.id}`),
+      })),
     ],
-    [navigate, dark, saveTheme],
+    [navigate, dark, saveTheme, noteTitles],
   )
 
   return (

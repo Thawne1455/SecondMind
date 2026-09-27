@@ -43,9 +43,17 @@ silinebilenlerde `deleted_at`. Aşağısı başlangıç taslağıdır; aşamalar
 - `dump_attachments`: döküm id, media id, sıra. Bir döküm = bir gönderim (metin + birden çok ek).
 - `media`: hash (sha256, unique), dosya adı, mime, boyut, orijinal ad. Satırlar silinmez; aynı içerik tek dosya.
   Renderer dosyaları `sm-media://m/<hash>.<ext>` protokolüyle okur (salt okunur, sadece `media/`, ad biçimi doğrulanır).
-- `notes`: başlık, `body_md`, koleksiyon, bağlam (`project_id` | `course_id` | `week_id` | null), sabitlenmiş, AI'a kapalı.
-- `notes_fts`: FTS5 sanal tablo (başlık + gövde), trigger'larla senkron.
-- `tags`, `note_tags`.
+- `collections`: ad, sıra, soft delete. Ad sadece canlı koleksiyonlar arasında benzersiz (kısmi unique index);
+  silinen koleksiyon geri gelirken ad çakışırsa "(2)" eki alır.
+- `notes`: başlık, `body_md` (markdown; resimler `![](sm-media://m/…)`), `collection_id` (null = koleksiyonsuz),
+  bağlam (`project_id` | `course_id` | `week_id`; FK yok, tablolar Aşama 5/6'da), `pinned`, `ai_excluded`, soft delete.
+  `updated_at` sadece içerik (başlık, gövde, etiket) değişince ilerler; sabitleme/taşıma liste sırasını bozmaz.
+- `notes_fts`: FTS5 external content (`content='notes'`, rowid), `unicode61 remove_diacritics 2`; insert/update/delete
+  trigger'larıyla senkron. Sorgu kelimeleri tırnaklanır, son kelime önek eşleşir; `bm25` başlığı 5 kat ağır tartar.
+  Bilinen sınırlar: büyük I "i"ye katlanır, küçük ı katlanmaz. `notes`'un açık INTEGER PK'sı olmadığından
+  `VACUUM` rowid'leri değiştirebilir: VACUUM sonrası `INSERT INTO notes_fts(notes_fts) VALUES('rebuild')`.
+- `tags` (ad `toLocaleLowerCase('tr-TR')` ile normalize, unique), `note_tags` (PK not+etiket). Etiketler
+  `note:update` ile örtük oluşur; listede sadece canlı notu olanlar görünür.
 - `tasks`: başlık, açıklama, bağlam (proje/ders/genel), durum, öncelik, tahmini süre, son tarih, planlanan blok,
   `postpone_count`, kilometre taşı, tür (görev/hata/araştırma — tür sadece proje görevlerinde anlamlı).
 - `reminders`: saat, tekrar kuralı, bağlam, `fired_at`, `missed`.
@@ -54,6 +62,10 @@ silinebilenlerde `deleted_at`. Aşağısı başlangıç taslağıdır; aşamalar
 - `ideas`: başlık, not, `incubate_until`, durum (kuluçka/proje oldu/arşiv).
 - `activity_log`: kim (`taha`/`ai`/`scan`), işlem (`create`/`update`/`delete`/`restore`), hedef tablo+id,
   `before_json`, `after_json`, `group_id` (birlikte uygulananlar), `undone_at`. Değişiklikle aynı transaction'da yazılır.
+  Not otomatik kaydı her tuşta kayıt açmaz: aynı nota 10 dk içinde gelen update'ler (grupsuz, geri alınmamış son kayıt)
+  tek 'update' kaydında birleşir, `after_json` güncellenir (`logUpdateMerged`). Koleksiyon silme notlarla aynı
+  `group_id`'yi paylaşır; `collection:restore` grubu izleyip silinen notları döndürür, ayrılanları geri bağlar ve
+  grubu `undone_at` ile işaretler.
 
 **Projeler** (ayrıntı `docs/PROJELER.md`)
 - `projects`, `project_folders`, `milestones`, `project_docs` (ağaç), `sessions`, `commits`, `code_todos`, `scan_snapshots`, `project_decisions`, `assets`.

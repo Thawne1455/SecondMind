@@ -11,6 +11,21 @@ export const ipcChannels = [
   'dump:count',
   'dump:delete',
   'dump:restore',
+  'collection:list',
+  'collection:create',
+  'collection:rename',
+  'collection:delete',
+  'collection:restore',
+  'tag:list',
+  'note:list',
+  'note:get',
+  'note:create',
+  'note:update',
+  'note:delete',
+  'note:restore',
+  'note:search',
+  'note:titles',
+  'media:store',
 ] as const
 export type IpcChannel = (typeof ipcChannels)[number]
 

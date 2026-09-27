@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
 import { AlignLeft, FileText, Image as ImageIcon, Trash2 } from 'lucide-react'
 import type { DumpItem, DumpKind } from '@shared/ipc'
 import { TopBar } from '../../app/TopBar'
 import { formatAgo } from '../../lib/format'
+import { useNow } from '../../lib/useNow'
 import {
   DOMAIN_FILL,
   EmptyState,
@@ -60,16 +60,6 @@ export function DokumPage() {
       </div>
     </main>
   )
-}
-
-/** "14 dk önce" gibi göreli zamanlar için dakikada bir yenilenen şimdi. */
-function useNow(intervalMs: number): number {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), intervalMs)
-    return () => clearInterval(t)
-  }, [intervalMs])
-  return now
 }
 
 const KIND: Record<DumpKind, { label: string; icon: typeof AlignLeft }> = {

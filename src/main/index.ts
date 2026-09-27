@@ -5,6 +5,7 @@ import { closeDb, getDb, openDb } from './db/client'
 import { getSetting } from './db/settings'
 import { registerAppIpc } from './ipc/app'
 import { registerDumpIpc } from './ipc/dump'
+import { registerKnowledgeIpc } from './ipc/knowledge'
 import { registerSettingsIpc } from './ipc/settings'
 import { handleMediaProtocol, registerMediaScheme } from './mediaProtocol'
 import { ensureDataPaths } from './paths'
@@ -71,6 +72,7 @@ if (!app.requestSingleInstanceLock()) {
 
     registerAppIpc(paths)
     registerDumpIpc(paths)
+    registerKnowledgeIpc(paths)
     registerSettingsIpc((key) => {
       if (key === 'theme') applyTheme(getSetting(getDb(), 'theme'))
     })

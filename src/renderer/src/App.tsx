@@ -29,7 +29,7 @@ export function App() {
         <Route path="/projeler" element={<ProjelerPage />} />
         <Route path="/okul" element={<OkulPage />} />
         <Route path="/zihin" element={<ZihinPage />} />
-        <Route path="/bilgi" element={<BilgiPage />} />
+        <Route path="/bilgi/:noteId?" element={<BilgiPage />} />
         <Route path="/ayarlar" element={<AyarlarPage />} />
         {import.meta.env.DEV && <Route path="/tasarim" element={<TasarimPage />} />}
       </Route>

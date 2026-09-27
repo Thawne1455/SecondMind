@@ -17,6 +17,13 @@
   },
   "dependencies": {
     "@tanstack/react-query": "5.104.0",
+    "@tiptap/extension-image": "3.31.3",
+    "@tiptap/extension-list": "3.31.3",
+    "@tiptap/extensions": "3.31.3",
+    "@tiptap/markdown": "3.31.3",
+    "@tiptap/pm": "3.31.3",
+    "@tiptap/react": "3.31.3",
+    "@tiptap/starter-kit": "3.31.3",
     "better-sqlite3": "13.0.3",
     "date-fns": "4.4.0",
     "drizzle-orm": "0.45.3",
