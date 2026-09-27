@@ -25,6 +25,11 @@ export const ipcChannels = [
   'note:restore',
   'note:search',
   'note:titles',
+  'idea:list',
+  'idea:create',
+  'idea:setStatus',
+  'idea:opened',
+  'idea:today',
   'media:store',
 ] as const
 export type IpcChannel = (typeof ipcChannels)[number]

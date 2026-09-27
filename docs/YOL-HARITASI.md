@@ -27,8 +27,8 @@ Her aşamanın sonunda uygulama açılır ve çalışır durumdadır.
 - [x] Media deposu (hash'li dosya adları), resim yapıştırma ve sürükleme
 - [x] Döküm: kaydet, listele, sil; Hızlı Döküm gerçekten kaydeder
 - [x] Bilgi: koleksiyonlar, etiketler, TipTap editör (markdown saklama, resim), FTS5 arama, komut paletinde notlar
-- [ ] Fikirler ve kuluçka (`domain/incubation` + test)
-- [ ] `npm run seed` ile gerçekçi örnek veri
+- [x] Fikirler ve kuluçka (`domain/incubation` + test); Bugün'deki kuluçka ve radar karoları gerçek veriyle (radar şimdilik sadece fikir)
+- [x] `npm run seed` ile gerçekçi örnek veri (`--data-dir` zorunlu)
 **Bitti sayılır:** Taha bir gün boyunca döküm ve not alabiliyor, arama çalışıyor.
 
 ## Aşama 3 — Bugün gerçek veriyle

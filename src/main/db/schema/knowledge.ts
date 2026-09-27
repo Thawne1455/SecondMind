@@ -42,6 +42,33 @@ export const notes = sqliteTable(
   ],
 )
 
+/**
+ * Fikir: bir notun (başlık + gövde notta) kuluçka ve karar durumu. Not başına en fazla bir fikir.
+ * Soft delete notla birlikte: not çöpteyse fikir de görünmez.
+ * 'due' (kuluçka doldu) saklanmaz; `incubate_until` ile hesaplanır (domain/incubation).
+ */
+export const ideas = sqliteTable(
+  'ideas',
+  {
+    id: id(),
+    noteId: text('note_id')
+      .notNull()
+      .unique()
+      .references(() => notes.id),
+    status: text('status', { enum: ['incubating', 'active', 'project', 'archived'] })
+      .notNull()
+      .default('incubating'),
+    incubateUntil: integer('incubate_until', { mode: 'timestamp_ms' }).notNull(),
+    decidedAt: integer('decided_at', { mode: 'timestamp_ms' }),
+    // Radar sinyali; açılma activity_log'a yazılmaz.
+    lastOpenedAt: integer('last_opened_at', { mode: 'timestamp_ms' }),
+    // projects tablosu Aşama 5'te; foreign key o zaman.
+    projectId: text('project_id'),
+    ...timestamps(),
+  },
+  (t) => [index('ideas_status_idx').on(t.status, t.incubateUntil)],
+)
+
 /** Etiket adı `toLocaleLowerCase('tr-TR')` ile normalize edilmiş halde saklanır. */
 export const tags = sqliteTable('tags', {
   id: id(),

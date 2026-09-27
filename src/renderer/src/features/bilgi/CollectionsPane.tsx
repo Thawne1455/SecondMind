@@ -4,10 +4,12 @@ import type { CollectionSummary } from '@shared/ipc'
 import { errorText } from '../../lib/errors'
 import { cn, Menu, useToast } from '../../ui'
 import { DeleteCollectionModal } from './DeleteCollectionModal'
+import { isOpenStage } from './ideas'
 import type { Scope } from './scope'
 import {
   useCollections,
   useCreateCollection,
+  useIdeas,
   useNotes,
   useRenameCollection,
   useTags,
@@ -24,12 +26,18 @@ type CollectionsPaneProps = {
   onTag: (tagId: string | null) => void
 }
 
-/** Sol sütun: koleksiyonlar (Tümü, Sabitlenenler, her koleksiyon, Koleksiyonsuz) ve etiketler. */
+/**
+ * Sol sütun: Tümü, Sabitlenenler, Fikirler (sabit, silinmez), her koleksiyon, Koleksiyonsuz; etiketler.
+ * Fikirler notlar listesinde değil, kendi görünümünde; sayıları açık fikirleri (arşiv hariç) sayar.
+ */
 export function CollectionsPane({ scope, onScope, tagId, onTag }: CollectionsPaneProps) {
   const collections = useCollections().data ?? []
   const tags = useTags().data ?? []
   // Sayılar: Tümü / Sabitlenenler / Koleksiyonsuz ayrı sorgu istemez, tüm liste yeter.
   const all = useNotes({}).data ?? []
+  const ideas = useIdeas().data ?? []
+  const openIdeas = ideas.filter((i) => isOpenStage(i.idea.stage))
+  const dueIdeas = openIdeas.filter((i) => i.idea.stage === 'due').length
   const [adding, setAdding] = useState(false)
   const [deleting, setDeleting] = useState<CollectionSummary | null>(null)
   const create = useCreateCollection()
@@ -58,6 +66,22 @@ export function CollectionsPane({ scope, onScope, tagId, onTag }: CollectionsPan
           count={all.filter((n) => n.pinned).length}
           selected={is({ kind: 'pinned' })}
           onClick={() => onScope({ kind: 'pinned' })}
+        />
+        <ScopeRow
+          label={
+            <span className="flex items-center gap-2">
+              Fikirler
+              {dueIdeas > 0 && (
+                <span
+                  title={`${dueIdeas} fikir karar bekliyor`}
+                  className="size-2 rounded-full bg-green"
+                />
+              )}
+            </span>
+          }
+          count={openIdeas.length}
+          selected={is({ kind: 'ideas' })}
+          onClick={() => onScope({ kind: 'ideas' })}
         />
         {collections.map((c) => (
           <CollectionRow

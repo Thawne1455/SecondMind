@@ -84,14 +84,9 @@ export const FAKE_REMINDERS = [
   { id: 'r3', when: 'Çar 10:00', today: false, title: 'Kütüphane kitabını iade et' },
 ]
 
+// Kuluçka ve radar karoları 2c'den beri gerçek fikir verisiyle (idea:today).
 export const FAKE_TILES = {
   sleep: '7:15',
-  radar: {
-    days: 16,
-    title: 'Albüm projesi açılmadı.',
-    note: 'Ritim tabanlı bulmaca fikri de 34 gündür bekliyor.',
-  },
-  incubation: { days: 14, title: 'Ders notlarından bilgi kartı çıkaran mod' },
   decision: {
     ago: '3 ay önce',
     decision: 'Yaz boyunca her gün 1 saat Runika.',

@@ -39,7 +39,7 @@ npm run typecheck    # tsc --noEmit (main + renderer)
 npm run lint
 npm run test         # vitest run
 npm run db:generate  # drizzle-kit migration üret
-npm run seed         # gerçekçi Türkçe örnek veri (geliştirme DB'sine)
+npm run seed -- --data-dir <klasör> [--reset]  # örnek veri; gerçek veri klasörünü reddeder
 npm run build        # paketle
 ```
 

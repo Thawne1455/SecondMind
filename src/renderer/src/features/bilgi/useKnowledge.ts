@@ -1,6 +1,11 @@
 import { useCallback } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { CollectionDeleteMode, NoteListInput, NoteUpdateInput } from '@shared/ipc'
+import type {
+  CollectionDeleteMode,
+  IdeaSetStatusInput,
+  NoteListInput,
+  NoteUpdateInput,
+} from '@shared/ipc'
 
 export const knowledgeKeys = {
   collections: ['collection'] as const,
@@ -10,6 +15,9 @@ export const knowledgeKeys = {
   note: (id: string) => ['note', 'get', id] as const,
   search: (query: string) => ['note', 'search', query] as const,
   titles: ['note', 'titles'] as const,
+  ideas: ['idea'] as const,
+  ideaList: ['idea', 'list'] as const,
+  ideaToday: ['idea', 'today'] as const,
 }
 
 export const useCollections = () =>
@@ -52,7 +60,20 @@ export const useNoteTitles = () =>
     queryFn: () => window.api.invoke('note:titles', undefined),
   })
 
-/** Not değişince liste, sayılar, etiketler ve arama yenilenir. */
+export const useIdeas = () =>
+  useQuery({
+    queryKey: knowledgeKeys.ideaList,
+    queryFn: () => window.api.invoke('idea:list', undefined),
+  })
+
+/** Bugün'deki kuluçka ve radar karoları. */
+export const useIdeaToday = () =>
+  useQuery({
+    queryKey: knowledgeKeys.ideaToday,
+    queryFn: () => window.api.invoke('idea:today', undefined),
+  })
+
+/** Not değişince liste, sayılar, etiketler, arama ve fikirler yenilenir. */
 export function useInvalidateKnowledge() {
   const client = useQueryClient()
   return useCallback(
@@ -61,6 +82,7 @@ export function useInvalidateKnowledge() {
         client.invalidateQueries({ queryKey: knowledgeKeys.collections }),
         client.invalidateQueries({ queryKey: knowledgeKeys.tags }),
         client.invalidateQueries({ queryKey: knowledgeKeys.notes }),
+        client.invalidateQueries({ queryKey: knowledgeKeys.ideas }),
       ]),
     [client],
   )
@@ -101,3 +123,9 @@ export const useDeleteNote = () =>
 
 export const useRestoreNote = () =>
   useKnowledgeMutation((id: string) => window.api.invoke('note:restore', { id }))
+
+export const useCreateIdea = () =>
+  useKnowledgeMutation(() => window.api.invoke('idea:create', undefined))
+
+export const useSetIdeaStatus = () =>
+  useKnowledgeMutation((input: IdeaSetStatusInput) => window.api.invoke('idea:setStatus', input))

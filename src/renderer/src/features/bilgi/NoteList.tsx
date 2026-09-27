@@ -3,12 +3,15 @@ import { Plus, Search, X } from 'lucide-react'
 import type { NoteListInput, NoteSearchResult, NoteSummary } from '@shared/ipc'
 import { formatAgo } from '../../lib/format'
 import { useNow } from '../../lib/useNow'
-import { Button, cn, EmptyState, Skeleton } from '../../ui'
+import { Button, cn, EmptyState } from '../../ui'
+import { IdeaRows } from './IdeaList'
+import { UNTITLED_IDEA } from './ideas'
+import { ListSkeleton, Pill, Preview, RowButton, Title } from './rows'
 import { useNotes, useNoteSearch } from './useKnowledge'
 
-export const UNTITLED = 'Adsız not'
-
 type NoteListProps = {
+  /** Fikirler görünümü: liste `idea:list`'ten, "Yeni" düğmesi fikir açar. */
+  ideas: boolean
   filter: NoteListInput
   query: string
   onQuery: (query: string) => void
@@ -20,6 +23,7 @@ type NoteListProps = {
 
 /** Orta sütun: arama + not listesi. Arama doluyken FTS sonuçları listenin yerine geçer. */
 export function NoteList({
+  ideas,
   filter,
   query,
   onQuery,
@@ -59,13 +63,15 @@ export function NoteList({
           )}
         </label>
         <Button icon={Plus} onClick={onCreate} loading={creating}>
-          Not
+          {ideas ? 'Fikir' : 'Not'}
         </Button>
       </div>
 
       <div className="flex min-h-0 grow flex-col gap-1 overflow-y-auto pb-2">
         {searching ? (
           <SearchResults query={query} selectedId={selectedId} onSelect={onSelect} />
+        ) : ideas ? (
+          <IdeaRows selectedId={selectedId} onSelect={onSelect} onCreate={onCreate} />
         ) : (
           <Notes filter={filter} selectedId={selectedId} onSelect={onSelect} onCreate={onCreate} />
         )}
@@ -74,7 +80,7 @@ export function NoteList({
   )
 }
 
-type RowsProps = { selectedId: string | undefined; onSelect: (id: string) => void }
+export type RowsProps = { selectedId: string | undefined; onSelect: (id: string) => void }
 
 function Notes({
   filter,
@@ -124,17 +130,8 @@ function NoteRow({
     <RowButton selected={selected} onClick={() => onSelect(note.id)}>
       <div className="flex gap-3">
         <div className="flex min-w-0 grow flex-col gap-1">
-          <Title text={note.title} />
-          {note.preview && (
-            <p
-              className={cn(
-                'm-0 line-clamp-2 text-[14px] leading-[1.4]',
-                selected ? 'text-fill-ink/75' : 'text-ink2',
-              )}
-            >
-              {note.preview}
-            </p>
-          )}
+          <Title text={note.title} fallback={note.isIdea ? UNTITLED_IDEA : undefined} />
+          {note.preview && <Preview text={note.preview} selected={selected} />}
         </div>
         {note.coverUrl && (
           <img
@@ -145,16 +142,15 @@ function NoteRow({
         )}
       </div>
       <div className="flex items-center gap-1.5">
+        {note.isIdea && (
+          <Pill selected={selected} className="bg-ink text-on-ink">
+            Fikir
+          </Pill>
+        )}
         {note.tags.slice(0, 3).map((t) => (
-          <span
-            key={t}
-            className={cn(
-              'inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-bold',
-              selected ? 'bg-fill-ink/10' : 'bg-teal text-fill-ink',
-            )}
-          >
+          <Pill key={t} selected={selected}>
             {t}
-          </span>
+          </Pill>
         ))}
         {note.tags.length > 3 && (
           <span className="text-[12px] font-bold opacity-60">+{note.tags.length - 3}</span>
@@ -183,17 +179,15 @@ function SearchResults({ query, selectedId, onSelect }: RowsProps & { query: str
   }
   return data.map((r) => (
     <RowButton key={r.id} selected={r.id === selectedId} onClick={() => onSelect(r.id)}>
-      <Title text={r.title} />
-      {r.snippet && (
-        <p
-          className={cn(
-            'm-0 line-clamp-2 text-[14px] leading-[1.4]',
-            r.id === selectedId ? 'text-fill-ink/75' : 'text-ink2',
-          )}
-        >
-          <Highlighted result={r} />
-        </p>
-      )}
+      <div className="flex items-center gap-2">
+        <Title text={r.title} fallback={r.isIdea ? UNTITLED_IDEA : undefined} />
+        {r.isIdea && (
+          <Pill selected={r.id === selectedId} className="bg-ink text-on-ink">
+            Fikir
+          </Pill>
+        )}
+      </div>
+      {r.snippet && <Preview text={<Highlighted result={r} />} selected={r.id === selectedId} />}
     </RowButton>
   ))
 }
@@ -208,49 +202,4 @@ function Highlighted({ result }: { result: NoteSearchResult }) {
   }
   if (at < result.snippet.length) parts.push(result.snippet.slice(at))
   return <>{parts}</>
-}
-
-function Title({ text }: { text: string }) {
-  return (
-    <span
-      className={cn('truncate text-[16px] leading-[1.3] font-extrabold', !text && 'opacity-50')}
-    >
-      {text || UNTITLED}
-    </span>
-  )
-}
-
-function RowButton({
-  selected,
-  onClick,
-  children,
-}: {
-  selected: boolean
-  onClick: () => void
-  children: ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      aria-current={selected || undefined}
-      onClick={onClick}
-      className={cn(
-        'flex w-full shrink-0 cursor-pointer flex-col gap-2 rounded-[22px] px-4 py-3.5 text-left transition-colors duration-150',
-        'focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-indigo',
-        selected ? 'bg-teal text-fill-ink' : 'text-ink hover:bg-s2',
-      )}
-    >
-      {children}
-    </button>
-  )
-}
-
-function ListSkeleton() {
-  return (
-    <div className="flex flex-col gap-3 px-4 py-3">
-      {[0, 1, 2].map((i) => (
-        <Skeleton key={i} lines={3} />
-      ))}
-    </div>
-  )
 }

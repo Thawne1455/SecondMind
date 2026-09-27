@@ -54,12 +54,18 @@ silinebilenlerde `deleted_at`. Aşağısı başlangıç taslağıdır; aşamalar
   `VACUUM` rowid'leri değiştirebilir: VACUUM sonrası `INSERT INTO notes_fts(notes_fts) VALUES('rebuild')`.
 - `tags` (ad `toLocaleLowerCase('tr-TR')` ile normalize, unique), `note_tags` (PK not+etiket). Etiketler
   `note:update` ile örtük oluşur; listede sadece canlı notu olanlar görünür.
+- `ideas`: fikir = bir not + bu satır (1:1, `note_id` unique). Başlık, gövde, etiket, arama ve silme notun kendi
+  akışında; fikir notu koleksiyona taşınmaz ve notlar listesinde (Tümü/koleksiyon/Koleksiyonsuz/Sabitlenenler)
+  görünmez, sadece Fikirler görünümünde, etiket filtresinde ve aramada ("Fikir" işaretiyle). Kolonlar: `status`
+  (`incubating`/`active`/`project`/`archived`), `incubate_until` (oluşturmadan 14 gün sonraki günün başı), `decided_at`,
+  `last_opened_at` (editörde açılınca; log'a yazılmaz), `project_id` (Aşama 5). "Karar bekliyor" (`due`) saklanmaz,
+  `domain/incubation` zamana göre hesaplar. Kuluçka dolunca Evet → `active`, Hayır → `archived` (loglanır, geri
+  alınabilir). Radar: 30 gündür dokunulmamış (açılma/karar/oluşturma) `active` fikir.
 - `tasks`: başlık, açıklama, bağlam (proje/ders/genel), durum, öncelik, tahmini süre, son tarih, planlanan blok,
   `postpone_count`, kilometre taşı, tür (görev/hata/araştırma — tür sadece proje görevlerinde anlamlı).
 - `reminders`: saat, tekrar kuralı, bağlam, `fired_at`, `missed`.
 - `routines`: ad, tekrar kuralı (gün + saat + süre).
 - `schedule_blocks`: gün, başlangıç, bitiş, tür (ders/sınav/görev/rutin), kaynak id, sabit mi.
-- `ideas`: başlık, not, `incubate_until`, durum (kuluçka/proje oldu/arşiv).
 - `activity_log`: kim (`taha`/`ai`/`scan`), işlem (`create`/`update`/`delete`/`restore`), hedef tablo+id,
   `before_json`, `after_json`, `group_id` (birlikte uygulananlar), `undone_at`. Değişiklikle aynı transaction'da yazılır.
   Not otomatik kaydı her tuşta kayıt açmaz: aynı nota 10 dk içinde gelen update'ler (grupsuz, geri alınmamış son kayıt)
@@ -82,6 +88,11 @@ silinebilenlerde `deleted_at`. Aşağısı başlangıç taslağıdır; aşamalar
 - `proposals`: iş id, işlem türü, JSON yük, kaynak döküm id'leri, durum (bekliyor/onaylandı/reddedildi/düzenlendi), uygulama log id'si.
 
 Profil ("Beni tanı" metni) ve ayarlar `settings` tablosunda anahtar-değer.
+
+**Örnek veri:** `npm run seed -- --data-dir <klasör> [--reset]` (`scripts/seed.ts`, tsx ile). Klasör zorunlu; gerçek
+veri klasörü (varsayılan ya da uygulamanın `config.json`'undaki) reddedilir. Dolu DB `--reset` olmadan reddedilir;
+`--reset` DB'yi ve `media/`'yı silip baştan doldurur. Ana süreçteki sorgu fonksiyonlarını kullanır, tarihleri geçmiş
+haftalara kaydırır; örnek veri Taha'nın işlemi olmadığı için sonunda `activity_log` boşaltılır.
 
 **Migration ve geri dönüş:** Migration'lar mümkün olduğunca sadece ekleme yapar. Açılışta bekleyen migration varsa önce
 `backups/pre-migrate-<n>-<zaman>.db` kopyası alınır (`VACUUM INTO`). Her migration'ın elle çalıştırılacak geri dönüşü

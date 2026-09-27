@@ -16,10 +16,13 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useNavigate } from 'react-router'
+import { format } from 'date-fns'
+import { tr } from 'date-fns/locale'
 import type { Note } from '@shared/ipc'
 import { errorText } from '../../lib/errors'
-import { Chip, cn, IconButton, Menu, useToast } from '../../ui'
+import { Button, Chip, cn, DOMAIN_FILL, IconButton, Menu, Tag, useToast } from '../../ui'
 import { noteSchemaExtensions } from './editorExtensions'
+import { ideaStageLabel, UNTITLED_IDEA, useIdeaDecision } from './ideas'
 import { useAutosave, type SaveStatus } from './useAutosave'
 import {
   useCollections,
@@ -76,6 +79,12 @@ export function NoteEditor({ note }: { note: Note }) {
     toast({ message: `Resim eklenemedi: ${errorText(e)}`, domain: 'warning' })
   }
 
+  // Radar sinyali: fikir her açılışta "açıldı" sayılır (log'a yazılmaz).
+  const isIdea = !!note.idea
+  useEffect(() => {
+    if (isIdea) void window.api.invoke('idea:opened', { noteId: note.id }).catch(() => {})
+  }, [isIdea, note.id])
+
   // Yeni (boş) not başlıktan başlar.
   useEffect(() => {
     if (!note.title && !note.bodyMd) titleRef.current?.focus()
@@ -84,13 +93,14 @@ export function NoteEditor({ note }: { note: Note }) {
   return (
     <article className="flex min-h-0 grow flex-col gap-4">
       <NoteStrip note={note} status={status} beforeDelete={flush} />
+      {note.idea && <IdeaStrip note={note} title={title} />}
       <div className="flex min-h-0 grow flex-col overflow-y-auto pb-10">
         <div className="flex w-full max-w-[720px] flex-col gap-3">
           <input
             ref={titleRef}
             value={title}
             maxLength={300}
-            placeholder="Başlık"
+            placeholder={note.idea ? 'Fikrin adı' : 'Başlık'}
             aria-label="Başlık"
             onChange={(e) => {
               setTitle(e.target.value)
@@ -252,7 +262,7 @@ function NoteStrip({ note, status, beforeDelete }: NoteStripProps) {
         toast({
           variant: 'band',
           domain: 'knowledge',
-          message: `"${note.title || 'Adsız not'}" çöp kutusuna taşındı.`,
+          message: `"${noteTitle}" çöp kutusuna taşındı.`,
           action: {
             label: 'Geri al',
             onClick: () =>
@@ -264,6 +274,7 @@ function NoteStrip({ note, status, beforeDelete }: NoteStripProps) {
   }
 
   const current = collections.find((c) => c.id === note.collectionId)
+  const noteTitle = note.title || (note.idea ? UNTITLED_IDEA : 'Adsız not')
   const menuItems = [
     { id: 'none', label: 'Koleksiyonsuz' },
     ...collections.map((c) => ({ id: c.id, label: c.name })),
@@ -271,27 +282,32 @@ function NoteStrip({ note, status, beforeDelete }: NoteStripProps) {
 
   return (
     <div className="flex min-h-[42px] shrink-0 flex-wrap items-center gap-2">
-      <Menu
-        label="Koleksiyon"
-        items={menuItems}
-        selectedId={note.collectionId ?? 'none'}
-        onSelect={(id) => patch({ collectionId: id === 'none' ? null : id })}
-        className="max-h-[360px] overflow-y-auto"
-        trigger={(props) => (
-          <button
-            type="button"
-            {...props}
-            className={cn(
-              'inline-flex h-[34px] max-w-[220px] cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-[14px] font-bold',
-              'focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-indigo',
-              current ? 'bg-teal text-fill-ink' : 'bg-s2 text-ink2 hover:bg-s3',
-            )}
-          >
-            <span className="truncate">{current?.name ?? 'Koleksiyonsuz'}</span>
-            <ChevronDown size={15} strokeWidth={2} aria-hidden />
-          </button>
-        )}
-      />
+      {/* Fikirler kendi bölümünde; koleksiyona taşınmaz. */}
+      {note.idea ? (
+        <Tag className="h-[34px] bg-ink text-on-ink">Fikir</Tag>
+      ) : (
+        <Menu
+          label="Koleksiyon"
+          items={menuItems}
+          selectedId={note.collectionId ?? 'none'}
+          onSelect={(id) => patch({ collectionId: id === 'none' ? null : id })}
+          className="max-h-[360px] overflow-y-auto"
+          trigger={(props) => (
+            <button
+              type="button"
+              {...props}
+              className={cn(
+                'inline-flex h-[34px] max-w-[220px] cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-[14px] font-bold',
+                'focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-indigo',
+                current ? 'bg-teal text-fill-ink' : 'bg-s2 text-ink2 hover:bg-s3',
+              )}
+            >
+              <span className="truncate">{current?.name ?? 'Koleksiyonsuz'}</span>
+              <ChevronDown size={15} strokeWidth={2} aria-hidden />
+            </button>
+          )}
+        />
+      )}
       <TagInput tags={note.tags} onChange={(tags) => patch({ tags })} />
       <span className="grow" />
       <span
@@ -323,6 +339,71 @@ function NoteStrip({ note, status, beforeDelete }: NoteStripProps) {
           <IconButton label="Not menüsü" icon={MoreHorizontal} size="sm" {...props} />
         )}
       />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------- fikir şeridi
+
+const PROJECT_LATER = 'Projeler paneli henüz hazır değil'
+
+/**
+ * Fikrin kuluçka durumu ve en fazla iki eylem. Süresi dolmuşsa Bugün'deki soru karosunun aynısı:
+ * yeşil dolgu, "Hâlâ heyecanlandırıyor mu?", Evet / Hayır.
+ */
+function IdeaStrip({ note, title }: { note: Note; title: string }) {
+  const decide = useIdeaDecision()
+  const idea = note.idea
+  if (!idea) return null
+  const target = { noteId: note.id, title, status: idea.status }
+  const convert = (
+    <Button size="sm" variant="secondary" disabled title={PROJECT_LATER}>
+      Projeye çevir
+    </Button>
+  )
+
+  if (idea.stage === 'due') {
+    return (
+      <div
+        className={cn(
+          'flex min-h-[54px] shrink-0 items-center gap-3 rounded-[18px] py-2 pr-2 pl-5',
+          DOMAIN_FILL.projects,
+        )}
+      >
+        <span className="cx">Kuluçka doldu</span>
+        <span className="grow font-bold">Hâlâ heyecanlandırıyor mu?</span>
+        <Button size="sm" variant="onTile" onClick={() => decide(target, 'active')}>
+          Evet
+        </Button>
+        <Button size="sm" variant="onTileGhost" onClick={() => decide(target, 'archived')}>
+          Hayır
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex min-h-[54px] shrink-0 items-center gap-3 rounded-[18px] bg-s2 py-2 pr-2 pl-5">
+      <span className="cx grow text-ink2">
+        {ideaStageLabel(idea)}
+        {idea.stage === 'incubating' && (
+          <span className="ml-2 text-ink3">
+            · Karar {format(idea.incubateUntil, 'd MMMM', { locale: tr })}
+          </span>
+        )}
+      </span>
+      {idea.stage === 'archived' ? (
+        <Button size="sm" variant="secondary" onClick={() => decide(target, 'active')}>
+          Arşivden çıkar
+        </Button>
+      ) : idea.stage === 'project' ? null : (
+        <>
+          {convert}
+          <Button size="sm" variant="secondary" onClick={() => decide(target, 'archived')}>
+            Arşivle
+          </Button>
+        </>
+      )}
     </div>
   )
 }

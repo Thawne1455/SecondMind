@@ -6,6 +6,9 @@ import {
   collectionDeleteInputSchema,
   collectionRenameInputSchema,
   collectionSummarySchema,
+  ideaSetStatusInputSchema,
+  ideaSummarySchema,
+  ideaTodaySchema,
   mediaStoreInputSchema,
   noteCreateInputSchema,
   noteListInputSchema,
@@ -139,6 +142,31 @@ export const ipcContract = {
   'note:titles': {
     input: z.void(),
     output: z.array(z.object({ id: z.string(), title: z.string() })),
+  },
+  /** Fikirler listesi: silinmemiş tüm fikirler, karar bekleyen önce (domain/incubation). */
+  'idea:list': {
+    input: z.void(),
+    output: z.array(ideaSummarySchema),
+  },
+  /** Yeni fikir = yeni not + 14 günlük kuluçka. */
+  'idea:create': {
+    input: z.void(),
+    output: noteSchema,
+  },
+  /** Kuluçka kararı (Evet → aktif, Hayır → arşiv), arşivleme ve geri alma. `activity_log`'a yazılır. */
+  'idea:setStatus': {
+    input: ideaSetStatusInputSchema,
+    output: z.void(),
+  },
+  /** Fikir editörde açıldı: radarın `last_opened_at` sinyali. Log'a yazılmaz. */
+  'idea:opened': {
+    input: z.object({ noteId: z.string() }),
+    output: z.void(),
+  },
+  /** Bugün'deki kuluçka ve radar karoları. */
+  'idea:today': {
+    input: z.void(),
+    output: ideaTodaySchema,
   },
   /** Editöre yapıştırılan / sürüklenen resim; `media/`'ya yazılır. */
   'media:store': {

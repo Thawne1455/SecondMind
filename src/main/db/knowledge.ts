@@ -1,4 +1,16 @@
-import { and, asc, count, desc, eq, inArray, isNotNull, isNull, max, sql } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  max,
+  notInArray,
+  sql,
+} from 'drizzle-orm'
 import { ulid } from 'ulid'
 import {
   MEDIA_URL,
@@ -20,12 +32,14 @@ import {
   SNIPPET_CLOSE,
   SNIPPET_OPEN,
 } from '../domain/knowledge'
+import { ideaState } from '../domain/incubation'
 import { logActivity, logUpdateMerged } from './activity'
 import type { Db, DbTx } from './client'
-import { activityLog, collections, noteTags, notes, tags } from './schema'
+import { activityLog, collections, ideas, noteTags, notes, tags } from './schema'
 
 type Conn = Db | DbTx
-type NoteRow = typeof notes.$inferSelect
+export type NoteRow = typeof notes.$inferSelect
+export type IdeaRow = typeof ideas.$inferSelect
 
 /** Otomatik kayıtta aynı nota bu süre içinde gelen güncellemeler tek log kaydında birleşir. */
 export const NOTE_LOG_MERGE_MS = 10 * 60_000
@@ -275,7 +289,7 @@ export function listTags(db: Db): TagSummary[] {
     .sort((a, b) => byName(a.name, b.name))
 }
 
-function tagsByNote(db: Conn, noteIds: string[]): Map<string, string[]> {
+export function tagsByNote(db: Conn, noteIds: string[]): Map<string, string[]> {
   const out = new Map<string, string[]>()
   if (!noteIds.length) return out
   const rows = db
@@ -300,7 +314,7 @@ function replaceTags(db: Conn, noteId: string, names: string[]): void {
 
 // ---------------------------------------------------------------- notlar
 
-function toSummary(row: NoteRow, tagNames: string[]): NoteSummary {
+export function toSummary(row: NoteRow, tagNames: string[], isIdea = false): NoteSummary {
   return {
     id: row.id,
     title: row.title,
@@ -308,11 +322,17 @@ function toSummary(row: NoteRow, tagNames: string[]): NoteSummary {
     coverUrl: firstImageUrl(row.bodyMd, MEDIA_URL),
     tags: tagNames,
     pinned: row.pinned,
+    isIdea,
     updatedAt: row.updatedAt.getTime(),
   }
 }
 
-function toNote(row: NoteRow, tagNames: string[]): Note {
+export function toNote(
+  row: NoteRow,
+  tagNames: string[],
+  idea: IdeaRow | undefined,
+  now = new Date(),
+): Note {
   return {
     id: row.id,
     title: row.title,
@@ -324,9 +344,14 @@ function toNote(row: NoteRow, tagNames: string[]): Note {
     pinned: row.pinned,
     aiExcluded: row.aiExcluded,
     tags: tagNames,
+    idea: idea ? ideaState(idea, now) : null,
     createdAt: row.createdAt.getTime(),
     updatedAt: row.updatedAt.getTime(),
   }
+}
+
+export function ideaOfNote(db: Conn, noteId: string): IdeaRow | undefined {
+  return db.select().from(ideas).where(eq(ideas.noteId, noteId)).get()
 }
 
 function liveNote(db: Conn, id: string) {
@@ -337,9 +362,13 @@ function liveNote(db: Conn, id: string) {
     .get()
 }
 
-/** Sabitlenenler önce, sonra son düzenlenen. */
+/**
+ * Sabitlenenler önce, sonra son düzenlenen. Fikirler kendi listelerinde (`listIdeas`); buraya
+ * sadece etiket filtresiyle girer (etiket, notları ve fikirleri kesen bir süzgeç).
+ */
 export function listNotes(db: Db, filter: NoteListInput): NoteSummary[] {
   const where = [isNull(notes.deletedAt)]
+  if (!filter.tagId) where.push(notInArray(notes.id, db.select({ id: ideas.noteId }).from(ideas)))
   if (filter.collectionId === 'none') where.push(isNull(notes.collectionId))
   else if (filter.collectionId) where.push(eq(notes.collectionId, filter.collectionId))
   if (filter.pinned !== undefined) where.push(eq(notes.pinned, filter.pinned))
@@ -357,16 +386,24 @@ export function listNotes(db: Db, filter: NoteListInput): NoteSummary[] {
     .where(and(...where))
     .orderBy(desc(notes.pinned), desc(notes.updatedAt), desc(notes.id))
     .all()
-  const tagMap = tagsByNote(
-    db,
-    rows.map((r) => r.id),
+  const ids = rows.map((r) => r.id)
+  const tagMap = tagsByNote(db, ids)
+  const ideaIds = new Set(
+    filter.tagId && ids.length
+      ? db
+          .select({ id: ideas.noteId })
+          .from(ideas)
+          .where(inArray(ideas.noteId, ids))
+          .all()
+          .map((r) => r.id)
+      : [],
   )
-  return rows.map((r) => toSummary(r, tagMap.get(r.id) ?? []))
+  return rows.map((r) => toSummary(r, tagMap.get(r.id) ?? [], ideaIds.has(r.id)))
 }
 
-export function getNote(db: Db, id: string): Note | null {
+export function getNote(db: Db, id: string, now = new Date()): Note | null {
   const row = liveNote(db, id)
-  return row ? toNote(row, tagsByNote(db, [id]).get(id) ?? []) : null
+  return row ? toNote(row, tagsByNote(db, [id]).get(id) ?? [], ideaOfNote(db, id), now) : null
 }
 
 export function createNote(db: Db, collectionId?: string | null): Note {
@@ -384,7 +421,7 @@ export function createNote(db: Db, collectionId?: string | null): Note {
       targetId: row.id,
       after: { ...row, tags: [] },
     })
-    return toNote(row, [])
+    return toNote(row, [], undefined)
   })
 }
 
@@ -400,6 +437,9 @@ export function updateNote(db: Db, input: NoteUpdateInput, now = new Date()): No
     const beforeTags = tagsByNote(tx, [input.id]).get(input.id) ?? []
     if (input.collectionId && !liveCollection(tx, input.collectionId))
       throw new Error('Koleksiyon bulunamadı')
+    // Fikirler kendi bölümünde yaşar; koleksiyon sayıları ve listeler buna dayanır.
+    if (input.collectionId && ideaOfNote(tx, input.id))
+      throw new Error('Fikirler bir koleksiyona taşınamaz')
 
     const nextTags = input.tags ? normalizeTags(input.tags).sort(byName) : beforeTags
     const tagsChanged = nextTags.join('\n') !== beforeTags.join('\n')
@@ -411,7 +451,8 @@ export function updateNote(db: Db, input: NoteUpdateInput, now = new Date()): No
       (input.collectionId !== undefined && input.collectionId !== before.collectionId) ||
       (input.pinned !== undefined && input.pinned !== before.pinned) ||
       (input.aiExcluded !== undefined && input.aiExcluded !== before.aiExcluded)
-    if (!contentChanged && !metaChanged) return toSummary(before, beforeTags)
+    const isIdea = !!ideaOfNote(tx, input.id)
+    if (!contentChanged && !metaChanged) return toSummary(before, beforeTags, isIdea)
 
     if (tagsChanged) replaceTags(tx, input.id, nextTags)
     const after = tx
@@ -439,7 +480,7 @@ export function updateNote(db: Db, input: NoteUpdateInput, now = new Date()): No
       NOTE_LOG_MERGE_MS,
       now,
     )
-    return toSummary(after, nextTags)
+    return toSummary(after, nextTags, isIdea)
   })
 }
 
@@ -495,17 +536,19 @@ export function restoreNote(db: Db, id: string): void {
 export function searchNotes(db: Db, query: string): NoteSearchResult[] {
   const match = ftsQuery(query)
   if (!match) return []
-  const rows = db.all<{ id: string; title: string; snippet: string }>(sql`
+  const rows = db.all<{ id: string; title: string; snippet: string; isIdea: number }>(sql`
     SELECT n.id AS id, n.title AS title,
-      snippet(notes_fts, 1, ${SNIPPET_OPEN}, ${SNIPPET_CLOSE}, '…', 16) AS snippet
+      snippet(notes_fts, 1, ${SNIPPET_OPEN}, ${SNIPPET_CLOSE}, '…', 16) AS snippet,
+      i.id IS NOT NULL AS isIdea
     FROM notes_fts JOIN notes n ON n.rowid = notes_fts.rowid
+    LEFT JOIN ideas i ON i.note_id = n.id
     WHERE notes_fts MATCH ${match} AND n.deleted_at IS NULL
     ORDER BY bm25(notes_fts, 5.0, 1.0)
     LIMIT 50
   `)
   return rows.map((r) => {
     const { text, ranges } = parseSnippet(r.snippet)
-    return { id: r.id, title: r.title, snippet: text, ranges }
+    return { id: r.id, title: r.title, snippet: text, isIdea: r.isIdea === 1, ranges }
   })
 }
 

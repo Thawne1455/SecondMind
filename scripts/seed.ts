@@ -1,2 +1,495 @@
-// Gerçekçi Türkçe örnek veri Aşama 2'de (çekirdek tablolar kurulunca) eklenecek.
-console.log('seed: henüz örnek veri yok (Aşama 2).')
+// Gerçekçi Türkçe örnek veri. Sadece geliştirme / ekran görüntüsü klasörüne yazar:
+//
+//   npm run seed -- --data-dir <klasör>           boş (ya da hiç olmayan) klasörü doldurur
+//   npm run seed -- --data-dir <klasör> --reset   klasördeki DB'yi ve media/'yı silip baştan doldurur
+//
+// Gerçek veri klasörüne (%USERPROFILE%\SecondMind ya da uygulamanın config.json'daki dataDir'i)
+// hiçbir koşulda yazmaz. Örnek veri Taha'nın işlemi olmadığı için activity_log boş bırakılır.
+
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join, resolve, win32 } from 'node:path'
+import { deflateSync, crc32 } from 'node:zlib'
+import Database from 'better-sqlite3'
+import { addHours, startOfDay, subDays } from 'date-fns'
+import { eq, sql } from 'drizzle-orm'
+import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
+import { MEDIA_URL } from '@shared/ipc'
+import type { Db } from '../src/main/db/client'
+import { createDump } from '../src/main/db/dump'
+import { createIdea, markIdeaOpened, setIdeaStatus } from '../src/main/db/ideas'
+import { createCollection, createNote, updateNote } from '../src/main/db/knowledge'
+import * as schema from '../src/main/db/schema'
+import { defaultDataDir } from '../src/main/domain/dataDir'
+import { storeMedia } from '../src/main/media'
+
+// ---------------------------------------------------------------- argümanlar ve güvenlik
+
+function fail(message: string): never {
+  console.error(`seed: ${message}`)
+  process.exit(1)
+}
+
+function parseArgs(argv: string[]): { dataDir: string; reset: boolean } {
+  let dataDir: string | undefined
+  let reset = false
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]
+    if (arg === '--reset') reset = true
+    else if (arg === '--data-dir') dataDir = argv[++i]
+    else if (arg?.startsWith('--data-dir=')) dataDir = arg.slice('--data-dir='.length)
+    else fail(`bilinmeyen argüman: ${arg}`)
+  }
+  if (!dataDir) fail('--data-dir zorunlu. Örnek: npm run seed -- --data-dir C:\\sm-dev')
+  return { dataDir: resolve(dataDir), reset }
+}
+
+const same = (a: string, b: string) =>
+  win32.resolve(a).replace(/\\+$/, '').toLowerCase() ===
+  win32.resolve(b).replace(/\\+$/, '').toLowerCase()
+
+/** Uygulamanın kendi config.json'unda seçili veri klasörü (userData = %APPDATA%\secondmind). */
+function configuredDataDir(): string | null {
+  const appData = process.env['APPDATA']
+  if (!appData) return null
+  const file = join(appData, 'secondmind', 'config.json')
+  if (!existsSync(file)) return null
+  try {
+    const dir = (JSON.parse(readFileSync(file, 'utf8')) as { dataDir?: unknown }).dataDir
+    return typeof dir === 'string' && dir ? dir : null
+  } catch {
+    return null
+  }
+}
+
+function assertNotRealData(dataDir: string): void {
+  const real = [defaultDataDir(homedir()), configuredDataDir()].filter((d): d is string => !!d)
+  if (real.some((d) => same(d, dataDir)))
+    fail(`${dataDir} gerçek veri klasörü; örnek veri buraya yazılmaz (--reset ile de).`)
+}
+
+function hasContent(file: string): boolean {
+  const conn = new Database(file, { readonly: true })
+  try {
+    const tables = ['notes', 'dump_items', 'collections']
+    return tables.some((t) => {
+      const exists = conn
+        .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
+        .get(t)
+      return (
+        !!exists && (conn.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n > 0
+      )
+    })
+  } finally {
+    conn.close()
+  }
+}
+
+// ---------------------------------------------------------------- küçük PNG
+
+/** Köşegen degrade, RGB; bağımlılıksız PNG kodlayıcı (zlib + crc32). */
+function gradientPng(width: number, height: number, from: number[], to: number[]): Uint8Array {
+  const raw = Buffer.alloc((width * 3 + 1) * height)
+  for (let y = 0; y < height; y++) {
+    const row = y * (width * 3 + 1)
+    raw[row] = 0 // filtre: yok
+    for (let x = 0; x < width; x++) {
+      const t = (x / (width - 1) + y / (height - 1)) / 2
+      for (let c = 0; c < 3; c++)
+        raw[row + 1 + x * 3 + c] = Math.round(from[c]! + (to[c]! - from[c]!) * t)
+    }
+  }
+  const chunk = (type: string, data: Buffer) => {
+    const len = Buffer.alloc(4)
+    len.writeUInt32BE(data.length)
+    const body = Buffer.concat([Buffer.from(type, 'ascii'), data])
+    const crc = Buffer.alloc(4)
+    crc.writeUInt32BE(crc32(body))
+    return Buffer.concat([len, body, crc])
+  }
+  const ihdr = Buffer.alloc(13)
+  ihdr.writeUInt32BE(width, 0)
+  ihdr.writeUInt32BE(height, 4)
+  ihdr[8] = 8 // bit derinliği
+  ihdr[9] = 2 // RGB
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0)),
+  ])
+}
+
+// ---------------------------------------------------------------- içerik
+
+type NoteSeed = {
+  title: string
+  body: string
+  tags?: string[]
+  pinned?: boolean
+  /** Kaç gün önce yazıldı / son düzenlendi. */
+  created: number
+  edited?: number
+}
+
+const NOTES: Record<string, NoteSeed[]> = {
+  Unity: [
+    {
+      title: 'Sahne yükleme notları',
+      created: 26,
+      edited: 3,
+      tags: ['unity', 'c#'],
+      body: `## Async yükleme
+
+- \`SceneManager.LoadSceneAsync\` ile yükle, \`allowSceneActivation = false\` tut
+- Yükleme %90'da durur; geçiş animasyonu bitince etkinleştir
+- Additive sahnelerde ışık ayarları ana sahneden gelir
+
+\`\`\`csharp
+IEnumerator Load(string scene)
+{
+    var op = SceneManager.LoadSceneAsync(scene);
+    op.allowSceneActivation = false;
+    while (op.progress < 0.9f) yield return null;
+    yield return fader.FadeOut();
+    op.allowSceneActivation = true;
+}
+\`\`\`
+
+> Addressables'a geçiş şimdilik gereksiz; sahne sayısı 10'u geçerse tekrar bak.`,
+    },
+    {
+      title: 'Shader Graph ile su efekti',
+      created: 19,
+      edited: 11,
+      tags: ['unity', 'shader'],
+      body: `Runika'nın göl sahnesi için basit, stilize su.
+
+1. İki kayan normal map (farklı hız ve yön)
+2. Derinlik farkından köpük çizgisi: \`Scene Depth - Screen Position.w\`
+3. Fresnel ile kenarda açık renk
+
+{{image}}
+
+Kaynak: [Cyanilux — Water Shader Breakdown](https://www.cyanilux.com/tutorials/)`,
+    },
+    {
+      title: 'Runika — ses efekti listesi',
+      created: 15,
+      edited: 1,
+      tags: ['unity', 'ses', 'runika'],
+      body: `## Menü
+- [x] Buton üzerine gelme
+- [x] Onay / geri
+- [ ] Menü müziği 1:20'ye kırpılacak
+
+## Oyun içi
+- [x] Rün toplama (3 varyasyon)
+- [ ] Kapı açılma
+- [ ] Ayak sesi: taş, çimen, tahta
+- [ ] Boss girişi için gerilim katmanı`,
+    },
+    {
+      title: 'Input System geçişi',
+      created: 34,
+      tags: ['unity', 'c#'],
+      body: `Eski \`Input.GetAxis\` çağrılarını kaldırdım; hepsi **PlayerInput** + action map.
+
+- Oynanış ve UI için iki ayrı action map
+- Gamepad titreşimi \`Gamepad.current?.SetMotorSpeeds\`
+- Tuş atama ekranı: \`PerformInteractiveRebinding\`
+
+> Rebind sonrası kaydı \`SaveBindingOverridesAsJson\` ile PlayerPrefs'e yaz, yoksa her açılışta sıfırlanıyor.`,
+    },
+  ],
+  Okul: [
+    {
+      title: 'Veri Yapıları — AVL ağaçları',
+      created: 12,
+      edited: 2,
+      tags: ['ders', 'sınav'],
+      body: `## Denge faktörü
+Sol alt ağaç yüksekliği − sağ alt ağaç yüksekliği; |bf| ≤ 1.
+
+## Dönmeler
+- **LL** → sağa tek dönme
+- **RR** → sola tek dönme
+- **LR** → önce sola, sonra sağa
+- **RL** → önce sağa, sonra sola
+
+\`\`\`c
+Node* rotateRight(Node* y) {
+    Node* x = y->left;
+    y->left = x->right;
+    x->right = y;
+    update(y); update(x);
+    return x;
+}
+\`\`\`
+
+> Hoca vurguladı: ekleme sonrası en fazla **bir** (tek ya da çift) dönme yeter, silmede zincirleme olabilir.`,
+    },
+    {
+      title: 'Lineer Cebir: özdeğer özeti',
+      created: 9,
+      tags: ['ders'],
+      body: `- \`det(A − λI) = 0\` → karakteristik polinom
+- Özdeğerlerin toplamı = iz, çarpımı = determinant
+- Simetrik matrislerin özdeğerleri reeldir, özvektörleri diktir
+- Köşegenleştirme: \`A = PDP⁻¹\`, P'nin sütunları özvektörler
+
+> 3×3'te önce λ = 0 kontrol et: det(A) = 0 ise bir özdeğer hazır.`,
+    },
+    {
+      title: 'Olasılık ödevi 2 — plan',
+      created: 6,
+      edited: 0,
+      tags: ['ders', 'ödev'],
+      body: `Teslim: Salı 23:59
+
+- [x] 1 — koşullu olasılık
+- [x] 2 — Bayes
+- [ ] 3 — binom, n = 12
+- [ ] 4 — anlamadım, hocaya sor
+- [ ] 5 — Poisson yaklaşımı`,
+    },
+    {
+      title: 'Vize çalışma planı',
+      created: 5,
+      edited: 0,
+      pinned: true,
+      tags: ['sınav'],
+      body: `## Veri Yapıları (Pazartesi)
+- [x] Bağlı listeler
+- [x] Yığın ve kuyruk
+- [ ] AVL dönmeleri — 10 örnek
+- [ ] Geçen yılın sorusu
+
+## Lineer Cebir (Perşembe)
+- [ ] Özdeğer — 3×3 örnekler
+- [ ] Gauss eliminasyonu hız çalışması`,
+    },
+  ],
+  'Okuma listesi': [
+    {
+      title: 'Okunacaklar',
+      created: 40,
+      edited: 4,
+      pinned: true,
+      tags: ['kitap'],
+      body: `- [x] [Game Programming Patterns](https://gameprogrammingpatterns.com/) — Robert Nystrom
+- [ ] *The Art of Game Design* — Jesse Schell
+- [ ] *Atomik Alışkanlıklar* — James Clear (yarıda)
+- [ ] *Kürk Mantolu Madonna* — Sabahattin Ali
+- [ ] [Red Blob Games — Hexagonal Grids](https://www.redblobgames.com/grids/hexagons/)`,
+    },
+    {
+      title: 'Atomik Alışkanlıklar — notlar',
+      created: 22,
+      tags: ['kitap'],
+      body: `> Hedeflerinizin seviyesine yükselmezsiniz, sistemlerinizin seviyesine düşersiniz.
+
+- Alışkanlığı **görünür** yap: ipucu ortamda olsun
+- **Çekici** yap: sevdiğin bir şeyle eşle
+- **Kolay** yap: iki dakika kuralı
+- **Tatmin edici** yap: takip et, zinciri kırma
+
+Kendime: Runika için "her gün bir commit" iki dakika kuralına uyuyor.`,
+    },
+    {
+      title: 'Game Programming Patterns: Command',
+      created: 30,
+      edited: 27,
+      tags: ['kitap', 'oyun-tasarımı'],
+      body: `Girdiyi nesneye çevir → geri alma, tekrar oynatma, AI aynı arayüzü kullanır.
+
+\`\`\`csharp
+interface ICommand { void Execute(Actor a); void Undo(Actor a); }
+\`\`\`
+
+- Geri alma için komut, önceki durumu kendisi saklar
+- Yapay zekâ da komut üretir; oyuncu ile aynı yol
+
+[Bölüm](https://gameprogrammingpatterns.com/command.html)`,
+    },
+  ],
+  '': [
+    {
+      title: 'Yeni bilgisayar kurulum listesi',
+      created: 45,
+      edited: 44,
+      tags: ['kurulum'],
+      body: `- [x] Git + SSH anahtarı
+- [x] Unity Hub, 6000.0 LTS
+- [x] VS Code, C# Dev Kit
+- [ ] OBS sahneleri
+- [ ] Yazıcı sürücüsü`,
+    },
+    {
+      title: 'Kahve demleme oranları',
+      created: 17,
+      body: `- V60: 15 g kahve, 250 g su, 93 °C, 2:30 dk
+- French press: 1:15, 4 dk, sonra bastır
+- Soğuk demleme: 1:8, buzdolabında 16 saat
+
+> Öğütme kalınlığı değişince süreyi değil, önce oranı sabit tut.`,
+    },
+  ],
+}
+
+type IdeaSeed = {
+  title: string
+  body: string
+  tags?: string[]
+  created: number
+  /** Karar: kaç gün önce, hangi durum. */
+  decided?: { days: number; status: 'active' | 'archived' }
+  openedDaysAgo?: number
+}
+
+const IDEAS: IdeaSeed[] = [
+  {
+    title: 'Ders notlarından bilgi kartı çıkaran mod',
+    created: 20,
+    tags: ['okul'],
+    body: `Bilgi'deki ders notlarından soru-cevap kartları üretsin; sınavdan önceki hafta Bugün'e yerleşsin.
+
+- Kartlar notun başlıklarından çıkar
+- Aralıklı tekrar: 1, 3, 7 gün`,
+  },
+  {
+    title: 'Ritim tabanlı bulmaca oyunu',
+    created: 70,
+    decided: { days: 56, status: 'active' },
+    openedDaysAgo: 38,
+    tags: ['oyun-tasarımı'],
+    body: `Işık yalnızca müziğin vuruşlarında yayılıyor; oyuncu karanlık odada ritme göre yol buluyor.
+
+- Her oda bir enstrüman katmanı ekler
+- Ritmi kaçırınca oda sıfırlanmaz, ışık solar`,
+  },
+  {
+    title: 'Runika için günlük meydan okuma modu',
+    created: 9,
+    tags: ['runika'],
+    body: `Her gün aynı tohumla üretilen bir zindan; skor tablosu arkadaşlar arasında.
+
+- [ ] Tohum = tarih
+- [ ] Tek deneme hakkı`,
+  },
+  {
+    title: 'Kampüs etkinlik takvimi botu',
+    created: 12,
+    body: `Kulüp duyurularını tek bir takvimde toplayan küçük bir bot. Telegram kanalından okuyup .ics üretir.`,
+  },
+  {
+    title: 'Piksel sanat için renk paleti üreteci',
+    created: 2,
+    tags: ['oyun-tasarımı'],
+    body: `Bir referans görselden 8-16 renklik palet çıkarıp Aseprite formatında dışa aktarsın.`,
+  },
+  {
+    title: 'Sesli günlük uygulaması',
+    created: 50,
+    decided: { days: 35, status: 'archived' },
+    body: `Akşamları 1 dakikalık sesli kayıt, otomatik yazıya dökülsün. Zihin paneli zaten bunu karşılıyor.`,
+  },
+]
+
+const DUMPS: { text: string; days: number; hour: number; image?: boolean }[] = [
+  { text: "Runika'da menü müziği çok uzun, 1:20'ye kırp", days: 0, hour: 9 },
+  { text: 'Cuma 14:00 Lineer Cebir quiz — 3. ve 4. bölüm', days: 1, hour: 16 },
+  { text: "Erdem'in doğum günü 3 Ekim, mesaj at", days: 2, hour: 22 },
+  { text: 'Tahtadaki AVL dönme örneği', days: 3, hour: 11, image: true },
+  { text: "Unity 6'ya geçince URP ayarları sıfırlandı mı kontrol et", days: 5, hour: 20 },
+  { text: 'Kütüphane kitabı iade: Çarşamba', days: 8, hour: 13 },
+  {
+    text: 'Oyun fikri: ışığın sesle yayıldığı bulmaca — kuluçkadakiyle birleşebilir mi?',
+    days: 10,
+    hour: 1,
+  },
+  { text: 'Olasılık ödevi 2, soru 4 anlamadım — hocaya sor', days: 13, hour: 15 },
+  { text: 'Kahve filtresi bitti', days: 17, hour: 8 },
+]
+
+// ---------------------------------------------------------------- çalıştır
+
+function openDb(file: string): { db: Db; close: () => void } {
+  const sqlite = new Database(file)
+  sqlite.pragma('journal_mode = WAL')
+  sqlite.pragma('foreign_keys = ON')
+  const db = drizzle(sqlite, { schema })
+  migrate(db, { migrationsFolder: resolve('src/main/db/migrations') })
+  return { db, close: () => sqlite.close() }
+}
+
+function main(): void {
+  const { dataDir, reset } = parseArgs(process.argv.slice(2))
+  assertNotRealData(dataDir)
+
+  const dbFile = join(dataDir, 'secondmind.db')
+  const mediaDir = join(dataDir, 'media')
+  if (existsSync(dbFile) && hasContent(dbFile)) {
+    if (!reset) fail(`${dbFile} dolu. Silip baştan doldurmak için --reset ekle.`)
+    for (const f of [dbFile, `${dbFile}-wal`, `${dbFile}-shm`]) rmSync(f, { force: true })
+    rmSync(mediaDir, { recursive: true, force: true })
+  }
+  for (const dir of [dataDir, mediaDir, join(dataDir, 'ai')]) mkdirSync(dir, { recursive: true })
+
+  const { db, close } = openDb(dbFile)
+  const now = new Date()
+  // "n gün önce, saat h": gün başına göre, günler geçmiş haftalara yayılır.
+  const ago = (days: number, hour = 10) => addHours(startOfDay(subDays(now, days)), hour)
+
+  const png = (name: string, from: number[], to: number[]) =>
+    storeMedia(db, mediaDir, { name, mime: 'image/png', bytes: gradientPng(160, 96, from, to) })
+  const water = png('su-efekti.png', [34, 108, 164], [118, 226, 214])
+  const board = png('tahta.png', [40, 52, 46], [120, 140, 128])
+
+  let noteCount = 0
+  for (const [collection, seeds] of Object.entries(NOTES)) {
+    const collectionId = collection ? createCollection(db, collection).id : null
+    for (const n of seeds) {
+      const { id } = createNote(db, collectionId)
+      const body = n.body.replace('{{image}}', `![](${MEDIA_URL}${water.fileName})`)
+      const edited = ago(n.edited ?? n.created, 14 + (noteCount % 7))
+      updateNote(db, { id, title: n.title, bodyMd: body, tags: n.tags, pinned: n.pinned }, edited)
+      db.update(schema.notes)
+        .set({ createdAt: ago(n.created, 9 + (noteCount % 5)) })
+        .where(eq(schema.notes.id, id))
+        .run()
+      noteCount++
+    }
+  }
+
+  for (const i of IDEAS) {
+    const created = ago(i.created, 21)
+    const { id } = createIdea(db, created)
+    updateNote(db, { id, title: i.title, bodyMd: i.body, tags: i.tags }, created)
+    if (i.decided) setIdeaStatus(db, { noteId: id, status: i.decided.status }, ago(i.decided.days))
+    if (i.openedDaysAgo !== undefined) markIdeaOpened(db, id, ago(i.openedDaysAgo, 19))
+  }
+
+  for (const d of DUMPS) {
+    const item = createDump(db, d.text, d.image ? [board] : [])
+    const at = ago(d.days, d.hour)
+    db.update(schema.dumpItems)
+      .set({ createdAt: at, updatedAt: at })
+      .where(eq(schema.dumpItems.id, item.id))
+      .run()
+  }
+
+  // Örnek veri Taha'nın işlemi değil: geri alınacak bir geçmişi olmasın.
+  db.run(sql`DELETE FROM activity_log`)
+  close()
+
+  console.log(
+    `seed: ${dataDir}\n` +
+      `  ${Object.keys(NOTES).filter(Boolean).length} koleksiyon, ${noteCount} not, ` +
+      `${IDEAS.length} fikir, ${DUMPS.length} döküm, 2 resim.\n` +
+      `  Uygulamayı bu klasörle açmak için userData/config.json: {"dataDir": "${dataDir.replace(/\\/g, '\\\\')}"}`,
+  )
+}
+
+main()

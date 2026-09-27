@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { format } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import { Play } from 'lucide-react'
@@ -15,7 +15,11 @@ import {
   FAKE_REMINDERS,
   FAKE_TILES,
 } from '../../lib/fake'
-import { Button, cn, Scale, Tile, type ScaleValue } from '../../ui'
+import { errorText } from '../../lib/errors'
+import { Button, cn, Scale, Tile, useToast, type ScaleValue } from '../../ui'
+import type { BilgiLocationState } from '../bilgi/BilgiPage'
+import { UNTITLED_IDEA, useIdeaDecision } from '../bilgi/ideas'
+import { useCreateIdea, useIdeaToday } from '../bilgi/useKnowledge'
 import { FlowBand } from './FlowBand'
 
 // Bugün — "Şu an ne yapmalıyım?" Aşama 1b: sahte veriyle, tasarımla birebir (bugun-acik.png).
@@ -141,51 +145,139 @@ function MoodTile() {
   )
 }
 
+/** Fikri Bilgi'de, Fikirler görünümünde açar. */
+function useOpenIdea() {
+  const navigate = useNavigate()
+  return (noteId: string) =>
+    void navigate(`/bilgi/${noteId}`, {
+      state: { scope: { kind: 'ideas' } } satisfies BilgiLocationState,
+    })
+}
+
+// Radar: 30 gündür açılmamış aktif fikir. Sessiz projeler Aşama 5'te (tarama) eklenir.
 function RadarTile() {
-  const { days, title, note } = FAKE_TILES.radar
+  const radar = useIdeaToday().data?.radar
+  const openIdea = useOpenIdea()
+  const decide = useIdeaDecision()
+
+  if (!radar) {
+    return (
+      <Tile variant="standard" className={TILE} eyebrow="Radar">
+        <span className="font-bold">Sessiz kalan fikir yok.</span>
+        <span className="text-[14px] text-ink2">
+          30 gündür açmadığın bir fikir olursa burada çıkar.
+        </span>
+      </Tile>
+    )
+  }
+  const title = radar.title || UNTITLED_IDEA
   return (
     <Tile
       variant="alert"
       className={TILE}
       actions={[
-        <Button key="open" size="sm" variant="onTile">
+        <Button key="open" size="sm" variant="onTile" onClick={() => openIdea(radar.noteId)}>
           Aç
         </Button>,
-        <Button key="archive" size="sm" variant="onTileGhost">
+        <Button
+          key="archive"
+          size="sm"
+          variant="onTileGhost"
+          onClick={() => decide({ noteId: radar.noteId, title, status: 'active' }, 'archived')}
+        >
           Arşivle
         </Button>,
       ]}
     >
       <div className="flex items-end gap-2.5">
-        <span className="x text-[48px] leading-[.9] font-black">{days}</span>
+        <span className="x text-[48px] leading-[.9] font-black">{radar.days}</span>
         <span className="cx pb-[5px] text-[15px]">gün sessiz</span>
       </div>
-      <span className="font-bold">{title}</span>
-      <span className="text-[14px]">{note}</span>
+      <span className="line-clamp-2 font-bold">{title}</span>
+      <span className="text-[14px]">Bu fikri {radar.days} gündür açmadın.</span>
     </Tile>
   )
 }
 
 function IncubationTile() {
-  const { days, title } = FAKE_TILES.incubation
+  const data = useIdeaToday().data
+  const openIdea = useOpenIdea()
+  const decide = useIdeaDecision()
+  const create = useCreateIdea()
+  const { toast } = useToast()
+
+  const titleButton = (noteId: string, text: string) => (
+    <button
+      type="button"
+      onClick={() => openIdea(noteId)}
+      className="line-clamp-2 cursor-pointer text-left hover:underline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-indigo"
+    >
+      {text || UNTITLED_IDEA}
+    </button>
+  )
+
+  if (data?.due) {
+    const { due, dueCount } = data
+    const target = { noteId: due.noteId, title: due.title, status: 'incubating' as const }
+    const waiting = due.days > 0 ? ` · ${due.days} gündür bekliyor` : ''
+    return (
+      <Tile
+        variant="question"
+        domain="projects"
+        className={TILE}
+        titleClassName="text-[20px] leading-[1.2]"
+        eyebrow={`Kuluçka doldu${waiting}${dueCount > 1 ? ` · +${dueCount - 1}` : ''}`}
+        title={titleButton(due.noteId, due.title)}
+        actions={[
+          <Button key="yes" size="sm" variant="onTile" onClick={() => decide(target, 'active')}>
+            Evet
+          </Button>,
+          <Button
+            key="no"
+            size="sm"
+            variant="onTileGhost"
+            onClick={() => decide(target, 'archived')}
+          >
+            Hayır
+          </Button>,
+        ]}
+      >
+        <span className="font-semibold text-[#0B3D24]">Hâlâ heyecanlandırıyor mu?</span>
+      </Tile>
+    )
+  }
+
+  const next = data?.next
   return (
     <Tile
       variant="question"
       domain="projects"
       className={TILE}
       titleClassName="text-[20px] leading-[1.2]"
-      eyebrow={`Kuluçka · ${days} gün doldu`}
-      title={title}
+      eyebrow="Kuluçka"
+      title={next ? titleButton(next.noteId, next.title) : 'Kuluçkada fikir yok'}
       actions={[
-        <Button key="convert" size="sm" variant="onTile">
-          Projeye çevir
-        </Button>,
-        <Button key="archive" size="sm" variant="onTileGhost">
-          Arşivle
+        <Button
+          key="new"
+          size="sm"
+          variant="onTileGhost"
+          loading={create.isPending}
+          onClick={() =>
+            create.mutate(undefined, {
+              onSuccess: (note) => openIdea(note.id),
+              onError: (e) => toast({ message: errorText(e), domain: 'warning' }),
+            })
+          }
+        >
+          Fikir yaz
         </Button>,
       ]}
     >
-      <span className="font-semibold text-[#0B3D24]">Hâlâ heyecanlandırıyor mu?</span>
+      <span className="font-semibold text-[#0B3D24]">
+        {next
+          ? `${next.days} gün sonra soracağım: hâlâ heyecanlandırıyor mu?`
+          : 'Aklına geleni yaz; 14 gün bekler, sonra karar verirsin.'}
+      </span>
     </Tile>
   )
 }
