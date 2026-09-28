@@ -2,17 +2,11 @@ import { useState, type KeyboardEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { format } from 'date-fns'
 import { tr } from 'date-fns/locale'
-import { Play, Plus, Repeat, X } from 'lucide-react'
+import { Plus, Repeat, X } from 'lucide-react'
+import type { ScheduleBlock } from '@shared/ipc'
 import { TopBar } from '../../app/TopBar'
 import { useShell } from '../../app/shell-context'
-import {
-  FAKE_BLOCKS,
-  FAKE_FREE_MINUTES,
-  FAKE_NOW,
-  FAKE_NOW_TASK,
-  FAKE_PINS,
-  FAKE_TILES,
-} from '../../lib/fake'
+import { FAKE_TILES } from '../../lib/fake'
 import { errorText } from '../../lib/errors'
 import { formatDayName, formatMinutes, formatReminderAt } from '../../lib/format'
 import { parseQuickEntry } from '../../lib/quickEntry'
@@ -21,30 +15,72 @@ import { Button, cn, IconButton, Scale, Tile, useToast, type ScaleValue } from '
 import type { BilgiLocationState } from '../bilgi/BilgiPage'
 import { UNTITLED_IDEA, useIdeaDecision } from '../bilgi/ideas'
 import { useCreateIdea, useIdeaToday } from '../bilgi/useKnowledge'
-import { FlowBand } from './FlowBand'
+import { FlowBand, type FlowPin } from './FlowBand'
+import { NowSection } from './NowSection'
+import { PostponeDialog } from './PostponeDialog'
 import { TaskRow } from './TaskList'
-import { useCreateTask, useReminders, useResolveMissed, useTasks } from './usePlanning'
+import {
+  useCreateTask,
+  useMoveBlock,
+  useReminders,
+  useReschedule,
+  useResolveMissed,
+  useSchedule,
+  useTasks,
+  useUnpinBlock,
+} from './usePlanning'
 
 // Bugün — "Şu an ne yapmalıyım?" Tasarım: bugun-acik.png. Aşama 3a'dan beri görevler (Sıradaki adımlar),
-// hatırlatmalar ve kaçırılanlar gerçek; akış bandı ve Şimdi 3b'de, kalan karolar 3c'de gerçek veriye geçer.
+// hatırlatmalar ve kaçırılanlar, 3b'den beri akış bandı ve Şimdi gerçek; kalan karolar 3c'de gerçek veriye geçer.
 
 // Bugün karoları tasarım sistemindekinden 2px daha sıkı (bugun.html: padding 16px 20px).
 const TILE = 'py-4'
 
 export function BugunPage() {
+  const now = useNow(30_000)
+  const nowMin = minuteOfDay(new Date(now))
+  const day = useSchedule().data
+  const openTasks = useTasks('open').data ?? []
+  const doneTasks = useTasks('done').data ?? []
+  const pins = useTodayPins(now)
+  const { openTask } = useShell()
+  const move = useMoveBlock()
+  const unpin = useUnpinBlock()
+  const reschedule = useReschedule()
+  const { toast } = useToast()
+  const [asking, setAsking] = useState<ScheduleBlock | null>(null)
+  const onError = (e: unknown) => toast({ message: errorText(e), domain: 'warning' })
+
+  // Blok tıklaması: 3. ertelemeye ulaşmış ve henüz sabitlenmemiş görev sorar, diğerleri görevi açar.
+  function openBlock(block: ScheduleBlock) {
+    if (block.kind !== 'task') return
+    if (!block.done && !block.pinned && block.postponeCount >= POSTPONE_ASK_AT) {
+      setAsking(block)
+      return
+    }
+    const task = [...openTasks, ...doneTasks].find((t) => t.id === block.sourceId)
+    if (task) openTask(task)
+  }
+
   return (
     <main className="flex min-h-full flex-col gap-[18px] px-8 pt-[22px] pb-6">
       <TopBar
-        title={format(new Date(), 'EEEE d MMMM', { locale: tr })}
+        title={format(new Date(now), 'EEEE d MMMM', { locale: tr })}
         status={<MissedReminders />}
       />
       <FlowBand
-        blocks={FAKE_BLOCKS}
-        pins={FAKE_PINS}
-        now={FAKE_NOW}
-        freeMinutes={FAKE_FREE_MINUTES}
+        day={day}
+        pins={pins}
+        nowMin={nowMin}
+        onMove={(id, start) => move.mutate({ id, start }, { onError })}
+        onUnpin={(id) => unpin.mutate(id, { onError })}
+        onOpen={openBlock}
+        onReschedule={() => reschedule.mutate(undefined, { onError })}
+        rescheduling={reschedule.isPending}
+        onShowUnplaced={() => openTask()}
       />
-      <NowSection />
+      <NowSection day={day} nowMin={nowMin} openTasks={openTasks} aside={<NextSteps />} />
+      <PostponeDialog block={asking} onClose={() => setAsking(null)} />
       <div className="grid grow grid-cols-3 grid-rows-[repeat(2,minmax(180px,1fr))] gap-4">
         <MoodTile />
         <RadarTile />
@@ -55,6 +91,21 @@ export function BugunPage() {
       </div>
     </main>
   )
+}
+
+// Erteleme sorusu eşiği: main/domain/tasks.POSTPONE_ASK_AT ile aynı.
+const POSTPONE_ASK_AT = 3
+
+const minuteOfDay = (d: Date) => d.getHours() * 60 + d.getMinutes()
+
+/** Bantın üst şeridi: bugün 08–24 arasında çalacak (kaçırılmamış) hatırlatmalar. */
+function useTodayPins(now: number): FlowPin[] {
+  const reminders = useReminders().data ?? []
+  const end = new Date(now).setHours(24, 0, 0, 0)
+  return reminders
+    .filter((r) => r.missedAt === null && r.at >= now && r.at < end)
+    .map((r) => ({ id: r.id, min: minuteOfDay(new Date(r.at)), title: r.title }))
+    .filter((p) => p.min >= 8 * 60)
 }
 
 /** Uygulama kapalıyken (ya da uykudayken) geçen hatırlatmalar. Bugüne al: her biri bugünkü görev olur. */
@@ -106,33 +157,6 @@ function MissedReminders() {
         onClick={() => resolve.mutate({ ids, action: 'dismiss' }, { onError })}
       />
     </span>
-  )
-}
-
-function NowSection() {
-  const { project, title, minutesLeft } = FAKE_NOW_TASK
-  return (
-    <section className="flex items-end gap-10 px-1">
-      <div className="flex min-w-0 grow flex-col gap-2.5">
-        <span className="cx flex items-center gap-2.5 text-ink2">
-          <span className="size-3 rounded-full" style={{ background: project.color }} />
-          Şimdi · {project.name} · {minutesLeft} dk kaldı
-        </span>
-        <h2 className="x m-0 max-w-[860px] text-[64px] leading-[.95] font-black uppercase">
-          {title}
-        </h2>
-        <div className="flex gap-2.5 pt-1.5">
-          <Button size="lg" variant="action" icon={Play}>
-            Başla
-          </Button>
-          <Button variant="secondary" className="h-12">
-            Oturumu kapat
-          </Button>
-        </div>
-      </div>
-
-      <NextSteps />
-    </section>
   )
 }
 

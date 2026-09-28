@@ -75,8 +75,18 @@ silinebilenlerde `deleted_at`. Aşağısı başlangıç taslağıdır; aşamalar
   kaçırılan tekrar tek kayıt olur. Kaçırılan "Bugüne al" ile bugünkü göreve dönüşür ya da kapatılır (tek grupla
   loglanır). Çalma/kaçırma sistem sinyalidir, `activity_log`'a yazılmaz.
 - `routines`: `title`, `days_json` (ISO hafta günleri, 1 = Pzt), `start_time` (`HH:mm`), `duration_min`, `active`, soft delete.
-- `schedule_blocks` (Aşama 3b): gün, başlangıç, bitiş, tür (ders/sınav/görev/rutin), kaynak id, sabit mi.
-- `activity_log`: kim (`taha`/`ai`/`scan`), işlem (`create`/`update`/`delete`/`restore`), hedef tablo+id,
+- `schedule_blocks` (Aşama 3b): `day` (`YYYY-MM-DD`), `start_min` / `end_min` (günün dakikası, 08:00 = 480), `kind`
+  (`task`/`routine`; ders ve sınav blokları Aşama 6), `source_id` (görev ya da rutin id'si, FK yok), `pinned` (Taha elle
+  taşıdı: o gün sabit). Algoritmanın türettiği plan: soft delete yok, satırlar farkla güncellenir/silinir ve bu yazımlar
+  log'a düşmez; Taha'nın taşıması, sabitliği kaldırması ve "Başla"sı loglanır. `schedule:today` her okumada (dakikada
+  bir) önce gün sonu kaydırmasını, sonra `domain/scheduler.planDay`'i `fill` kipinde çalıştırır: kayıtlı yerleşim korunur,
+  bloğu olmayan bugünkü görevler şimdiden sonraki ilk boşluğa girer; süresi değişen, rutinle/sabitle çakışan blok yeniden
+  yerleşir; bitmiş görevin başlamamış bloğu kalkar, sürerken biteninki bitiş anında kesilir. "Yeniden yerleştir"
+  (`replace`) sabitlenmemiş, başlamamış ve kaçırılmış blokları yeniden yerleştirir; sabit ve süren bloklara dokunmaz.
+  Kurallar: 08–24, 5 dk adım, bloklar arası 10 dk tampon, süresiz göreve 30 dk, geçmişe yerleştirme yok, sığmayan
+  "sığmadı" listesine. Gün sonu kaydırma (açılışta ve her okumada): planlanan günü geçmişte kalan açık görevler bugüne
+  kayar, `postpone_count` kaç gün kaçırılmış olursa olsun bir artar, hepsi `system` aktörüyle tek grupla loglanır.
+- `activity_log`: kim (`taha`/`ai`/`scan`/`system`), işlem (`create`/`update`/`delete`/`restore`), hedef tablo+id,
   `before_json`, `after_json`, `group_id` (birlikte uygulananlar), `undone_at`. Değişiklikle aynı transaction'da yazılır.
   Not otomatik kaydı her tuşta kayıt açmaz: aynı nota 10 dk içinde gelen update'ler (grupsuz, geri alınmamış son kayıt)
   tek 'update' kaydında birleşir, `after_json` güncellenir (`logUpdateMerged`). Koleksiyon silme notlarla aynı

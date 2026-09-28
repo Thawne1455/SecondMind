@@ -196,6 +196,62 @@ export function setTaskDone(db: Db, id: string, done: boolean, now = new Date())
   })
 }
 
+/**
+ * Erteleme sorusundaki "Böl": her parça bugüne yeni görev olur (öncelik ve son tarih aynen, tahmini süre
+ * eşit bölünür), asıl görev çöp kutusuna gider. Hepsi tek grupla loglanır (birlikte geri alınır).
+ */
+export function splitTask(db: Db, id: string, titles: readonly string[], now = new Date()): Task[] {
+  return db.transaction((tx) => {
+    const before = liveTask(tx, id)
+    const groupId = ulid()
+    const estimate =
+      before.estimateMin === null
+        ? null
+        : Math.max(5, Math.round(before.estimateMin / titles.length / 5) * 5)
+    const parts = titles.map((title) => {
+      const row = tx
+        .insert(tasks)
+        .values({
+          id: ulid(),
+          title: title.trim(),
+          priority: before.priority,
+          estimateMin: estimate,
+          dueDate: before.dueDate,
+          plannedDate: dayKey(now),
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning()
+        .get()
+      logActivity(tx, {
+        actor: 'taha',
+        action: 'create',
+        targetTable: 'tasks',
+        targetId: row.id,
+        groupId,
+        after: row,
+      })
+      return toTask(row)
+    })
+    const after = tx
+      .update(tasks)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(eq(tasks.id, id))
+      .returning()
+      .get()
+    logActivity(tx, {
+      actor: 'taha',
+      action: 'delete',
+      targetTable: 'tasks',
+      targetId: id,
+      groupId,
+      before,
+      after,
+    })
+    return parts
+  })
+}
+
 export const deleteTask = (db: Db, id: string, now = new Date()) =>
   setDeleted(db, tasks, 'tasks', id, true, now)
 export const restoreTask = (db: Db, id: string, now = new Date()) =>

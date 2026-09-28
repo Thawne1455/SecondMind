@@ -39,3 +39,23 @@ export function hourTicks(step = 2): number[] {
   for (let h = DAY_START / 60; h <= DAY_END / 60; h += step) ticks.push(h)
   return ticks
 }
+
+/** Günün dakikası → "13:40". */
+export function formatClock(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+// Sayının okunuşunun son kelimesine göre bulunma eki: "bir"→'de, "üç"→'te, "altı"→'da, "kırk"→'ta.
+const ONES = ['', 'de', 'de', 'te', 'te', 'te', 'da', 'de', 'de', 'da']
+const TENS = ['da', 'da', 'de', 'da', 'ta', 'de']
+
+/** "13:00" → "13:00'te", "09:00" → "09:00'da", "14:30" → "14:30'da". */
+export function formatAtClock(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  const n = m === 0 ? h : m
+  const suffix = n % 10 ? ONES[n % 10] : TENS[Math.floor(n / 10) % 6]
+  return `${formatClock(minutes)}'${suffix}`
+}

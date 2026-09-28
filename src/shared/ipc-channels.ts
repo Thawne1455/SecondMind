@@ -37,6 +37,7 @@ export const ipcChannels = [
   'task:setDone',
   'task:delete',
   'task:restore',
+  'task:split',
   'reminder:list',
   'reminder:create',
   'reminder:update',
@@ -48,6 +49,11 @@ export const ipcChannels = [
   'routine:update',
   'routine:delete',
   'routine:restore',
+  'schedule:today',
+  'schedule:reschedule',
+  'schedule:move',
+  'schedule:unpin',
+  'schedule:start',
 ] as const
 export type IpcChannel = (typeof ipcChannels)[number]
 

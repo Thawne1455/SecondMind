@@ -14,6 +14,7 @@ import {
   restoreRoutine,
   restoreTask,
   setTaskDone,
+  splitTask,
   updateReminder,
   updateRoutine,
   updateTask,
@@ -27,6 +28,7 @@ export function registerPlanningIpc(): void {
   handle('task:setDone', ({ id, done }) => setTaskDone(getDb(), id, done))
   handle('task:delete', ({ id }) => deleteTask(getDb(), id))
   handle('task:restore', ({ id }) => restoreTask(getDb(), id))
+  handle('task:split', ({ id, titles }) => splitTask(getDb(), id, titles))
 
   handle('reminder:list', () => listReminders(getDb()))
   handle('reminder:create', (input) => createReminder(getDb(), input))

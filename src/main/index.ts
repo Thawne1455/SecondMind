@@ -2,11 +2,13 @@ import { app, BrowserWindow, nativeTheme, shell } from 'electron'
 import { join } from 'node:path'
 import { THEME_ARG_PREFIX, type Theme } from '@shared/ipc'
 import { closeDb, getDb, openDb } from './db/client'
+import { rolloverTasks } from './db/schedule'
 import { getSetting } from './db/settings'
 import { registerAppIpc } from './ipc/app'
 import { registerDumpIpc } from './ipc/dump'
 import { registerKnowledgeIpc } from './ipc/knowledge'
 import { registerPlanningIpc } from './ipc/planning'
+import { registerScheduleIpc } from './ipc/schedule'
 import { registerSettingsIpc } from './ipc/settings'
 import { handleMediaProtocol, registerMediaScheme } from './mediaProtocol'
 import { ensureDataPaths } from './paths'
@@ -73,11 +75,14 @@ if (!app.requestSingleInstanceLock()) {
     const paths = ensureDataPaths()
     openDb(paths.db, paths.backups)
     handleMediaProtocol(paths.media)
+    // Gün sonu kaydırma açılışta: kaçırılan günlerin açık görevleri bugüne (Bugün her okumada da kontrol eder).
+    rolloverTasks(getDb())
 
     registerAppIpc(paths)
     registerDumpIpc(paths)
     registerKnowledgeIpc(paths)
     registerPlanningIpc()
+    registerScheduleIpc()
     registerSettingsIpc((key) => {
       if (key === 'theme') applyTheme(getSetting(getDb(), 'theme'))
     })

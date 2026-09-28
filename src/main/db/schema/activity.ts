@@ -9,7 +9,7 @@ export const activityLog = sqliteTable(
   'activity_log',
   {
     id: id(),
-    actor: text('actor', { enum: ['taha', 'ai', 'scan'] }).notNull(),
+    actor: text('actor', { enum: ['taha', 'ai', 'scan', 'system'] }).notNull(),
     action: text('action', { enum: ['create', 'update', 'delete', 'restore'] }).notNull(),
     targetTable: text('target_table').notNull(),
     targetId: text('target_id').notNull(),

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { blockTiming, formatDuration, hourTicks, parseTime, timeToPercent } from './flow'
+import {
+  blockTiming,
+  formatAtClock,
+  formatClock,
+  formatDuration,
+  hourTicks,
+  parseTime,
+  timeToPercent,
+} from './flow'
 
 describe('parseTime', () => {
   it('saati dakikaya çevirir', () => {
@@ -47,5 +55,22 @@ describe('blockTiming', () => {
 describe('hourTicks', () => {
   it('iki saatte bir etiket', () => {
     expect(hourTicks()).toEqual([8, 10, 12, 14, 16, 18, 20, 22, 24])
+  })
+})
+
+describe('formatClock / formatAtClock', () => {
+  it('dakikayı saate çevirir', () => {
+    expect(formatClock(parseTime('09:05'))).toBe('09:05')
+    expect(formatClock(24 * 60)).toBe('24:00')
+  })
+  it('bulunma eki okunuşun son kelimesine uyar', () => {
+    expect(formatAtClock(parseTime('13:00'))).toBe("13:00'te")
+    expect(formatAtClock(parseTime('09:00'))).toBe("09:00'da")
+    expect(formatAtClock(parseTime('10:00'))).toBe("10:00'da")
+    expect(formatAtClock(parseTime('12:00'))).toBe("12:00'de")
+    expect(formatAtClock(parseTime('14:30'))).toBe("14:30'da")
+    expect(formatAtClock(parseTime('16:40'))).toBe("16:40'ta")
+    expect(formatAtClock(parseTime('20:00'))).toBe("20:00'de")
+    expect(formatAtClock(parseTime('18:45'))).toBe("18:45'te")
   })
 })

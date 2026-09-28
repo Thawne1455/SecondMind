@@ -3,8 +3,8 @@ import { format } from 'date-fns'
 import { Check } from 'lucide-react'
 import type { Task } from '@shared/ipc'
 import { formatDayName, formatMinutes } from '../../lib/format'
-import { Button, Chip, cn, EmptyState, ModalPanel, Skeleton, useToast } from '../../ui'
-import { useSetTaskDone, useTasks, useUpdateTask } from './usePlanning'
+import { Button, Chip, cn, EmptyState, ModalPanel, Skeleton } from '../../ui'
+import { useTasks, useToggleDone, useUpdateTask } from './usePlanning'
 
 // Görev satırı (Bugün'deki Sıradaki adımlar ve Görevler listesi) ve görev çalışma alanının sol karosu.
 
@@ -33,32 +33,6 @@ function meta(t: Task, now: Date): { text: string; warn?: boolean }[] {
   if (t.priority === 3) parts.push({ text: 'yüksek öncelik', warn: true })
   if (t.postponeCount > 0) parts.push({ text: `${t.postponeCount} kez ertelendi` })
   return parts
-}
-
-/** Tamamla / geri aç; tamamlanınca "Geri al" toast'u. */
-function useToggleDone() {
-  const setDone = useSetTaskDone()
-  const { toast } = useToast()
-  return (task: Task) => {
-    const done = task.status !== 'done'
-    setDone.mutate(
-      { id: task.id, done },
-      {
-        onSuccess: () => {
-          if (!done) return
-          toast({
-            variant: 'fill',
-            domain: 'projects',
-            message: `Bitti: ${task.title}`,
-            action: {
-              label: 'Geri al',
-              onClick: () => setDone.mutate({ id: task.id, done: false }),
-            },
-          })
-        },
-      },
-    )
-  }
 }
 
 type TaskRowProps = {

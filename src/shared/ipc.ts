@@ -26,9 +26,12 @@ import {
   routineCreateInputSchema,
   routineSchema,
   routineUpdateInputSchema,
+  scheduleDaySchema,
+  scheduleMoveInputSchema,
   taskCreateInputSchema,
   taskListInputSchema,
   taskSchema,
+  taskSplitInputSchema,
   taskUpdateInputSchema,
 } from './schemas/planning'
 
@@ -213,6 +216,11 @@ export const ipcContract = {
     input: z.object({ id: z.string() }),
     output: z.void(),
   },
+  /** Parçalar bugüne yeni görev olur, asıl görev çöp kutusuna; tek grupla loglanır. */
+  'task:split': {
+    input: taskSplitInputSchema,
+    output: z.array(taskSchema),
+  },
   /** Bekleyen ve kaçırılmış (ele alınmamış) hatırlatmalar, sıradaki çalmaya göre. */
   'reminder:list': {
     input: z.void(),
@@ -259,6 +267,33 @@ export const ipcContract = {
   'routine:restore': {
     input: z.object({ id: z.string() }),
     output: z.void(),
+  },
+  /**
+   * Bugünün yerleşimi. Her okumada önce gün sonu kaydırması, sonra kayıtlı yerleşimi koruyarak
+   * bloğu olmayan görevlerin yerleştirilmesi (fill) çalışır.
+   */
+  'schedule:today': {
+    input: z.void(),
+    output: scheduleDaySchema,
+  },
+  /** "Yeniden yerleştir": sabitlenmemiş, başlamamış ve kaçırılmış bloklar yeniden yerleşir. */
+  'schedule:reschedule': {
+    input: z.void(),
+    output: scheduleDaySchema,
+  },
+  /** Görev bloğunu taşır ve o gün için sabitler (geçmişe taşınamaz). */
+  'schedule:move': {
+    input: scheduleMoveInputSchema,
+    output: scheduleDaySchema,
+  },
+  'schedule:unpin': {
+    input: z.object({ id: z.string() }),
+    output: scheduleDaySchema,
+  },
+  /** "Başla": görevin bloğu şimdiye çekilir (yoksa oluşur) ve sabitlenir. */
+  'schedule:start': {
+    input: z.object({ taskId: z.string() }),
+    output: scheduleDaySchema,
   },
 } as const satisfies Record<IpcChannel, { input: z.ZodType; output: z.ZodType }>
 

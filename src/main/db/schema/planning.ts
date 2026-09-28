@@ -73,3 +73,27 @@ export const routines = sqliteTable('routines', {
   ...timestamps(),
   deletedAt: deletedAt(),
 })
+
+/**
+ * Günün yerleşimi (Aşama 3b, `domain/scheduler`). Algoritmanın türettiği plan: soft delete yok,
+ * yeniden yerleştirmede satırlar silinip yeniden yazılır. `source_id` türüne göre görev ya da rutin.
+ */
+export const scheduleBlocks = sqliteTable(
+  'schedule_blocks',
+  {
+    id: id(),
+    /** 'YYYY-MM-DD' */
+    day: text('day').notNull(),
+    /** Günün dakikası (08:00 = 480). */
+    startMin: integer('start_min').notNull(),
+    endMin: integer('end_min').notNull(),
+    kind: text('kind', { enum: ['task', 'routine'] }).notNull(),
+    sourceId: text('source_id').notNull(),
+    /** Taha elle taşıdı: o gün sabit, yeniden yerleştirme dokunmaz. */
+    pinned: integer('pinned', { mode: 'boolean' })
+      .notNull()
+      .default(sql`0`),
+    ...timestamps(),
+  },
+  (t) => [index('schedule_blocks_day_idx').on(t.day, t.startMin)],
+)

@@ -62,6 +62,54 @@ export const taskUpdateInputSchema = z
 
 export const taskListInputSchema = z.object({ status: taskStatusSchema })
 
+/** Görevi parçalara böler (erteleme sorusu "Böl"): parçalar bugüne, asıl görev çöp kutusuna. */
+export const taskSplitInputSchema = z.object({
+  id: z.string(),
+  titles: z.array(taskFields.title).min(1).max(20),
+})
+
+// ---------------------------------------------------------------- günün yerleşimi (Aşama 3b)
+
+/** Günün dakikası: 0–1440. */
+const dayMinuteSchema = z
+  .number()
+  .int()
+  .min(0)
+  .max(24 * 60)
+
+export const scheduleBlockSchema = z.object({
+  id: z.string(),
+  kind: z.enum(['task', 'routine']),
+  /** Görev ya da rutin id'si. */
+  sourceId: z.string(),
+  start: dayMinuteSchema,
+  end: dayMinuteSchema,
+  /** Elle taşındı: o gün sabit. */
+  pinned: z.boolean(),
+  title: z.string(),
+  /** Görev bitti (rutinde hep false). */
+  done: z.boolean(),
+  postponeCount: z.number(),
+})
+
+const intervalSchema = z.object({ start: dayMinuteSchema, end: dayMinuteSchema })
+
+export const scheduleDaySchema = z.object({
+  day: dayKeySchema,
+  /** Okumanın yapıldığı an, günün dakikası. */
+  nowMin: dayMinuteSchema,
+  blocks: z.array(scheduleBlockSchema),
+  /** Bugüne alınmış ama sığmayan görevler. */
+  unplaced: z.array(z.object({ id: z.string(), title: z.string() })),
+  /** Şimdiden sonra yeni blok konabilecek boşluklar (tamponlar düşülmüş). */
+  freeGaps: z.array(intervalSchema),
+  freeMinutes: z.number(),
+  /** Bu okumada gün sonu kaydırmasıyla bugüne kayan görev sayısı. */
+  rolledOver: z.number(),
+})
+
+export const scheduleMoveInputSchema = z.object({ id: z.string(), start: dayMinuteSchema })
+
 /** Tekrar kuralı. Haftalık (her gün = 7 gün), aylık (gün yoksa ayın son günü), yıllık (29 Şubat → 28). */
 export const reminderRuleSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('weekly'), days: isoDaysSchema, time: clockSchema }),
@@ -151,3 +199,6 @@ export type ReminderResolveInput = z.input<typeof reminderResolveInputSchema>
 export type Routine = z.infer<typeof routineSchema>
 export type RoutineCreateInput = z.input<typeof routineCreateInputSchema>
 export type RoutineUpdateInput = z.input<typeof routineUpdateInputSchema>
+export type TaskSplitInput = z.input<typeof taskSplitInputSchema>
+export type ScheduleBlock = z.infer<typeof scheduleBlockSchema>
+export type ScheduleDay = z.infer<typeof scheduleDaySchema>

@@ -40,8 +40,10 @@ başına bir kez artar; elle sürüklenen blok o gün sabit; karar gözden geçi
 kenar çubuğu projeleri Aşama 5'e kadar sahte, Onay Kutusu rozeti Aşama 4'e kadar yok.
 - [x] Görevler, rutinler, hatırlatmalar; hatırlatma zamanlayıcısı ve sistem bildirimi; kaçırılanlar (3a: Ctrl G görev,
   Ctrl H hatırlatma, hızlı giriş ayrıştırma, Sıradaki adımlar + hızlı görev satırı, Hatırlatmalar karosu, Ayarlar > Rutinler)
-- [ ] `domain/scheduler` (yerleştirme + yeniden yerleştirme + gün sonu kaydırma) ve testleri; erteleme sayacı
-- [ ] Akış bandında sürükleme, "şimdi" bölümü
+- [x] `domain/scheduler` (yerleştirme + yeniden yerleştirme + gün sonu kaydırma) ve testleri; erteleme sayacı
+  (3b: `schedule_blocks`, açılışta ve dakikada bir `fill`, "Böl · Sil · Bugün yap" sorusu, `task:split`)
+- [x] Akış bandında sürükleme, "şimdi" bölümü (3b: sürükle / ← → taşır ve sabitler, işarete tıklamak sabitliği kaldırır;
+  Şimdi: süren → sıradaki → en öndeki görev; Başla = bloğu şimdiye çek, Tamamla, Sonraya at)
 - [ ] Zihin günlük kaydı karosu (veri yazımı), başarılar karosu
 **Bitti sayılır:** Bugün ekranı sahte veri olmadan tasarımdaki gibi doluyor.
 
