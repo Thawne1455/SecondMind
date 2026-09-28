@@ -9,9 +9,11 @@ import { registerDumpIpc } from './ipc/dump'
 import { registerKnowledgeIpc } from './ipc/knowledge'
 import { registerMindIpc } from './ipc/mind'
 import { registerPlanningIpc } from './ipc/planning'
+import { registerProjectsIpc } from './ipc/projects'
 import { registerScheduleIpc } from './ipc/schedule'
 import { registerSettingsIpc } from './ipc/settings'
 import { handleMediaProtocol, registerMediaScheme } from './mediaProtocol'
+import { destroyParkWindow, hideParkWindow, registerParkShortcut } from './parkWindow'
 import { ensureDataPaths } from './paths'
 import { startReminderTimer } from './reminderTimer'
 
@@ -45,7 +47,11 @@ function createWindow(theme: Theme): void {
   })
 
   mainWindow.once('ready-to-show', () => mainWindow?.show())
-  mainWindow.on('closed', () => (mainWindow = null))
+  mainWindow.on('closed', () => {
+    mainWindow = null
+    // Gizli park penceresi uygulamayı açık tutmasın.
+    destroyParkWindow()
+  })
 
   // Dış bağlantılar varsayılan tarayıcıda açılır, uygulama içinde yeni pencere açılmaz.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -85,6 +91,7 @@ if (!app.requestSingleInstanceLock()) {
     registerPlanningIpc()
     registerScheduleIpc()
     registerMindIpc()
+    registerProjectsIpc(hideParkWindow)
     registerSettingsIpc((key) => {
       if (key === 'theme') applyTheme(getSetting(getDb(), 'theme'))
     })
@@ -93,6 +100,7 @@ if (!app.requestSingleInstanceLock()) {
     const theme = getSetting(getDb(), 'theme')
     nativeTheme.themeSource = theme
     createWindow(theme)
+    registerParkShortcut()
     const stopReminders = startReminderTimer({ window: () => mainWindow })
     app.on('will-quit', stopReminders)
   })

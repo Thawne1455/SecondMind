@@ -13,6 +13,7 @@ Bu dosya her oturumda okunur, kısa tutulur. Ayrıntılar `docs/` altında. İlg
 | `docs/PROJELER.md` | Projeler paneli, tarama, Unity ve Claude Code köprüsü. |
 | `docs/OKUL.md` | Okul paneli. |
 | `docs/EKRANLAR.md` | Bugün, Döküm, Onay Kutusu, Zihin, Bilgi, Ayarlar. |
+| `docs/YEREL-LLM.md` | AI akışına (Aşama 4) başlamadan önce: yerel model kararı. |
 
 ## Stack
 

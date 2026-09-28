@@ -7,6 +7,8 @@ import { BugunPage } from './features/bugun/BugunPage'
 import { DokumPage } from './features/dokum/DokumPage'
 import { OkulPage } from './features/okul/OkulPage'
 import { OnayPage } from './features/onay/OnayPage'
+import { ParkWindow } from './features/projeler/ParkWindow'
+import { ProjectPage } from './features/projeler/ProjectPage'
 import { ProjelerPage } from './features/projeler/ProjelerPage'
 import { TasarimPage } from './features/tasarim/TasarimPage'
 import { ZihinPage } from './features/zihin/ZihinPage'
@@ -22,11 +24,14 @@ export function App() {
 
   return (
     <Routes>
+      {/* Küresel park penceresi (Ctrl Alt P): ayrı, kenarlıksız pencere; kabuk yok. */}
+      <Route path="/park" element={<ParkWindow />} />
       <Route element={<AppShell />}>
         <Route path="/" element={<BugunPage />} />
         <Route path="/dokum" element={<DokumPage />} />
         <Route path="/onay" element={<OnayPage />} />
         <Route path="/projeler" element={<ProjelerPage />} />
+        <Route path="/projeler/:projectId" element={<ProjectPage />} />
         <Route path="/okul" element={<OkulPage />} />
         <Route path="/zihin" element={<ZihinPage />} />
         <Route path="/bilgi/:noteId?" element={<BilgiPage />} />

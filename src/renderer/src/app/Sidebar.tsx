@@ -1,7 +1,8 @@
 import { NavLink } from 'react-router'
 import { Moon, Settings, Sun } from 'lucide-react'
 import { usePendingDumpCount } from '../features/dokum/useDumps'
-import { FAKE_PROJECTS } from '../lib/fake'
+import { SILENT_AFTER_DAYS } from '../features/projeler/labels'
+import { useProjects } from '../features/projeler/useProjects'
 import { useSetSetting, useSetting } from '../lib/settings'
 import { Badge, cn } from '../ui'
 import { PANELS, type PanelId } from './panels'
@@ -22,6 +23,7 @@ export function Sidebar() {
   const theme = useSetting('theme')
   const setTheme = useSetSetting('theme')
   const dark = theme.data === 'dark'
+  const projects = (useProjects().data ?? []).filter((p) => p.status === 'active').slice(0, 5)
   const counts: Partial<Record<PanelId, number>> = {
     dokum: usePendingDumpCount(),
     // onay: bekleyen öneri sayısı Aşama 4'te (proposals).
@@ -63,26 +65,36 @@ export function Sidebar() {
 
       <span className="my-2.5 h-0.5 w-7 rounded-sm bg-line" />
 
-      {/* Aktif projeler (en fazla 5). Sessiz proje mercan halkalı. Proje sayfaları Aşama 5'te. */}
-      {FAKE_PROJECTS.slice(0, 5).map((p) => (
-        <NavLink
-          key={p.id}
-          to="/projeler"
-          aria-label={p.silentDays ? `${p.name}, ${p.silentDays} gündür açılmadı` : p.name}
-          title={p.name}
-          className={cn(LINK, 'h-9')}
-        >
-          <span
-            className="size-3.5 rounded-[5px]"
-            style={{
-              background: p.color,
-              boxShadow: p.silentDays
-                ? '0 0 0 2px var(--s2), 0 0 0 4px var(--color-coral)'
-                : undefined,
-            }}
-          />
-        </NavLink>
-      ))}
+      {/* Aktif projeler (en fazla 5, liste sırasıyla). Sessiz proje mercan halkalı, oturumu süren ink halkalı. */}
+      {projects.map((p) => {
+        const silent = p.silentDays >= SILENT_AFTER_DAYS
+        const label = p.activeSession
+          ? `${p.name}, oturum sürüyor`
+          : silent
+            ? `${p.name}, ${p.silentDays} gün sessiz`
+            : p.name
+        return (
+          <NavLink
+            key={p.id}
+            to={`/projeler/${p.id}`}
+            aria-label={label}
+            title={label}
+            className={({ isActive }) => cn(LINK, 'h-9', isActive && 'bg-s3')}
+          >
+            <span
+              className="size-3.5 rounded-[5px]"
+              style={{
+                background: p.color,
+                boxShadow: p.activeSession
+                  ? '0 0 0 2px var(--s2), 0 0 0 4px var(--ink)'
+                  : silent
+                    ? '0 0 0 2px var(--s2), 0 0 0 4px var(--color-coral)'
+                    : undefined,
+              }}
+            />
+          </NavLink>
+        )
+      })}
 
       <span className="grow" />
 

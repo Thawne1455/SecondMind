@@ -20,6 +20,18 @@ import {
 } from './schemas/knowledge'
 import { checkinSchema, checkinSetInputSchema, weekAchievementsSchema } from './schemas/mind'
 import {
+  folderInspectionSchema,
+  parkingAddInputSchema,
+  parkingItemSchema,
+  parkingResolveInputSchema,
+  projectCreateInputSchema,
+  projectSummarySchema,
+  projectUpdateInputSchema,
+  sessionCloseInputSchema,
+  sessionSchema,
+  sessionStartInputSchema,
+} from './schemas/projects'
+import {
   reminderCreateInputSchema,
   reminderResolveInputSchema,
   reminderSchema,
@@ -41,6 +53,7 @@ export * from './schemas/dump'
 export * from './schemas/knowledge'
 export * from './schemas/mind'
 export * from './schemas/planning'
+export * from './schemas/projects'
 
 // IPC sözleşmesinin tek kaynağı. Kanal adları `alan:eylem` biçiminde.
 // Ana süreç her girdiyi burada tanımlı şemayla doğrular.
@@ -311,6 +324,93 @@ export const ipcContract = {
   'achievement:week': {
     input: z.void(),
     output: weekAchievementsSchema,
+  },
+  /** Canlı projeler (arşiv dahil) liste sırasıyla: aktif, oturumu süren, son etkinlik. */
+  'project:list': {
+    input: z.void(),
+    output: z.array(projectSummarySchema),
+  },
+  'project:create': {
+    input: projectCreateInputSchema,
+    output: z.object({ id: z.string() }),
+  },
+  /** Kısmi güncelleme; durum `archived` olunca `archived_at` dolar. */
+  'project:update': {
+    input: projectUpdateInputSchema,
+    output: z.void(),
+  },
+  /** Detay sayfası açıldı (`last_opened_at`); log'a yazılmaz. */
+  'project:opened': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** Çöp kutusuna; süren oturum varsa şimdi kapanır. */
+  'project:delete': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  'project:restore': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** Sistem klasör seçicisi; vazgeçilirse null. */
+  'project:pickFolder': {
+    input: z.void(),
+    output: z.string().nullable(),
+  },
+  /** Klasörden ad, tür, Unity sürümü, git ve renk tahmini. Klasöre yazmaz. */
+  'project:inspectFolder': {
+    input: z.object({ path: z.string().min(1) }),
+    output: folderInspectionSchema,
+  },
+  /** Bağlı klasörü Gezgin'de açar. */
+  'project:openFolder': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** Oturum açar. Aynı projede süren varsa onu döndürür; başka projede süren varsa hata. */
+  'session:start': {
+    input: sessionStartInputSchema,
+    output: sessionSchema,
+  },
+  /** Oturumu kapatır, projenin sıradaki adımını günceller (tek grupla loglanır). */
+  'session:close': {
+    input: sessionCloseInputSchema,
+    output: sessionSchema,
+  },
+  /** Yanlışlıkla açılan oturumu kayıt bırakmadan atar (çöp kutusuna). */
+  'session:discard': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** Projenin oturumları, en yeni önce. */
+  'session:list': {
+    input: z.object({ projectId: z.string(), limit: z.number().int().min(1).max(200).default(20) }),
+    output: z.array(sessionSchema),
+  },
+  /** Bekleyen park öğeleri, en yeni önce; proje verilmezse hepsi. */
+  'parking:list': {
+    input: z.object({ projectId: z.string().optional() }),
+    output: z.array(parkingItemSchema),
+  },
+  'parking:add': {
+    input: parkingAddInputSchema,
+    output: parkingItemSchema,
+  },
+  /** Göreve çevir (projenin görevi olur) ya da at. */
+  'parking:resolve': {
+    input: parkingResolveInputSchema,
+    output: z.object({ taskId: z.string().nullable() }),
+  },
+  /** Çevirmeyi / atmayı geri alır (çevrilmiş görev çöp kutusuna gider). */
+  'parking:restore': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** Park penceresini gizler; odak önceki uygulamaya döner. */
+  'park:hide': {
+    input: z.void(),
+    output: z.void(),
   },
 } as const satisfies Record<IpcChannel, { input: z.ZodType; output: z.ZodType }>
 

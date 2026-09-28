@@ -27,6 +27,7 @@ import {
   setTaskDone,
   sweepDueReminders,
 } from '../src/main/db/planning'
+import { addParking, closeSession, createProject, startSession } from '../src/main/db/projects'
 import * as schema from '../src/main/db/schema'
 import { defaultDataDir } from '../src/main/domain/dataDir'
 import { storeMedia } from '../src/main/media'
@@ -429,17 +430,109 @@ type TaskSeed = {
   priority?: 1 | 2 | 3
   postponed?: number
   doneDaysAgo?: number
+  project?: ProjectKey
 }
 
+// ---------------------------------------------------------------- projeler (Aşama 5a)
+
+type ProjectKey = 'runika' | 'secondmind' | 'album'
+
+/** Runika'nın gerçek klasörü varsa bağlanır (sadece okunur); yoksa klasörsüz. SecondMind bu repo. */
+const PROJECTS: {
+  key: ProjectKey
+  name: string
+  kind: 'unity' | 'software' | 'creative'
+  color: string
+  folder: string | null
+  created: number
+  nextStep: string
+  /** [kaç gün önce, başlama saati, dakika, nerede bıraktın] */
+  sessions: [number, number, number, string][]
+  parking: [number, string][]
+}[] = [
+  {
+    key: 'runika',
+    name: 'Runika',
+    kind: 'unity',
+    color: '#3BE08F',
+    folder: 'C:\\ajanda\\Runika',
+    created: 60,
+    nextStep: 'Boss fazı 2 müziğini hızlandır',
+    sessions: [
+      [12, 20, 95, 'Silah üreticisi parametrik oldu, denge tablosu yarım.'],
+      [9, 21, 140, 'Shop reroll çalışıyor, fiyat eğrisi hâlâ dik.'],
+      [8, 19, 60, ''],
+      [6, 22, 110, 'Kill orb yerde duruyor; toplama yarıçapı küçük geldi.'],
+      [5, 20, 75, "Rün halesi yumuşadı, çerçeve sprite'ları FullRect."],
+      [3, 21, 125, "Prova sahneleri kalktı. URP ayarları commit'lenmedi, Unity 6 uyarısı var."],
+      [1, 20, 90, 'Boss fazı 2 müziği yarım: geçişte ses patlıyor, döngü noktası yanlış.'],
+    ],
+    parking: [
+      [4, 'Kamera sarsıntısını ayarlar menüsüne bağla'],
+      [2, 'Ölüm panelinde skor sayacı animasyonu'],
+      [1, "Playtest için Ali ve Deniz'e build gönder"],
+    ],
+  },
+  {
+    key: 'secondmind',
+    name: 'SecondMind',
+    kind: 'software',
+    color: '#FF8A3D',
+    folder: resolve('.'),
+    created: 45,
+    nextStep: 'Kokpit karolarını ekran görüntüsüyle karşılaştır',
+    sessions: [
+      [7, 14, 180, 'Yerleştirme algoritması testleri yeşil.'],
+      [4, 15, 150, 'Günlük kayıt karosu bitti; uyku ayrıştırma "7,5" kabul ediyor.'],
+      [2, 13, 200, 'Aşama 5 spesifikasyonu yazıldı.'],
+      [0, 9, 70, 'Proje tabloları ve oturum sorguları hazır.'],
+    ],
+    parking: [[0, 'Kokpitte haftalık commit grafiği (5b)']],
+  },
+  {
+    key: 'album',
+    name: 'Albüm',
+    kind: 'creative',
+    color: '#F59BE6',
+    folder: null,
+    created: 90,
+    nextStep: 'İkinci parçanın nakaratını yeniden kaydet',
+    sessions: [
+      [30, 22, 60, 'Demo 1 miksi bitti.'],
+      [17, 23, 45, 'Nakaratta ses kısık kaldı.'],
+    ],
+    parking: [],
+  },
+]
+
 const TASKS: TaskSeed[] = [
-  { title: "Menü müziğini 1:20'ye kırp", planned: 0, estimate: 45, priority: 3 },
+  { title: "Menü müziğini 1:20'ye kırp", planned: 0, estimate: 45, priority: 3, project: 'runika' },
   { title: 'Olasılık ödevi 2, soru 4: hocaya sor', planned: 0, estimate: 15, due: 1 },
   // 3 kez ertelenmiş: Bugün'de "Böl · Sil · Bugün yap" sorusu (3b).
-  { title: 'Unity 6 sonrası URP ayarlarını kontrol et', planned: 0, estimate: 30, postponed: 3 },
+  {
+    title: 'Unity 6 sonrası URP ayarlarını kontrol et',
+    planned: 0,
+    estimate: 30,
+    postponed: 3,
+    project: 'runika',
+  },
+  {
+    title: 'Pause menüsünde müzik baştan başlıyor',
+    planned: null,
+    estimate: 30,
+    project: 'runika',
+  },
+  {
+    title: 'Ses ayarlarına müzik/efekt kaydırıcısı',
+    planned: null,
+    estimate: 60,
+    project: 'runika',
+  },
   { title: 'Lineer Cebir quiz tekrarı: 3. ve 4. bölüm', planned: 1, estimate: 90, due: 4 },
   { title: 'Kahve filtresi al', planned: null, priority: 1 },
-  { title: 'Runika devlog taslağı', planned: null, estimate: 60 },
-  { title: 'Electron iskeletini kur', planned: 0, doneDaysAgo: 1 },
+  { title: 'Runika devlog taslağı', planned: null, estimate: 60, project: 'runika' },
+  { title: 'Park penceresini Unity açıkken dene', planned: 0, estimate: 20, project: 'secondmind' },
+  { title: 'Electron iskeletini kur', planned: 0, doneDaysAgo: 1, project: 'secondmind' },
   { title: 'Kütüphane kitabını iade et', planned: 0, doneDaysAgo: 3 },
   { title: 'AVL dönme örneğini deftere geçir', planned: 0, doneDaysAgo: 2 },
 ]
@@ -517,6 +610,44 @@ function main(): void {
       .run()
   }
 
+  // Projeler: geçmiş oturumlar, park öğeleri; Runika'da 42 dakikadır süren bir oturum.
+  const projectIds = {} as Record<ProjectKey, string>
+  for (const p of PROJECTS) {
+    const folderPath = p.folder && existsSync(p.folder) ? p.folder : null
+    const id = createProject(
+      db,
+      { name: p.name, kind: p.kind, color: p.color, folderPath },
+      ago(p.created),
+    )
+    projectIds[p.key] = id
+    for (const [days, hour, min, leftOff] of p.sessions) {
+      const start = ago(days, hour)
+      // Bugünün oturumu henüz gelmemiş bir saatteyse sabaha çekilir.
+      const at = start.getTime() + min * 60_000 > now.getTime() ? subDays(start, 1) : start
+      const s = startSession(db, { projectId: id }, at)
+      closeSession(
+        db,
+        { id: s.id, leftOff, nextStep: p.nextStep },
+        new Date(at.getTime() + min * 60_000),
+      )
+    }
+    for (const [days, text] of p.parking) {
+      const at = ago(days, 21)
+      const parkedAt = at > now ? new Date(now.getTime() - 30 * 60_000) : at
+      addParking(db, { projectId: id, text, source: 'shortcut' }, parkedAt)
+    }
+  }
+  db.update(schema.projects)
+    .set({ lastOpenedAt: ago(1, 22) })
+    .where(eq(schema.projects.id, projectIds.runika))
+    .run()
+  startSession(db, { projectId: projectIds.runika }, new Date(now.getTime() - 42 * 60_000))
+  addParking(
+    db,
+    { projectId: projectIds.runika, text: "itch sayfası için 3 sn'lik GIF", source: 'shortcut' },
+    new Date(now.getTime() - 10 * 60_000),
+  )
+
   const day = (offset: number) => format(addDays(now, offset), 'yyyy-MM-dd')
   for (const t of TASKS) {
     const created = ago(5 + (t.postponed ?? 0), 10)
@@ -528,6 +659,7 @@ function main(): void {
         dueDate: t.due === undefined ? null : day(t.due),
         estimateMin: t.estimate ?? null,
         priority: t.priority ?? 2,
+        projectId: t.project ? projectIds[t.project] : null,
       },
       created,
     )
@@ -572,7 +704,8 @@ function main(): void {
     `seed: ${dataDir}\n` +
       `  ${Object.keys(NOTES).filter(Boolean).length} koleksiyon, ${noteCount} not, ` +
       `${IDEAS.length} fikir, ${DUMPS.length} döküm, 2 resim, ${TASKS.length} görev, ` +
-      `${ROUTINES.length} rutin, 6 hatırlatma (1 kaçırılmış).\n` +
+      `${ROUTINES.length} rutin, 6 hatırlatma (1 kaçırılmış), ${PROJECTS.length} proje ` +
+      `(Runika'da süren oturum).\n` +
       `  Uygulamayı bu klasörle açmak için userData/config.json: {"dataDir": "${dataDir.replace(/\\/g, '\\\\')}"}`,
   )
 }

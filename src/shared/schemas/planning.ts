@@ -36,6 +36,8 @@ export const taskSchema = z.object({
   /** Unix ms. */
   completedAt: z.number().nullable(),
   createdAt: z.number(),
+  /** Bağlı proje; null = genel görev. */
+  projectId: z.string().nullable(),
 })
 
 const taskFields = {
@@ -54,6 +56,7 @@ export const taskCreateInputSchema = z.object({
   estimateMin: taskFields.estimateMin.optional(),
   dueDate: taskFields.dueDate.optional(),
   plannedDate: taskFields.plannedDate.optional(),
+  projectId: z.string().nullish(),
 })
 
 export const taskUpdateInputSchema = z
@@ -87,6 +90,8 @@ export const scheduleBlockSchema = z.object({
   /** Elle taşındı: o gün sabit. */
   pinned: z.boolean(),
   title: z.string(),
+  /** Görevin projesi (rutinde ve genel görevde null): bantta proje rengi. */
+  projectId: z.string().nullable(),
   /** Görev bitti (rutinde hep false). */
   done: z.boolean(),
   postponeCount: z.number(),

@@ -57,6 +57,24 @@ export const ipcChannels = [
   'checkin:today',
   'checkin:set',
   'achievement:week',
+  'project:list',
+  'project:create',
+  'project:update',
+  'project:opened',
+  'project:delete',
+  'project:restore',
+  'project:pickFolder',
+  'project:inspectFolder',
+  'project:openFolder',
+  'session:start',
+  'session:close',
+  'session:discard',
+  'session:list',
+  'parking:list',
+  'parking:add',
+  'parking:resolve',
+  'parking:restore',
+  'park:hide',
 ] as const
 export type IpcChannel = (typeof ipcChannels)[number]
 
@@ -66,6 +84,10 @@ export const ipcEvents = [
   'reminders:changed',
   /** Bildirime tıklandı: Bugün'e git. */
   'nav:today',
+  /** Projeler, oturumlar ya da park alanı başka pencereden (park penceresi) değişti. */
+  'projects:changed',
+  /** Park penceresi (Ctrl Alt P) yeniden gösterildi: alan temizlenir, proje yeniden seçilir. */
+  'park:shown',
 ] as const
 export type IpcEvent = (typeof ipcEvents)[number]
 

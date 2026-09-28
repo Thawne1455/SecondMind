@@ -12,12 +12,13 @@ import {
   type BlockTiming,
 } from '../../lib/flow'
 import { Button, cn, ON_BAND } from '../../ui'
+import { useProjectMap } from '../projeler/useProjects'
 
 // Bant içi sabit renkler: bant her iki temada da koyu, üstündeki yazılar da sabit.
 const MUTED = '#A5A5B4'
 const SOFT = '#C8C8D4'
 const NOW = '#FF5A45'
-/** Projesiz (genel) görev: nötr açık blok. Proje rengi Aşama 5'te. */
+/** Projesiz (genel) görev: nötr açık blok; proje görevi proje renginde. */
 const TASK_FILL = '#E4E4EC'
 const ROUTINE_FILL = '#55555F'
 /** Bundan kısa boşluk kesikli blok olarak çizilmez (sadece toplamda sayılır). */
@@ -58,6 +59,7 @@ export function FlowBand({
   const minutesPerPx = () =>
     (DAY_END - DAY_START) / (trackRef.current?.getBoundingClientRect().width || 1)
   const unplaced = day?.unplaced ?? []
+  const projects = useProjectMap()
 
   return (
     <section
@@ -115,6 +117,7 @@ export function FlowBand({
             <TaskBlock
               key={block.id}
               block={block}
+              fill={(block.projectId && projects.get(block.projectId)?.color) || TASK_FILL}
               timing={timingOf(block, nowMin)}
               minutesPerPx={minutesPerPx}
               onMove={onMove}
@@ -219,6 +222,8 @@ function RoutineBlock({ block, timing }: { block: ScheduleBlock; timing: BlockTi
 
 type TaskBlockProps = {
   block: ScheduleBlock
+  /** Proje rengi; genel görevde nötr. */
+  fill: string
   timing: BlockTiming
   minutesPerPx: () => number
   onMove: (id: string, start: number) => void
@@ -230,7 +235,7 @@ type TaskBlockProps = {
  * Görev bloğu: tıklayınca açılır, sürükleyince taşınır ve o gün sabitlenir (işaret görünür,
  * işarete tıklamak sabitliği kaldırır). Klavye: Enter açar, ← → 15 dk (Shift 5 dk) taşır.
  */
-function TaskBlock({ block, timing, minutesPerPx, onMove, onUnpin, onOpen }: TaskBlockProps) {
+function TaskBlock({ block, fill, timing, minutesPerPx, onMove, onUnpin, onOpen }: TaskBlockProps) {
   const [drag, setDrag] = useState<{ x0: number; scale: number; delta: number } | null>(null)
   const draggable = !block.done
   const delta = drag?.delta ?? 0
@@ -291,7 +296,7 @@ function TaskBlock({ block, timing, minutesPerPx, onMove, onUnpin, onOpen }: Tas
         )}
         style={{
           ...position(start, end),
-          background: TASK_FILL,
+          background: fill,
           boxShadow: timing === 'current' || drag ? '0 0 0 3px #FFFFFF' : undefined,
         }}
       >

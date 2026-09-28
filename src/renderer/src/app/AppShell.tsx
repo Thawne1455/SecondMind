@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useNavigate } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
@@ -8,7 +8,12 @@ import { useNoteTitles } from '../features/bilgi/useKnowledge'
 import { ReminderWorkspace } from '../features/bugun/ReminderWorkspace'
 import { TaskWorkspace } from '../features/bugun/TaskWorkspace'
 import { planningKeys, useReminders, useTasks } from '../features/bugun/usePlanning'
-import { FAKE_PROJECTS } from '../lib/fake'
+import { CreateProjectDialog } from '../features/projeler/CreateProjectDialog'
+import { ParkBar } from '../features/projeler/ParkBar'
+import { SessionCloseDialog } from '../features/projeler/SessionCloseDialog'
+import { useProjects, useProjectsSync, useStartSession } from '../features/projeler/useProjects'
+import { errorText } from '../lib/errors'
+import { DialogFrame, useToast } from '../ui'
 import { useSetSetting, useSetting } from '../lib/settings'
 import { CommandPalette, type PaletteItem } from './CommandPalette'
 import { PANELS } from './panels'
@@ -21,10 +26,14 @@ type Dialog =
   | { kind: 'dump' }
   | { kind: 'task'; task: Task | null; planned: string | null }
   | { kind: 'reminder'; reminder: Reminder | null }
+  | { kind: 'project-create' }
+  | { kind: 'park'; projectId: string | null }
+  | { kind: 'session-close'; then?: () => void }
 
 /**
  * Kenar çubuğu + içerik. Her ekrandan: Ctrl K komut paleti, Ctrl N Hızlı Döküm, Ctrl G görev,
- * Ctrl H hatırlatma. Aynı anda tek pencere açık. Ana süreç olaylarını da burada dinler.
+ * Ctrl H hatırlatma, Ctrl Shift N yeni proje. Aynı anda tek pencere açık. Ana süreç olaylarını da
+ * burada dinler. Oturum başlatma/kapama da burada: her ekrandan (Bugün, şerit, kokpit) aynı akış.
  */
 export function AppShell() {
   const navigate = useNavigate()
@@ -33,6 +42,15 @@ export function AppShell() {
   const { mutate: saveTheme } = useSetSetting('theme')
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const close = () => setDialog(null)
+  const { toast } = useToast()
+  const projects = useProjects().data
+  const startMutation = useStartSession()
+  useProjectsSync()
+  // startSession kararlı kalsın diye güncel liste ref'te.
+  const projectsRef = useRef(projects)
+  useEffect(() => {
+    projectsRef.current = projects
+  }, [projects])
 
   useEffect(() => {
     const shortcuts: Record<string, Dialog> = {
@@ -41,8 +59,15 @@ export function AppShell() {
       h: { kind: 'reminder', reminder: null },
     }
     function onKeyDown(e: KeyboardEvent) {
-      if (!e.ctrlKey || e.altKey || e.shiftKey) return
+      if (!e.ctrlKey || e.altKey) return
       const key = e.key.toLocaleLowerCase('tr-TR')
+      if (e.shiftKey) {
+        if (key === 'n') {
+          e.preventDefault()
+          setDialog({ kind: 'project-create' })
+        }
+        return
+      }
       if (key === 'k') {
         e.preventDefault()
         setDialog((d) => (d?.kind === 'palette' ? null : { kind: 'palette' }))
@@ -67,6 +92,25 @@ export function AppShell() {
     }
   }, [queryClient, navigate])
 
+  const { mutate: startMutate } = startMutation
+  const startSession = useCallback(
+    (projectId: string, opts: { taskId?: string | null; after?: () => void } = {}) => {
+      const run = () =>
+        startMutate(
+          { projectId, taskId: opts.taskId ?? null },
+          {
+            onSuccess: () => opts.after?.(),
+            onError: (e) => toast({ message: errorText(e), domain: 'warning' }),
+          },
+        )
+      const running = projectsRef.current?.find((p) => p.activeSession)
+      if (running && running.id !== projectId) setDialog({ kind: 'session-close', then: run })
+      else if (running) opts.after?.()
+      else run()
+    },
+    [startMutate, toast],
+  )
+
   const shell = useMemo(
     () => ({
       openPalette: () => setDialog({ kind: 'palette' }),
@@ -74,9 +118,14 @@ export function AppShell() {
       openTask: (task: Task | null = null, planned: string | null = null) =>
         setDialog({ kind: 'task', task, planned }),
       openReminder: (reminder: Reminder | null = null) => setDialog({ kind: 'reminder', reminder }),
+      openProjectCreate: () => setDialog({ kind: 'project-create' }),
+      openPark: (projectId: string | null = null) => setDialog({ kind: 'park', projectId }),
+      startSession,
+      closeSession: () => setDialog({ kind: 'session-close' }),
     }),
-    [],
+    [startSession],
   )
+  const running = projects?.find((p) => p.activeSession) ?? null
 
   const dark = theme.data === 'dark'
   const noteTitles = useNoteTitles().data
@@ -84,13 +133,40 @@ export function AppShell() {
   const reminders = useReminders().data
   const items = useMemo<PaletteItem[]>(
     () => [
-      ...FAKE_PROJECTS.map((p) => ({
-        id: `project-${p.id}`,
-        group: 'Projeler' as const,
-        label: `${p.name} — projeyi aç`,
-        dot: p.color,
-        run: () => navigate('/projeler'),
-      })),
+      ...(projects ?? [])
+        .filter((p) => p.status !== 'archived')
+        .map((p) => ({
+          id: `project-${p.id}`,
+          group: 'Projeler' as const,
+          label: `${p.name} — projeyi aç`,
+          meta: p.activeSession ? 'oturumda' : undefined,
+          dot: p.color,
+          run: () => navigate(`/projeler/${p.id}`),
+        })),
+      ...(running
+        ? [
+            {
+              id: 'session-close',
+              group: 'Komutlar' as const,
+              label: `${running.name} oturumunu kapat`,
+              run: () => shell.closeSession(),
+            },
+          ]
+        : []),
+      {
+        id: 'park',
+        group: 'Komutlar',
+        label: 'Park et (sonraya at)',
+        meta: 'Ctrl Alt P',
+        run: () => shell.openPark(),
+      },
+      {
+        id: 'project-new',
+        group: 'Komutlar',
+        label: 'Yeni proje',
+        meta: 'Ctrl Shift N',
+        run: () => shell.openProjectCreate(),
+      },
       {
         id: 'quick-dump',
         group: 'Komutlar',
@@ -170,7 +246,7 @@ export function AppShell() {
         run: () => navigate(`/bilgi/${n.id}`),
       })),
     ],
-    [navigate, dark, saveTheme, noteTitles, openTasks, reminders, shell],
+    [navigate, dark, saveTheme, noteTitles, openTasks, reminders, shell, projects, running],
   )
 
   return (
@@ -193,6 +269,29 @@ export function AppShell() {
         open={dialog?.kind === 'reminder'}
         reminder={dialog?.kind === 'reminder' ? dialog.reminder : null}
         onClose={close}
+      />
+      <CreateProjectDialog open={dialog?.kind === 'project-create'} onClose={close} />
+      <DialogFrame
+        open={dialog?.kind === 'park'}
+        onClose={close}
+        label="Park et"
+        width={720}
+        placement="top"
+      >
+        {dialog?.kind === 'park' && (
+          <ParkBar
+            projects={projects ?? []}
+            preferredId={dialog.projectId}
+            source="app"
+            onDone={close}
+            className="h-24 rounded-modal"
+          />
+        )}
+      </DialogFrame>
+      <SessionCloseDialog
+        project={dialog?.kind === 'session-close' ? running : null}
+        onClose={close}
+        onClosed={dialog?.kind === 'session-close' ? dialog.then : undefined}
       />
     </ShellContext>
   )

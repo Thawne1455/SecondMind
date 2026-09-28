@@ -174,6 +174,7 @@ function sync(tx: DbTx, now: Date, mode: 'fill' | 'replace'): ScheduleDay {
       end: r.endMin,
       pinned: r.pinned,
       title: t?.title ?? routineById.get(r.sourceId)?.title ?? '',
+      projectId: t?.projectId ?? null,
       done: t?.status === 'done',
       postponeCount: t?.postponeCount ?? 0,
     }

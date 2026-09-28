@@ -31,7 +31,7 @@ Her aşamanın sonunda uygulama açılır ve çalışır durumdadır.
 - [x] `npm run seed` ile gerçekçi örnek veri (`--data-dir` zorunlu)
 **Bitti sayılır:** Taha bir gün boyunca döküm ve not alabiliyor, arama çalışıyor.
 
-## Aşama 3 — Bugün gerçek veriyle · AKTİF
+## Aşama 3 — Bugün gerçek veriyle · BİTTİ
 3a: görevler, rutinler, hatırlatmalar, zamanlayıcı. 3b: `domain/scheduler`, `schedule_blocks`, akış bandı, Şimdi.
 3c: Zihin karosu (`checkins`), başarılar karosu, sahte verinin temizlenmesi.
 Kararlar: görev bağlamı şimdilik genel; ders/sınav blokları Okul'a (6) kadar bantta yok; Şimdi ve Sıradaki adımlar
@@ -49,7 +49,8 @@ kenar çubuğu projeleri Aşama 5'e kadar sahte, Onay Kutusu rozeti Aşama 4'e k
   karar karosu ve sahte karolar kaldırıldı, `lib/fake.ts`'te sadece kenar çubuğu projeleri kaldı)
 **Bitti sayılır:** Bugün ekranı sahte veri olmadan tasarımdaki gibi doluyor.
 
-## Aşama 4 — AI akışı ve Onay Kutusu
+## Aşama 4 — AI akışı ve Onay Kutusu · BEKLİYOR
+Yerel model (Qwen) mi, Claude Code mu, ikisi birlikte mi kararı açık: `docs/YEREL-LLM.md`. Karar verilmeden başlanmaz.
 - [ ] `resources/ai-agent/CLAUDE.md` gözden geçirilir, veri klasörüne kopyalanır
 - [ ] İş paketi hazırlama (bağlam kırpma dahil), `claude` sürecini başlatma, zaman aşımı, iptal, ilerleme
 - [ ] `changesSchema` (zod) + her işlem türü için uygulayıcı + önizleme bileşeni
@@ -57,13 +58,31 @@ kenar çubuğu projeleri Aşama 5'e kadar sahte, Onay Kutusu rozeti Aşama 4'e k
 - [ ] Ayarlar > AI: Claude Code yolu ve test butonu, model seçimi
 **Bitti sayılır:** 5 karışık döküm (metin + tahta fotoğrafı) işlenip doğru önerilere dönüşüyor, onaylananlar yerine yazılıyor, geri alınabiliyor.
 
-## Aşama 5 — Projeler
-- [ ] 5a: Proje oluşturma (tür, renk, klasör), liste şeritleri, proje başlığı bandı, Kokpit, oturum başlat/kapat
-- [ ] 5b: Tarayıcılar: git, Unity (alan kuralları, sahneler, sürüm), TODO taraması, git'siz envanter; Güncelle ve toast; sessizlik ve radar
-- [ ] 5c: Görevler kanbanı (türler, hata alanları, erteleme), Yol haritası (taşlar, çıkış kriterleri, Steam şablonu, proje takvimi)
-- [ ] 5d: Dokümantasyon ağacı + şablonlar + ADR, Günlük (devlog), Varlıklar (resim, PDF, ses oynatıcı)
-- [ ] 5e: Claude Code köprüsü: `BAGLAM.md` üretimi, oturum raporu ayrıştırma, önerilerin Onay Kutusu'na düşmesi, `Köprüyü kur`
-**Bitti sayılır:** Runika klasörü bağlanıyor, tarama commit'leri ve TODO'ları doğru gösteriyor, bir Claude Code oturum raporu öneriye dönüşüyor.
+## Aşama 5 — Projeler · AKTİF
+İlke: SecondMind projede Taha'nın fark etmediğini fark eder; veri kendi toplanır ya da tek hareket ister, form yok.
+Tamamen algoritmik (AI'lı sürümler Aşama 4'ten sonra). Sıra Runika'nın çıkışına en çok yardım edene göre.
+Runika klasörü (`C:\ajanda\Runika`) tarayıcılarla sadece okunur, içine yazılmaz.
+- [x] 5a Temel: `projects`, `project_folders`, `sessions`, `parking`; klasörden proje oluşturma (tür/ad/renk tahmini),
+  liste şeritleri, proje başlığı bandı, Kokpit iskeleti (sıradaki adım, son oturum, Sonra karoları), oturum başlat/kapat
+  ve kapanış modalı, park alanı (uygulama içi P + küresel Ctrl Alt P mini penceresi), kenar çubuğu ve komut paletinde
+  gerçek projeler (`lib/fake.ts` silinir), Bugün'de proje renkleri + Şimdi'de gerçek oturum, seed'e Runika/SecondMind/Albüm
+- [ ] 5b Tarama ve geri dönüş: git (commit'ler, alanlar, commit'lenmemiş değişiklikler), Unity (sürüm, sahneler,
+  EditorBuildSettings, script sayısı), TODO taraması, git'siz envanter, Claude Code oturum kayıtlarından otomatik
+  oturumlar (sadece üst veri), geri dönüş brifingi, Bu hafta / Koddaki notlar / ısı haritası karoları, Güncelle ve toast,
+  sessizlik ve radar, şeritte aktivite çubukları
+- [ ] 5c Planlama: `domain/nextSteps` (sıradaki adım motoru) + test, kilometre taşları ve çıkış kriterleri, kanban
+  (türler, önem, erteleme), `domain/playtest` (bölme + benzerlik) + test ve playtest kutusu, kapsam ölçer ve gerçekçi
+  bitiş tahmini (`domain/scope` + test), taş planlarken park sütunu, Yol haritası zaman çizelgesi, yayın platformu şablonu
+  (Steam / itch.io), proje takvimi; Bugün'ün Şimdi'si motoru kullanır
+- [ ] 5d Doküman ve hafıza: doküman ağacı + şablonlar + ADR, bağlı repo markdown'ları, GDD ile gerçeklik karşılaştırması
+  (`domain/gddCompare` + test), Günlük, devlog taslağı (`domain/devlog` + test), Varlıklar, zaman makinesi galerisi
+  (görüntü klasörleri + kapanışta yapıştırma) ve karşılaştırma
+- [ ] 5e Claude Code köprüsü: `Köprüyü kur` / `Köprüyü kaldır`, `BAGLAM.md` üretimi (motorla), Editor betiği
+  (`SecondMindSnapshot.cs`, zaman makinesine günlük kare), oturum raporu ayrıştırma → Günlük ve otomatik oturum.
+  **Aşama 4'e bağlı:** rapordaki önerilerin Onay Kutusu'na düşmesi (o zamana kadar elle Göreve çevir / Park et)
+**Bitti sayılır:** Runika klasörü bağlanıyor; tarama commit'leri, commit'lenmemişleri ve TODO'ları doğru gösteriyor;
+3 gün sonra açılınca brifing nerede kalındığını söylüyor; Kokpit gerekçesiyle sıradaki 3 adımı veriyor; bir playtest
+yapıştırması kümelenip hataya dönüşüyor; Editor betiği günlük kare bırakıyor.
 
 ## Aşama 6 — Okul
 - [ ] Dönem, ders, program, hoca kurulumu (Ayarlar + ilk kurulum sihirbazı)

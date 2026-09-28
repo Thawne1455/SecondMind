@@ -1,15 +1,19 @@
 import type { ReactNode } from 'react'
-import { ArrowRight, Check, Play, Plus } from 'lucide-react'
+import { ArrowRight, Check, Play, Plus, Square } from 'lucide-react'
 import type { ScheduleBlock, ScheduleDay, Task } from '@shared/ipc'
 import { useShell } from '../../app/shell-context'
 import { errorText } from '../../lib/errors'
 import { formatAtClock, formatDuration } from '../../lib/flow'
+import { useNow } from '../../lib/useNow'
 import { Button, useToast } from '../../ui'
+import { formatTimer } from '../projeler/labels'
+import { useActiveSession, useProjectMap } from '../projeler/useProjects'
 import { useMoveBlock, useStartTask, useToggleDone } from './usePlanning'
 
 // Şimdi (EKRANLAR.md Bugün): şu anki blok → yoksa sıradaki blok ("13:00'TE") → yoksa en öndeki açık görev.
-// Projeler Aşama 5'te: şimdilik genel görevler, renk noktası nötr. Oturum tablosu da Aşama 5'te;
-// o zamana kadar "Başla" bloğu şimdiye çekip sabitler, "Oturumu kapat" yerine "Tamamla" var.
+// Proje görevinde etiket proje adını ve rengini taşır; "Başla" projede oturum açar ve bloğu şimdiye çeker.
+// O projenin oturumu sürerken "Sonraya at" yerine "Oturumu kapat" gelir. Başka projede süren oturum
+// etiketin altında tek satır olarak görünür.
 
 type Focus =
   | { kind: 'current'; block: ScheduleBlock }
@@ -37,7 +41,10 @@ type Props = {
 }
 
 export function NowSection({ day, nowMin, openTasks, aside }: Props) {
-  const { openTask } = useShell()
+  const { openTask, startSession, closeSession } = useShell()
+  const projects = useProjectMap()
+  const running = useActiveSession()
+  const clock = useNow(15_000)
   const toggleDone = useToggleDone()
   const start = useStartTask()
   const move = useMoveBlock()
@@ -52,19 +59,27 @@ export function NowSection({ day, nowMin, openTasks, aside }: Props) {
         ? focus.block.sourceId
         : null
   const task = taskId ? openTasks.find((t) => t.id === taskId) : undefined
+  const project = task?.projectId ? projects.get(task.projectId) : undefined
+  const ownSession = !!project && running?.project.id === project.id
+  const projectLabel = project ? ` · ${project.name}` : ''
+  const begin = (t: Task) => {
+    const pull = () => start.mutate(t.id, { onError })
+    if (project) startSession(project.id, { taskId: t.id, after: pull })
+    else pull()
+  }
 
   let label: string
   let title: string
   if (focus.kind === 'current') {
     const rest = formatDuration(focus.block.end - nowMin)
-    label = `Şimdi${focus.block.kind === 'routine' ? ' · Rutin' : ''} · ${rest} kaldı`
+    label = `Şimdi${focus.block.kind === 'routine' ? ' · Rutin' : projectLabel} · ${rest} kaldı`
     title = focus.block.title
   } else if (focus.kind === 'next') {
     const dur = formatDuration(focus.block.end - focus.block.start)
-    label = `${formatAtClock(focus.block.start)}${focus.block.kind === 'routine' ? ' · Rutin' : ''} · ${dur}`
+    label = `${formatAtClock(focus.block.start)}${focus.block.kind === 'routine' ? ' · Rutin' : projectLabel} · ${dur}`
     title = focus.block.title
   } else if (focus.kind === 'task') {
-    label = 'Sıradaki adım'
+    label = `Sıradaki adım${projectLabel}`
     title = focus.task.title
   } else {
     label = 'Şimdi'
@@ -93,10 +108,29 @@ export function NowSection({ day, nowMin, openTasks, aside }: Props) {
   )
 
   let actions: ReactNode = null
-  if (focus.kind === 'current' && task) {
+  if (focus.kind === 'current' && task && ownSession) {
     actions = (
       <>
         {complete}
+        <Button variant="secondary" icon={Square} className="h-12" onClick={closeSession}>
+          Oturumu kapat
+        </Button>
+      </>
+    )
+  } else if (focus.kind === 'current' && task) {
+    actions = (
+      <>
+        {complete}
+        {project && (
+          <Button
+            variant="secondary"
+            icon={Play}
+            className="h-12"
+            onClick={() => startSession(project.id, { taskId: task.id })}
+          >
+            Oturumu aç
+          </Button>
+        )}
         <Button
           variant="secondary"
           icon={ArrowRight}
@@ -116,7 +150,7 @@ export function NowSection({ day, nowMin, openTasks, aside }: Props) {
           variant="action"
           icon={Play}
           loading={start.isPending}
-          onClick={() => start.mutate(task.id, { onError })}
+          onClick={() => begin(task)}
         >
           Başla
         </Button>
@@ -135,9 +169,25 @@ export function NowSection({ day, nowMin, openTasks, aside }: Props) {
     <section className="flex items-end gap-10 px-1">
       <div className="flex min-w-0 grow flex-col gap-2.5">
         <span className="cx flex items-center gap-2.5 text-ink2">
-          <span className="size-3 rounded-full bg-ink3" />
+          <span
+            className="size-3 rounded-full bg-ink3"
+            style={project ? { backgroundColor: project.color } : undefined}
+          />
           {label}
         </span>
+        {running && !ownSession && (
+          <span className="flex items-center gap-2 text-[14px] font-semibold text-ink2">
+            <span
+              className="size-2 rounded-full"
+              style={{ backgroundColor: running.project.color }}
+            />
+            {running.project.name} oturumu sürüyor ·{' '}
+            {formatTimer(clock - running.session.startedAt)}
+            <Button size="xs" variant="secondary" onClick={closeSession}>
+              Kapat
+            </Button>
+          </span>
+        )}
         {task ? (
           <button
             type="button"

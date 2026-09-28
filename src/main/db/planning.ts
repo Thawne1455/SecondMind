@@ -102,6 +102,7 @@ function toTask(r: TaskRow): Task {
     postponeCount: r.postponeCount,
     completedAt: r.completedAt?.getTime() ?? null,
     createdAt: r.createdAt.getTime(),
+    projectId: r.projectId,
   }
 }
 
@@ -139,6 +140,7 @@ export function createTask(db: Db, input: TaskCreateInput, now = new Date()): Ta
         estimateMin: input.estimateMin ?? null,
         dueDate: input.dueDate ?? null,
         plannedDate: input.plannedDate ?? null,
+        projectId: input.projectId ?? null,
         createdAt: now,
         updatedAt: now,
       })
@@ -218,6 +220,10 @@ export function splitTask(db: Db, id: string, titles: readonly string[], now = n
           estimateMin: estimate,
           dueDate: before.dueDate,
           plannedDate: dayKey(now),
+          kind: before.kind,
+          projectId: before.projectId,
+          courseId: before.courseId,
+          milestoneId: before.milestoneId,
           createdAt: now,
           updatedAt: now,
         })
@@ -415,6 +421,8 @@ export function resolveMissedReminders(
           id: ulid(),
           title: before.title,
           plannedDate: dayKey(now),
+          projectId: before.projectId,
+          courseId: before.courseId,
           createdAt: now,
           updatedAt: now,
         })

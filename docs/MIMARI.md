@@ -95,7 +95,41 @@ silinebilenlerde `deleted_at`. Aşağısı başlangıç taslağıdır; aşamalar
   grubu `undone_at` ile işaretler.
 
 **Projeler** (ayrıntı `docs/PROJELER.md`)
-- `projects`, `project_folders`, `milestones`, `project_docs` (ağaç), `sessions`, `commits`, `code_todos`, `scan_snapshots`, `project_decisions`, `assets`.
+Taslak (Aşama 5). Her alt aşama kendi migration'ını getirir; hepsi **sadece ekleme** (yeni tablo, `tasks`'a null
+olabilen/varsayılanlı kolon). Geri dönüş: yeni tabloları düşür, `tasks` kolonları için SQLite `DROP COLUMN`.
+Proje kararları (ADR) ayrı tablo değil, `project_docs.kind = 'adr'`.
+- `projects` (5a): `name`, `kind` (`unity`/`software`/`creative`/`general`), `color` (proje paleti token'ı), `status`
+  (`active`/`paused`/`archived`), `next_step` (oturum kapanışının yazdığı; motorun girdisi), `description`,
+  `release_platform` (`steam`/`itch`/null), `count_rules_json` (GDD etiketi ↔ glob, 5d), `last_opened_at` (log'a yazılmaz),
+  `archived_at`, soft delete. Ad canlılar arasında benzersiz (kısmi unique index).
+- `project_folders` (5a): `project_id`, `path` (canlılar arasında benzersiz), `area_rules_json` (null = türün varsayılanı),
+  `image_dirs_json` (zaman makinesi klasörleri, 5d), `bridge_enabled`, `last_scan_at`. Klasör kaldırmak satırı siler (log'lu).
+- `sessions` (5a): `project_id`, `task_id` (null olabilir), `started_at`, `ended_at` (null = sürüyor; en fazla bir satır),
+  `left_off`, `next_step`, `source` (`taha`/`claude_code`), `external_id` (Claude Code jsonl oturum id'si, unique, 5b),
+  `files_json` (değişen dosyalar + alan, 5b), `shot_media_id` (kapanışta yapıştırılan görüntü, 5d). Soft delete.
+  Açma ve kapama loglanır; otomatik oturumlar `scan` aktörüyle.
+- `parking` (5a): `project_id`, `text`, `source` (`shortcut`/`app`/`dump`/`bridge`), `status` (`waiting`/`converted`/`dismissed`),
+  `task_id`, `resolved_at`, soft delete.
+- `commits` (5b): `project_id`, `folder_id`, `hash` (klasörde unique), `message`, `author`, `committed_at`, `areas_json`
+  (alan → dosya sayısı), `files_json` (yol, ekleme, silme). Tarama verisi: log'a tek özet satırı.
+- `code_todos` (5b): `project_id`, `path`, `line`, `text`, `tag` (TODO/FIXME/HACK), `first_seen_at`, `resolved_at`, `task_id`.
+- `scan_snapshots` (5b): `folder_id`, `scanned_at`, `summary_json` (alan sayımları, commit'lenmemiş dosyalar + mtime,
+  Unity sürümü, sahneler, yapı sahneleri, GDD sayımları), `inventory_json` (git'siz klasörde yol→boyut/mtime/hash). Son 30'u tutulur.
+- `milestones` (5c): `project_id`, `title`, `description`, `target_date` (`YYYY-MM-DD`), `sort`, `criteria_json`
+  (`[{id,text,done,taskId}]`), `done_at`, soft delete.
+- `tasks` ekleri (5c): `kanban_status` (`todo`/`doing`/`testing`/`done`; null = proje dışı görev), `severity`
+  (`critical`/`major`/`minor`), `repro_steps`, `milestone_set_at` (kapsam ölçer), `source` (`taha`/`park`/`playtest`/
+  `todo`/`claude_code`), `source_id`. `status = done` ↔ `kanban_status = done` aynı yazımda senkron. Mevcut `project_id`,
+  `milestone_id` kolonlarına FK eklenmez (SQLite tabloyu yeniden kurmak ister); bütünlük sorgu katmanında.
+- `playtest_feedback` (5c): `project_id`, `tester`, `received_on`, `raw_text`, soft delete.
+- `playtest_points` (5c): `feedback_id`, `text`, `stems` (hesaplanmış kök kümesi, boşlukla), `cluster_id`, `locked` (elle yerleşti).
+- `playtest_clusters` (5c): `project_id`, `label`, `task_id`, soft delete.
+- `project_docs` (5d): `project_id`, `parent_id`, `sort`, `title`, `body_md` ya da `source_path` (bağlı dosya, salt okunur),
+  `kind` (`page`/`adr`/`gdd`), `ai_open` (Claude Code'a açık), soft delete. FTS: `notes_fts` benzeri `project_docs_fts`.
+- `project_shots` (5d): `project_id`, `media_id` (projede unique), `taken_on`, `source` (`editor`/`folder`/`session`),
+  `source_path`, `starred`, soft delete.
+- `project_log_notes` (5d): `project_id`, `day`, `kind` (`note`/`devlog`), `body_md`, soft delete.
+- `assets` (5d): `project_id`, `media_id` ya da `external_path`, `kind`, `doc_id`, `task_id`, soft delete.
 
 **Okul** (ayrıntı `docs/OKUL.md`)
 - `terms`, `courses`, `course_slots`, `instructors`, `course_weeks`, `topics`, `grade_components`, `grades`,
