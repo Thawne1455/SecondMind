@@ -638,7 +638,7 @@ function main(): void {
     }
   }
   db.update(schema.projects)
-    .set({ lastOpenedAt: ago(1, 22) })
+    .set({ lastOpenedAt: ago(1, 22), releasePlatform: 'itch' })
     .where(eq(schema.projects.id, projectIds.runika))
     .run()
   startSession(db, { projectId: projectIds.runika }, new Date(now.getTime() - 42 * 60_000))

@@ -95,21 +95,30 @@ silinebilenlerde `deleted_at`. Aşağısı başlangıç taslağıdır; aşamalar
   grubu `undone_at` ile işaretler.
 
 **Projeler** (ayrıntı `docs/PROJELER.md`)
-Taslak (Aşama 5). Her alt aşama kendi migration'ını getirir; hepsi **sadece ekleme** (yeni tablo, `tasks`'a null
-olabilen/varsayılanlı kolon). Geri dönüş: yeni tabloları düşür, `tasks` kolonları için SQLite `DROP COLUMN`.
+5a tabloları yazıldı (`0007_projects`); 5b–5d taslak. Her alt aşama kendi migration'ını getirir; hepsi **sadece ekleme**
+(yeni tablo, `tasks`'a null olabilen/varsayılanlı kolon). Geri dönüş: yeni tabloları düşür, `tasks` kolonları için SQLite
+`DROP COLUMN`. `tasks`/`reminders`/`ideas.project_id`'ye FK eklenmez; bütünlük sorgu katmanında.
 Proje kararları (ADR) ayrı tablo değil, `project_docs.kind = 'adr'`.
-- `projects` (5a): `name`, `kind` (`unity`/`software`/`creative`/`general`), `color` (proje paleti token'ı), `status`
-  (`active`/`paused`/`archived`), `next_step` (oturum kapanışının yazdığı; motorun girdisi), `description`,
-  `release_platform` (`steam`/`itch`/null), `count_rules_json` (GDD etiketi ↔ glob, 5d), `last_opened_at` (log'a yazılmaz),
-  `archived_at`, soft delete. Ad canlılar arasında benzersiz (kısmi unique index).
-- `project_folders` (5a): `project_id`, `path` (canlılar arasında benzersiz), `area_rules_json` (null = türün varsayılanı),
-  `image_dirs_json` (zaman makinesi klasörleri, 5d), `bridge_enabled`, `last_scan_at`. Klasör kaldırmak satırı siler (log'lu).
-- `sessions` (5a): `project_id`, `task_id` (null olabilir), `started_at`, `ended_at` (null = sürüyor; en fazla bir satır),
-  `left_off`, `next_step`, `source` (`taha`/`claude_code`), `external_id` (Claude Code jsonl oturum id'si, unique, 5b),
-  `files_json` (değişen dosyalar + alan, 5b), `shot_media_id` (kapanışta yapıştırılan görüntü, 5d). Soft delete.
-  Açma ve kapama loglanır; otomatik oturumlar `scan` aktörüyle.
-- `parking` (5a): `project_id`, `text`, `source` (`shortcut`/`app`/`dump`/`bridge`), `status` (`waiting`/`converted`/`dismissed`),
-  `task_id`, `resolved_at`, soft delete.
+- `projects` (5a): `name`, `kind` (`unity`/`software`/`creative`/`general`), `color` (proje paleti, `#RRGGBB`), `status`
+  (`active`/`paused`/`archived`), `next_step` (oturum kapanışı yazar; 5c'de motorun girdisi), `description`,
+  `release_platform` (`steam`/`itch`/null; Runika = `itch`), `last_opened_at` (log'a yazılmaz), `archived_at`
+  (arşive alınınca dolar, çıkınca boşalır), soft delete. Ad canlılar arasında benzersiz (kısmi unique index).
+  Silme süren oturumu kapatır, ikisi tek grupla loglanır. 5d eki: `count_rules_json` (GDD etiketi ↔ glob).
+- `project_folders` (5a): `project_id`, `path` (mutlak, `resolve` ile normalleşmiş), `area_rules_json` (null = türün
+  varsayılanı, 5b), `bridge_enabled`, `last_scan_at`. Soft delete yok; klasör kaldırmak satırı siler (log'lu).
+  Aynı klasör iki projeye bağlanamaz: karşılaştırma `folderKey` ile (sondaki ayraç atılır, `/` → `\`, büyük/küçük harf
+  duyarsız), çünkü Windows yolları öyle. DB'deki unique index düz metin üzerinde, asıl kontrol sorgu katmanında.
+  5d eki: `image_dirs_json` (zaman makinesi klasörleri).
+- `sessions` (5a): `project_id`, `task_id` (null olabilir), `started_at`, `ended_at` (null = sürüyor), `left_off`,
+  `next_step`, `source` (`taha`/`claude_code`), `external_id` (Claude Code jsonl oturum id'si, unique, 5b),
+  `files_json` (değişen dosyalar + alan, 5b), soft delete. **Tüm projelerde aynı anda en fazla bir açık oturum**: DB
+  kısıtı değil, `startSession` başka projede süren oturum varsa hata verir (arayüz önce onun kapanışını açar).
+  Kapanış `durationMin` alabilir (4 saatten uzun oturumda gerçek süre; bitiş şimdiyi geçmez) ve projenin `next_step`'ini
+  aynı grupta günceller. "Oturumu at" satırı çöp kutusuna atar. Açma, kapama, atma loglanır; otomatik oturumlar (5b)
+  `scan` aktörüyle. 5d eki: `shot_media_id` (kapanışta yapıştırılan görüntü).
+- `parking` (5a): `project_id`, `text`, `source` (`shortcut`/`app`/`dump`/`bridge`), `status`: `waiting` → `converted`
+  (aynı grupta görev oluşturulur, `task_id` dolar) ya da `dismissed`; ikisinde de `resolved_at` dolar. Sadece bekleyen
+  öğe çözülür. Geri alma öğeyi yeniden `waiting` yapar, çevrilmiş görevi çöp kutusuna atar. Soft delete.
 - `commits` (5b): `project_id`, `folder_id`, `hash` (klasörde unique), `message`, `author`, `committed_at`, `areas_json`
   (alan → dosya sayısı), `files_json` (yol, ekleme, silme). Tarama verisi: log'a tek özet satırı.
 - `code_todos` (5b): `project_id`, `path`, `line`, `text`, `tag` (TODO/FIXME/HACK), `first_seen_at`, `resolved_at`, `task_id`.

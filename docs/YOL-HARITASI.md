@@ -62,6 +62,9 @@ Yerel model (Qwen) mi, Claude Code mu, ikisi birlikte mi kararı açık: `docs/Y
 İlke: SecondMind projede Taha'nın fark etmediğini fark eder; veri kendi toplanır ya da tek hareket ister, form yok.
 Tamamen algoritmik (AI'lı sürümler Aşama 4'ten sonra). Sıra Runika'nın çıkışına en çok yardım edene göre.
 Runika klasörü (`C:\ajanda\Runika`) tarayıcılarla sadece okunur, içine yazılmaz.
+Kararlar (5a): proje klasörden oluşur (ad/tür/renk tahmini); liste filtre yerine aktif → duraklatılmış → katlı arşiv;
+aynı anda tek oturum (başka projede Başla önce süreninkini kapatır); kısayollar B başla/kapat, P park, ↑↓, Ctrl Alt P;
+Runika'nın yayın platformu itch.io (Windows + WebGL), Steam iptal. Hızlı Döküm'de `#proje sonra` öneki henüz yok.
 - [x] 5a Temel: `projects`, `project_folders`, `sessions`, `parking`; klasörden proje oluşturma (tür/ad/renk tahmini),
   liste şeritleri, proje başlığı bandı, Kokpit iskeleti (sıradaki adım, son oturum, Sonra karoları), oturum başlat/kapat
   ve kapanış modalı, park alanı (uygulama içi P + küresel Ctrl Alt P mini penceresi), kenar çubuğu ve komut paletinde
@@ -73,7 +76,7 @@ Runika klasörü (`C:\ajanda\Runika`) tarayıcılarla sadece okunur, içine yaz�
 - [ ] 5c Planlama: `domain/nextSteps` (sıradaki adım motoru) + test, kilometre taşları ve çıkış kriterleri, kanban
   (türler, önem, erteleme), `domain/playtest` (bölme + benzerlik) + test ve playtest kutusu, kapsam ölçer ve gerçekçi
   bitiş tahmini (`domain/scope` + test), taş planlarken park sütunu, Yol haritası zaman çizelgesi, yayın platformu şablonu
-  (Steam / itch.io), proje takvimi; Bugün'ün Şimdi'si motoru kullanır
+  (Steam / itch.io; Runika itch.io), proje takvimi; Bugün'ün Şimdi'si motoru kullanır
 - [ ] 5d Doküman ve hafıza: doküman ağacı + şablonlar + ADR, bağlı repo markdown'ları, GDD ile gerçeklik karşılaştırması
   (`domain/gddCompare` + test), Günlük, devlog taslağı (`domain/devlog` + test), Varlıklar, zaman makinesi galerisi
   (görüntü klasörleri + kapanışta yapıştırma) ve karşılaştırma

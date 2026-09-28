@@ -92,7 +92,7 @@ Kilometre taşları yatay zaman çizelgesinde (akış bandı dilinin haftalık/a
 Taş: ad, hedef tarih, açıklama, bağlı görevler, **çıkış kriterleri** (onay kutulu liste; bir kriter göreve bağlanabilir,
 görev bitince kriter kendiliğinden işaretlenir).
 Unity oyunu şablonu hazır taşlarla gelir (düzenlenebilir): Oynanabilir prototip → Dikey kesit → Mağaza sayfası → Demo → Beta → Çıkış.
-Mağaza sayfası taşının kontrol listesi platforma göre gelir:
+Mağaza sayfası taşının kontrol listesi platforma göre gelir (`release_platform`; Runika: itch.io, Steam iptal):
 - **Steam:** kapsül görseller, açıklama, ekran görüntüleri, fragman, etiketler, fiyat, çıkış tarihi.
 - **itch.io:** kapak görseli (630×500), kısa açıklama, ekran görüntüleri, GIF/fragman, etiketler, fiyat/ödeme, Windows ve WebGL yapıları.
 Taş planlanırken park alanındaki bekleyen öğeler yan sütunda listelenir: her biri tek tuşla bu taşa görev olur ya da atılır.
