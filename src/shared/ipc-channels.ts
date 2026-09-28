@@ -31,8 +31,34 @@ export const ipcChannels = [
   'idea:opened',
   'idea:today',
   'media:store',
+  'task:list',
+  'task:create',
+  'task:update',
+  'task:setDone',
+  'task:delete',
+  'task:restore',
+  'reminder:list',
+  'reminder:create',
+  'reminder:update',
+  'reminder:delete',
+  'reminder:restore',
+  'reminder:resolveMissed',
+  'routine:list',
+  'routine:create',
+  'routine:update',
+  'routine:delete',
+  'routine:restore',
 ] as const
 export type IpcChannel = (typeof ipcChannels)[number]
+
+/** Ana süreçten renderer'a olaylar (`window.api.on`). */
+export const ipcEvents = [
+  /** Hatırlatmalar değişti (çaldı ya da kaçırıldı): listeler yenilenir. */
+  'reminders:changed',
+  /** Bildirime tıklandı: Bugün'e git. */
+  'nav:today',
+] as const
+export type IpcEvent = (typeof ipcEvents)[number]
 
 export type Theme = 'light' | 'dark'
 

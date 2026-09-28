@@ -3,8 +3,9 @@ import { TopBar } from '../../app/TopBar'
 import { useAppInfo } from '../../lib/app'
 import { useSetSetting, useSetting } from '../../lib/settings'
 import { Chip, ErrorState, SectionHeader, Skeleton } from '../../ui'
+import { RoutinesSection } from './RoutinesSection'
 
-// Ayarlar iskeleti: şimdilik görünüm ve veri klasörü. Diğer bölümler ilgili aşamalarda eklenir.
+// Ayarlar iskeleti: görünüm, rutinler (3a) ve veri klasörü. Diğer bölümler ilgili aşamalarda eklenir.
 export function AyarlarPage() {
   const theme = useSetting('theme')
   const setTheme = useSetSetting('theme')
@@ -25,6 +26,8 @@ export function AyarlarPage() {
           </Chip>
         </div>
       </section>
+
+      <RoutinesSection />
 
       <section className="flex max-w-[720px] flex-col gap-4 pt-4">
         <SectionHeader title="Veri klasörü" />

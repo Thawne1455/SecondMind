@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { IpcChannel, Theme } from './ipc-channels'
+import type { IpcChannel, IpcEvent, Theme } from './ipc-channels'
 import { dumpCreateInputSchema, dumpItemSchema, dumpStatusSchema } from './schemas/dump'
 import {
   collectionCreateInputSchema,
@@ -18,10 +18,24 @@ import {
   noteUpdateInputSchema,
   tagSummarySchema,
 } from './schemas/knowledge'
+import {
+  reminderCreateInputSchema,
+  reminderResolveInputSchema,
+  reminderSchema,
+  reminderUpdateInputSchema,
+  routineCreateInputSchema,
+  routineSchema,
+  routineUpdateInputSchema,
+  taskCreateInputSchema,
+  taskListInputSchema,
+  taskSchema,
+  taskUpdateInputSchema,
+} from './schemas/planning'
 
 export * from './ipc-channels'
 export * from './schemas/dump'
 export * from './schemas/knowledge'
+export * from './schemas/planning'
 
 // IPC sözleşmesinin tek kaynağı. Kanal adları `alan:eylem` biçiminde.
 // Ana süreç her girdiyi burada tanımlı şemayla doğrular.
@@ -173,6 +187,79 @@ export const ipcContract = {
     input: mediaStoreInputSchema,
     output: z.object({ url: z.string() }),
   },
+  /** Açık görevler `domain/tasks` sırasıyla (bugünkü önce); bitenler en yeni önce, en fazla 100. */
+  'task:list': {
+    input: taskListInputSchema,
+    output: z.array(taskSchema),
+  },
+  'task:create': {
+    input: taskCreateInputSchema,
+    output: taskSchema,
+  },
+  /** Kısmi güncelleme; `plannedDate` elle değişince erteleme sayılmaz. */
+  'task:update': {
+    input: taskUpdateInputSchema,
+    output: taskSchema,
+  },
+  'task:setDone': {
+    input: z.object({ id: z.string(), done: z.boolean() }),
+    output: taskSchema,
+  },
+  'task:delete': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  'task:restore': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** Bekleyen ve kaçırılmış (ele alınmamış) hatırlatmalar, sıradaki çalmaya göre. */
+  'reminder:list': {
+    input: z.void(),
+    output: z.array(reminderSchema),
+  },
+  'reminder:create': {
+    input: reminderCreateInputSchema,
+    output: reminderSchema,
+  },
+  /** Zaman ya da kural değişirse yeniden kurulur (kaçırılmışlık silinir). */
+  'reminder:update': {
+    input: reminderUpdateInputSchema,
+    output: reminderSchema,
+  },
+  'reminder:delete': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  'reminder:restore': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** Kaçırılanlar: bugünkü göreve çevir ya da kapat. Tek grupla loglanır. */
+  'reminder:resolveMissed': {
+    input: reminderResolveInputSchema,
+    output: z.object({ taskIds: z.array(z.string()) }),
+  },
+  'routine:list': {
+    input: z.void(),
+    output: z.array(routineSchema),
+  },
+  'routine:create': {
+    input: routineCreateInputSchema,
+    output: routineSchema,
+  },
+  'routine:update': {
+    input: routineUpdateInputSchema,
+    output: routineSchema,
+  },
+  'routine:delete': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  'routine:restore': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
 } as const satisfies Record<IpcChannel, { input: z.ZodType; output: z.ZodType }>
 
 // Sözleşmede fazladan kanal varsa derleme hatası: ipc-channels.ts listesiyle birebir olmalı.
@@ -185,6 +272,8 @@ export type IpcOutput<C extends IpcChannel> = z.output<(typeof ipcContract)[C]['
 /** `window.api` — preload'un açtığı köprü. Mantık içermez. */
 export interface WindowApi {
   invoke<C extends IpcChannel>(channel: C, input: IpcInput<C>): Promise<IpcOutput<C>>
+  /** Ana süreç olayına abone olur; dönen fonksiyon aboneliği kaldırır. */
+  on(event: IpcEvent, listener: () => void): () => void
   /** Pencere açılmadan önce ana süreçte DB'den okunan tema; ilk boyamada yanıp sönmeyi önler. */
   initialTheme: Theme
 }

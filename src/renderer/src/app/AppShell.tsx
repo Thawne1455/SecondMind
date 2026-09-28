@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Outlet, useNavigate } from 'react-router'
+import { useQueryClient } from '@tanstack/react-query'
+import { format } from 'date-fns'
+import { tr } from 'date-fns/locale'
+import type { Reminder, Task } from '@shared/ipc'
 import { useNoteTitles } from '../features/bilgi/useKnowledge'
+import { ReminderModal } from '../features/bugun/ReminderModal'
+import { TasksModal } from '../features/bugun/TaskList'
+import { TaskModal } from '../features/bugun/TaskModal'
+import { planningKeys, useTasks } from '../features/bugun/usePlanning'
 import { FAKE_PROJECTS } from '../lib/fake'
 import { useSetSetting, useSetting } from '../lib/settings'
 import { CommandPalette, type PaletteItem } from './CommandPalette'
@@ -9,39 +17,73 @@ import { QuickDump } from './QuickDump'
 import { ShellContext } from './shell-context'
 import { Sidebar } from './Sidebar'
 
-/** Kenar çubuğu + içerik. Ctrl K komut paleti, Ctrl N Hızlı Döküm her ekrandan açılır. */
+type Dialog =
+  | { kind: 'palette' }
+  | { kind: 'dump' }
+  | { kind: 'task'; task: Task | null; planned: string | null }
+  | { kind: 'tasks' }
+  | { kind: 'reminder'; reminder: Reminder | null }
+
+/**
+ * Kenar çubuğu + içerik. Her ekrandan: Ctrl K komut paleti, Ctrl N Hızlı Döküm, Ctrl G görev,
+ * Ctrl H hatırlatma. Aynı anda tek pencere açık. Ana süreç olaylarını da burada dinler.
+ */
 export function AppShell() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const theme = useSetting('theme')
   const { mutate: saveTheme } = useSetSetting('theme')
-  const [paletteOpen, setPaletteOpen] = useState(false)
-  const [dumpOpen, setDumpOpen] = useState(false)
+  const [dialog, setDialog] = useState<Dialog | null>(null)
+  const close = () => setDialog(null)
 
   useEffect(() => {
+    const shortcuts: Record<string, Dialog> = {
+      n: { kind: 'dump' },
+      g: { kind: 'task', task: null, planned: null },
+      h: { kind: 'reminder', reminder: null },
+    }
     function onKeyDown(e: KeyboardEvent) {
       if (!e.ctrlKey || e.altKey || e.shiftKey) return
       const key = e.key.toLocaleLowerCase('tr-TR')
       if (key === 'k') {
         e.preventDefault()
-        setDumpOpen(false)
-        setPaletteOpen((o) => !o)
-      } else if (key === 'n') {
+        setDialog((d) => (d?.kind === 'palette' ? null : { kind: 'palette' }))
+      } else if (shortcuts[key]) {
         e.preventDefault()
-        setPaletteOpen(false)
-        setDumpOpen(true)
+        setDialog(shortcuts[key])
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
+  // Hatırlatma çaldı / kaçırıldı: listeler yenilenir. Bildirime tıklandı: Bugün.
+  useEffect(() => {
+    const offChanged = window.api.on('reminders:changed', () => {
+      void queryClient.invalidateQueries({ queryKey: planningKeys.reminders })
+    })
+    const offNav = window.api.on('nav:today', () => void navigate('/'))
+    return () => {
+      offChanged()
+      offNav()
+    }
+  }, [queryClient, navigate])
+
   const shell = useMemo(
-    () => ({ openPalette: () => setPaletteOpen(true), openQuickDump: () => setDumpOpen(true) }),
+    () => ({
+      openPalette: () => setDialog({ kind: 'palette' }),
+      openQuickDump: () => setDialog({ kind: 'dump' }),
+      openTask: (task: Task | null = null, planned: string | null = null) =>
+        setDialog({ kind: 'task', task, planned }),
+      openTasks: () => setDialog({ kind: 'tasks' }),
+      openReminder: (reminder: Reminder | null = null) => setDialog({ kind: 'reminder', reminder }),
+    }),
     [],
   )
 
   const dark = theme.data === 'dark'
   const noteTitles = useNoteTitles().data
+  const openTasks = useTasks('open').data
   const items = useMemo<PaletteItem[]>(
     () => [
       ...FAKE_PROJECTS.map((p) => ({
@@ -56,7 +98,28 @@ export function AppShell() {
         group: 'Komutlar',
         label: 'Hızlı döküm',
         meta: 'Ctrl N',
-        run: () => setDumpOpen(true),
+        run: () => shell.openQuickDump(),
+      },
+      {
+        id: 'task-new',
+        group: 'Komutlar',
+        label: 'Görev ekle',
+        meta: 'Ctrl G',
+        run: () => shell.openTask(),
+      },
+      {
+        id: 'reminder-new',
+        group: 'Komutlar',
+        label: 'Hatırlatma ekle',
+        meta: 'Ctrl H',
+        run: () => shell.openReminder(),
+      },
+      {
+        id: 'tasks',
+        group: 'Komutlar',
+        label: 'Tüm görevler',
+        meta: openTasks ? `${openTasks.length} açık` : undefined,
+        run: () => shell.openTasks(),
       },
       ...PANELS.map((panel) => ({
         id: `go-${panel.id}`,
@@ -86,6 +149,15 @@ export function AppShell() {
             },
           ]
         : []),
+      ...(openTasks ?? []).map((t) => ({
+        id: `task-${t.id}`,
+        group: 'Görevler' as const,
+        label: t.title,
+        meta: t.plannedDate
+          ? format(new Date(`${t.plannedDate}T00:00`), 'd MMM', { locale: tr })
+          : undefined,
+        run: () => shell.openTask(t),
+      })),
       ...(noteTitles ?? []).map((n) => ({
         id: `note-${n.id}`,
         group: 'Notlar' as const,
@@ -93,7 +165,7 @@ export function AppShell() {
         run: () => navigate(`/bilgi/${n.id}`),
       })),
     ],
-    [navigate, dark, saveTheme, noteTitles],
+    [navigate, dark, saveTheme, noteTitles, openTasks, shell],
   )
 
   return (
@@ -104,8 +176,25 @@ export function AppShell() {
           <Outlet />
         </div>
       </div>
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} items={items} />
-      <QuickDump open={dumpOpen} onClose={() => setDumpOpen(false)} />
+      <CommandPalette open={dialog?.kind === 'palette'} onClose={close} items={items} />
+      <QuickDump open={dialog?.kind === 'dump'} onClose={close} />
+      <TaskModal
+        open={dialog?.kind === 'task'}
+        task={dialog?.kind === 'task' ? dialog.task : null}
+        defaultPlanned={dialog?.kind === 'task' ? dialog.planned : null}
+        onClose={close}
+      />
+      <TasksModal
+        open={dialog?.kind === 'tasks'}
+        onClose={close}
+        onEdit={(task) => shell.openTask(task)}
+        onNew={() => shell.openTask()}
+      />
+      <ReminderModal
+        open={dialog?.kind === 'reminder'}
+        reminder={dialog?.kind === 'reminder' ? dialog.reminder : null}
+        onClose={close}
+      />
     </ShellContext>
   )
 }

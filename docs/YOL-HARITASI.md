@@ -21,7 +21,7 @@ Her aşamanın sonunda uygulama açılır ve çalışır durumdadır.
 - [x] Diğer paneller için boş sayfa + boş durum
 **Bitti sayılır:** Bugün ekranı ekran görüntüsüyle yan yana konunca aynı görünüyor.
 
-## Aşama 2 — Veri, Döküm, Bilgi · AKTİF
+## Aşama 2 — Veri, Döküm, Bilgi · BİTTİ
 2a: çekirdek tablolar, activity_log, soft delete, media, Döküm. 2b: Bilgi. 2c: Fikirler, kuluçka, seed.
 - [x] Çekirdek tablolar (MIMARI.md), `activity_log`, soft delete (2a: `media`, `dump_items`, `dump_attachments`, `activity_log`; diğerleri kendi aşamasında)
 - [x] Media deposu (hash'li dosya adları), resim yapıştırma ve sürükleme
@@ -31,11 +31,18 @@ Her aşamanın sonunda uygulama açılır ve çalışır durumdadır.
 - [x] `npm run seed` ile gerçekçi örnek veri (`--data-dir` zorunlu)
 **Bitti sayılır:** Taha bir gün boyunca döküm ve not alabiliyor, arama çalışıyor.
 
-## Aşama 3 — Bugün gerçek veriyle
-- [ ] Görevler, rutinler, hatırlatmalar; hatırlatma zamanlayıcısı ve sistem bildirimi; kaçırılanlar
+## Aşama 3 — Bugün gerçek veriyle · AKTİF
+3a: görevler, rutinler, hatırlatmalar, zamanlayıcı. 3b: `domain/scheduler`, `schedule_blocks`, akış bandı, Şimdi.
+3c: Zihin karosu (`checkins`), başarılar karosu, sahte verinin temizlenmesi.
+Kararlar: görev bağlamı şimdilik genel; ders/sınav blokları Okul'a (6) kadar bantta yok; Şimdi ve Sıradaki adımlar
+genel görevlerden; tekrar kuralı kendi JSON şemamız; kaçırılan günler açılışta tek seferde kayar, erteleme görev
+başına bir kez artar; elle sürüklenen blok o gün sabit; karar gözden geçirme karosu Aşama 7'ye kadar gizli;
+kenar çubuğu projeleri Aşama 5'e kadar sahte, Onay Kutusu rozeti Aşama 4'e kadar yok.
+- [x] Görevler, rutinler, hatırlatmalar; hatırlatma zamanlayıcısı ve sistem bildirimi; kaçırılanlar (3a: Ctrl G görev,
+  Ctrl H hatırlatma, hızlı giriş ayrıştırma, Sıradaki adımlar + hızlı görev satırı, Hatırlatmalar karosu, Ayarlar > Rutinler)
 - [ ] `domain/scheduler` (yerleştirme + yeniden yerleştirme + gün sonu kaydırma) ve testleri; erteleme sayacı
-- [ ] Akış bandında sürükleme, "şimdi" bölümü, sıradaki adımlar
-- [ ] Zihin günlük kaydı karosu (veri yazımı), hatırlatma karosu
+- [ ] Akış bandında sürükleme, "şimdi" bölümü
+- [ ] Zihin günlük kaydı karosu (veri yazımı), başarılar karosu
 **Bitti sayılır:** Bugün ekranı sahte veri olmadan tasarımdaki gibi doluyor.
 
 ## Aşama 4 — AI akışı ve Onay Kutusu

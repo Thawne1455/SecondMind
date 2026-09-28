@@ -6,9 +6,11 @@ import { getSetting } from './db/settings'
 import { registerAppIpc } from './ipc/app'
 import { registerDumpIpc } from './ipc/dump'
 import { registerKnowledgeIpc } from './ipc/knowledge'
+import { registerPlanningIpc } from './ipc/planning'
 import { registerSettingsIpc } from './ipc/settings'
 import { handleMediaProtocol, registerMediaScheme } from './mediaProtocol'
 import { ensureDataPaths } from './paths'
+import { startReminderTimer } from './reminderTimer'
 
 // tokens.css'teki --bg ile aynı; ilk boyamadan önce pencere zemini.
 const BG: Record<Theme, string> = { light: '#FFFFFF', dark: '#0F0F13' }
@@ -59,6 +61,8 @@ if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
   registerMediaScheme()
+  // Windows bildirimleri uygulama kimliğiyle gösterilir; Aşama 8'de electron-builder appId'si bununla aynı olmalı.
+  app.setAppUserModelId('com.secondmind.app')
 
   app.on('second-instance', () => {
     if (mainWindow?.isMinimized()) mainWindow.restore()
@@ -73,6 +77,7 @@ if (!app.requestSingleInstanceLock()) {
     registerAppIpc(paths)
     registerDumpIpc(paths)
     registerKnowledgeIpc(paths)
+    registerPlanningIpc()
     registerSettingsIpc((key) => {
       if (key === 'theme') applyTheme(getSetting(getDb(), 'theme'))
     })
@@ -81,6 +86,8 @@ if (!app.requestSingleInstanceLock()) {
     const theme = getSetting(getDb(), 'theme')
     nativeTheme.themeSource = theme
     createWindow(theme)
+    const stopReminders = startReminderTimer({ window: () => mainWindow })
+    app.on('will-quit', stopReminders)
   })
 
   // Arka plan süreci yok: son pencere kapanınca uygulama tamamen kapanır.

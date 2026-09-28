@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { ipcChannels, THEME_ARG_PREFIX, type IpcChannel } from '@shared/ipc-channels'
+import {
+  ipcChannels,
+  ipcEvents,
+  THEME_ARG_PREFIX,
+  type IpcChannel,
+  type IpcEvent,
+} from '@shared/ipc-channels'
 import type { WindowApi } from '@shared/ipc'
 
 const themeArg = process.argv.find((a) => a.startsWith(THEME_ARG_PREFIX))
@@ -9,6 +15,14 @@ const api: WindowApi = {
     if (!(ipcChannels as readonly IpcChannel[]).includes(channel))
       throw new Error(`Bilinmeyen kanal: ${channel}`)
     return ipcRenderer.invoke(channel, input)
+  },
+  on: (event, listener) => {
+    if (!(ipcEvents as readonly IpcEvent[]).includes(event))
+      throw new Error(`Bilinmeyen olay: ${event}`)
+    // Renderer'a IpcRendererEvent sızmasın: dinleyici argümansız çağrılır.
+    const wrapped = () => listener()
+    ipcRenderer.on(event, wrapped)
+    return () => void ipcRenderer.removeListener(event, wrapped)
   },
   initialTheme: themeArg?.slice(THEME_ARG_PREFIX.length) === 'dark' ? 'dark' : 'light',
 }

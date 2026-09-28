@@ -15,8 +15,6 @@ export const FAKE_PROJECTS: FakeProject[] = [
   { id: 'album', name: 'Albüm', color: '#F59BE6', silentDays: 16 },
 ]
 
-export const FAKE_COUNTS = { inbox: 7, missedReminders: 2 }
-
 /** Tasarımdaki an; gerçek saat Aşama 3'te. */
 export const FAKE_NOW = '13:40'
 
@@ -73,18 +71,7 @@ export const FAKE_NOW_TASK = {
   minutesLeft: 50,
 }
 
-export const FAKE_NEXT_STEPS = [
-  { id: 'n1', project: FAKE_PROJECTS[1]!, title: 'Electron iskeletini kur' },
-  { id: 'n2', project: FAKE_PROJECTS[2]!, title: 'Niyet sorularını cevapla' },
-]
-
-export const FAKE_REMINDERS = [
-  { id: 'r1', when: '20:00', today: true, title: "Erdem'in doğum günü — mesaj at" },
-  { id: 'r2', when: 'Sal 23:59', today: false, title: 'Olasılık ödevi 2 teslim' },
-  { id: 'r3', when: 'Çar 10:00', today: false, title: 'Kütüphane kitabını iade et' },
-]
-
-// Kuluçka ve radar karoları 2c'den beri gerçek fikir verisiyle (idea:today).
+// Kuluçka ve radar karoları 2c'den, hatırlatmalar ve sıradaki adımlar 3a'dan beri gerçek veriyle.
 export const FAKE_TILES = {
   sleep: '7:15',
   decision: {

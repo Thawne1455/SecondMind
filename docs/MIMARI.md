@@ -61,11 +61,21 @@ silinebilenlerde `deleted_at`. Aşağısı başlangıç taslağıdır; aşamalar
   `last_opened_at` (editörde açılınca; log'a yazılmaz), `project_id` (Aşama 5). "Karar bekliyor" (`due`) saklanmaz,
   `domain/incubation` zamana göre hesaplar. Kuluçka dolunca Evet → `active`, Hayır → `archived` (loglanır, geri
   alınabilir). Radar: 30 gündür dokunulmamış (açılma/karar/oluşturma) `active` fikir.
-- `tasks`: başlık, açıklama, bağlam (proje/ders/genel), durum, öncelik, tahmini süre, son tarih, planlanan blok,
-  `postpone_count`, kilometre taşı, tür (görev/hata/araştırma — tür sadece proje görevlerinde anlamlı).
-- `reminders`: saat, tekrar kuralı, bağlam, `fired_at`, `missed`.
-- `routines`: ad, tekrar kuralı (gün + saat + süre).
-- `schedule_blocks`: gün, başlangıç, bitiş, tür (ders/sınav/görev/rutin), kaynak id, sabit mi.
+- `tasks`: `title`, `notes`, `status` (`open`/`done`), `priority` (1 düşük, 2 normal, 3 yüksek), `estimate_min`,
+  `due_date` (son tarih), `planned_date` (yapılacağı gün; bugün ya da geçmiş = "bugüne alınmış", ileri tarih o gün
+  Bugün'e düşer, null = sonra), `postpone_count` (sadece gün sonu kaydırmada artar; elle gün değiştirmek erteleme
+  sayılmaz), `completed_at`, `kind` (görev/hata/araştırma — sadece proje görevlerinde anlamlı), `project_id`,
+  `course_id`, `milestone_id` (FK yok, tablolar Aşama 5/6'da; ikisi de boşsa bağlam "genel"), soft delete.
+  Gün alanları yerel takvim günü metni `YYYY-MM-DD`. Sıra `domain/tasks.compareTasks`: bugünkü önce, sonra son tarih,
+  öncelik, erteleme sayısı, eskilik.
+- `reminders`: `title`, `at` (sıradaki çalma), `rule_json` (null = tek seferlik; `{kind:'weekly',days,time}`,
+  `{kind:'monthly',day,time}` — ayda o gün yoksa son gün, `{kind:'yearly',month,day,time}` — 29 Şubat → 28),
+  `fired_at` (son çalma; tek seferlikte dolu = bitti), `missed_at` (kaçırılan çalma anı; ele alınana kadar dolu),
+  `project_id`, `course_id`, soft delete. Tekrarlayanın `at`'i her çalma/kaçırmada sıradakine ilerler; birden çok
+  kaçırılan tekrar tek kayıt olur. Kaçırılan "Bugüne al" ile bugünkü göreve dönüşür ya da kapatılır (tek grupla
+  loglanır). Çalma/kaçırma sistem sinyalidir, `activity_log`'a yazılmaz.
+- `routines`: `title`, `days_json` (ISO hafta günleri, 1 = Pzt), `start_time` (`HH:mm`), `duration_min`, `active`, soft delete.
+- `schedule_blocks` (Aşama 3b): gün, başlangıç, bitiş, tür (ders/sınav/görev/rutin), kaynak id, sabit mi.
 - `activity_log`: kim (`taha`/`ai`/`scan`), işlem (`create`/`update`/`delete`/`restore`), hedef tablo+id,
   `before_json`, `after_json`, `group_id` (birlikte uygulananlar), `undone_at`. Değişiklikle aynı transaction'da yazılır.
   Not otomatik kaydı her tuşta kayıt açmaz: aynı nota 10 dk içinde gelen update'ler (grupsuz, geri alınmamış son kayıt)
@@ -148,5 +158,8 @@ en fazla 3 `create_task` önerisi. Girdisi algoritmayla hazırlanan haftalık is
 
 ## Hatırlatmalar
 
-Uygulama açıkken ana süreç dakikada bir `reminders`'ı kontrol eder, zamanı gelenler için sistem bildirimi gösterir.
-Açılışta `at < şimdi` ve `fired_at` boş olanlar `missed` işaretlenir ve Bugün'ün üst çubuğunda "N hatırlatma kaçtı" rozetiyle gösterilir.
+Uygulama açıkken ana süreç (`src/main/reminderTimer.ts`) dakika başlarında ve uykudan dönüşte `reminders`'ı kontrol
+eder (`domain/recurrence.sweepReminders`), zamanı gelenler için Electron bildirimi gösterir; bildirime tıklanınca pencere
+öne gelir ve Bugün açılır (`nav:today` olayı). Açılıştaki ilk kontrol de aynı kuralla çalışır: 10 dakikadan az
+gecikmiş olan yine çalar, daha eskisi `missed_at` alır ve Bugün'ün üst çubuğunda "N hatırlatma kaçtı · Bugüne al"
+rozetiyle gösterilir. Değişiklikler renderer'a `reminders:changed` olayıyla bildirilir (`window.api.on`).

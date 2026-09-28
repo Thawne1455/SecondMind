@@ -84,9 +84,11 @@ describe('parseSnippet', () => {
   })
 
   it('ortasından kesilmiş resim sözdiziminden adres bırakmaz', () => {
-    expect(parseSnippet(`…sm-media://m/064d5f8a.png)
+    expect(
+      parseSnippet(`…sm-media://m/064d5f8a.png)
 
-## ${O}Ses${C} planı`).text).toBe('… Ses planı')
+## ${O}Ses${C} planı`).text,
+    ).toBe('… Ses planı')
   })
 
   it('kesilmiş işaretçileri tolere eder', () => {

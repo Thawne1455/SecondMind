@@ -11,7 +11,7 @@ import { homedir } from 'node:os'
 import { join, resolve, win32 } from 'node:path'
 import { deflateSync, crc32 } from 'node:zlib'
 import Database from 'better-sqlite3'
-import { addHours, startOfDay, subDays } from 'date-fns'
+import { addDays, addHours, format, startOfDay, subDays } from 'date-fns'
 import { eq, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
@@ -20,6 +20,13 @@ import type { Db } from '../src/main/db/client'
 import { createDump } from '../src/main/db/dump'
 import { createIdea, markIdeaOpened, setIdeaStatus } from '../src/main/db/ideas'
 import { createCollection, createNote, updateNote } from '../src/main/db/knowledge'
+import {
+  createReminder,
+  createRoutine,
+  createTask,
+  setTaskDone,
+  sweepDueReminders,
+} from '../src/main/db/planning'
 import * as schema from '../src/main/db/schema'
 import { defaultDataDir } from '../src/main/domain/dataDir'
 import { storeMedia } from '../src/main/media'
@@ -413,6 +420,36 @@ const DUMPS: { text: string; days: number; hour: number; image?: boolean }[] = [
   { text: 'Kahve filtresi bitti', days: 17, hour: 8 },
 ]
 
+// Görevler: gün ofseti (0 bugün, null planlanmamış), bitenler `doneDaysAgo` ile.
+type TaskSeed = {
+  title: string
+  planned?: number | null
+  due?: number
+  estimate?: number
+  priority?: 1 | 2 | 3
+  postponed?: number
+  doneDaysAgo?: number
+}
+
+const TASKS: TaskSeed[] = [
+  { title: "Menü müziğini 1:20'ye kırp", planned: 0, estimate: 45, priority: 3 },
+  { title: 'Olasılık ödevi 2, soru 4: hocaya sor', planned: 0, estimate: 15, due: 1 },
+  // 3 kez ertelenmiş: Bugün'de "Böl · Sil · Bugün yap" sorusu (3b).
+  { title: 'Unity 6 sonrası URP ayarlarını kontrol et', planned: 0, estimate: 30, postponed: 3 },
+  { title: 'Lineer Cebir quiz tekrarı: 3. ve 4. bölüm', planned: 1, estimate: 90, due: 4 },
+  { title: 'Kahve filtresi al', planned: null, priority: 1 },
+  { title: 'Runika devlog taslağı', planned: null, estimate: 60 },
+  { title: 'Electron iskeletini kur', planned: 0, doneDaysAgo: 1 },
+  { title: 'Kütüphane kitabını iade et', planned: 0, doneDaysAgo: 3 },
+  { title: 'AVL dönme örneğini deftere geçir', planned: 0, doneDaysAgo: 2 },
+]
+
+const ROUTINES = [
+  { title: 'Kahvaltı', days: [1, 2, 3, 4, 5, 6, 7], startTime: '08:00', durationMin: 20 },
+  { title: 'Spor', days: [2, 4], startTime: '18:00', durationMin: 60 },
+  { title: 'Yürüyüş', days: [1, 3, 5], startTime: '19:00', durationMin: 30 },
+]
+
 // ---------------------------------------------------------------- çalıştır
 
 function openDb(file: string): { db: Db; close: () => void } {
@@ -480,6 +517,53 @@ function main(): void {
       .run()
   }
 
+  const day = (offset: number) => format(addDays(now, offset), 'yyyy-MM-dd')
+  for (const t of TASKS) {
+    const created = ago(5 + (t.postponed ?? 0), 10)
+    const task = createTask(
+      db,
+      {
+        title: t.title,
+        plannedDate: t.planned === null || t.planned === undefined ? null : day(t.planned),
+        dueDate: t.due === undefined ? null : day(t.due),
+        estimateMin: t.estimate ?? null,
+        priority: t.priority ?? 2,
+      },
+      created,
+    )
+    if (t.postponed) {
+      db.update(schema.tasks)
+        .set({ postponeCount: t.postponed })
+        .where(eq(schema.tasks.id, task.id))
+        .run()
+    }
+    if (t.doneDaysAgo !== undefined) setTaskDone(db, task.id, true, ago(t.doneDaysAgo, 17))
+  }
+
+  for (const r of ROUTINES) createRoutine(db, r, ago(20))
+
+  // Hatırlatmalar: biri kapalıyken kaçırılmış (dün 18:00), biri bu akşam, tekrarlayanlar.
+  createReminder(db, { title: 'Elektrik faturasını öde', at: ago(1, 18).getTime() }, ago(3))
+  sweepDueReminders(db, now)
+  const tonight = ago(0, 20) > now ? ago(0, 20) : ago(-1, 20)
+  createReminder(db, { title: "Erdem'e doğum günü mesajı", at: tonight.getTime() }, now)
+  createReminder(db, { title: 'Kütüphane kitabını al', at: ago(-2, 10).getTime() }, now)
+  createReminder(
+    db,
+    { title: 'Haftalık plan', rule: { kind: 'weekly', days: [1], time: '09:00' } },
+    now,
+  )
+  createReminder(
+    db,
+    { title: 'İlaç', rule: { kind: 'weekly', days: [1, 2, 3, 4, 5, 6, 7], time: '22:00' } },
+    now,
+  )
+  createReminder(
+    db,
+    { title: 'Annemin doğum günü', rule: { kind: 'yearly', month: 11, day: 14, time: '10:00' } },
+    now,
+  )
+
   // Örnek veri Taha'nın işlemi değil: geri alınacak bir geçmişi olmasın.
   db.run(sql`DELETE FROM activity_log`)
   close()
@@ -487,7 +571,8 @@ function main(): void {
   console.log(
     `seed: ${dataDir}\n` +
       `  ${Object.keys(NOTES).filter(Boolean).length} koleksiyon, ${noteCount} not, ` +
-      `${IDEAS.length} fikir, ${DUMPS.length} döküm, 2 resim.\n` +
+      `${IDEAS.length} fikir, ${DUMPS.length} döküm, 2 resim, ${TASKS.length} görev, ` +
+      `${ROUTINES.length} rutin, 6 hatırlatma (1 kaçırılmış).\n` +
       `  Uygulamayı bu klasörle açmak için userData/config.json: {"dataDir": "${dataDir.replace(/\\/g, '\\\\')}"}`,
   )
 }

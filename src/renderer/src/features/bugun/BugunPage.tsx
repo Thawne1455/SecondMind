@@ -1,28 +1,32 @@
-import { useState } from 'react'
+import { useState, type KeyboardEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { format } from 'date-fns'
 import { tr } from 'date-fns/locale'
-import { Play } from 'lucide-react'
+import { Play, Plus, Repeat, X } from 'lucide-react'
 import { TopBar } from '../../app/TopBar'
+import { useShell } from '../../app/shell-context'
 import {
   FAKE_BLOCKS,
-  FAKE_COUNTS,
   FAKE_FREE_MINUTES,
-  FAKE_NEXT_STEPS,
   FAKE_NOW,
   FAKE_NOW_TASK,
   FAKE_PINS,
-  FAKE_REMINDERS,
   FAKE_TILES,
 } from '../../lib/fake'
 import { errorText } from '../../lib/errors'
-import { Button, cn, Scale, Tile, useToast, type ScaleValue } from '../../ui'
+import { formatDayName, formatMinutes, formatReminderAt } from '../../lib/format'
+import { parseQuickEntry } from '../../lib/quickEntry'
+import { useNow } from '../../lib/useNow'
+import { Button, cn, IconButton, Scale, Tile, useToast, type ScaleValue } from '../../ui'
 import type { BilgiLocationState } from '../bilgi/BilgiPage'
 import { UNTITLED_IDEA, useIdeaDecision } from '../bilgi/ideas'
 import { useCreateIdea, useIdeaToday } from '../bilgi/useKnowledge'
 import { FlowBand } from './FlowBand'
+import { TaskRow } from './TaskList'
+import { useCreateTask, useReminders, useResolveMissed, useTasks } from './usePlanning'
 
-// Bugün — "Şu an ne yapmalıyım?" Aşama 1b: sahte veriyle, tasarımla birebir (bugun-acik.png).
+// Bugün — "Şu an ne yapmalıyım?" Tasarım: bugun-acik.png. Aşama 3a'dan beri görevler (Sıradaki adımlar),
+// hatırlatmalar ve kaçırılanlar gerçek; akış bandı ve Şimdi 3b'de, kalan karolar 3c'de gerçek veriye geçer.
 
 // Bugün karoları tasarım sistemindekinden 2px daha sıkı (bugun.html: padding 16px 20px).
 const TILE = 'py-4'
@@ -32,7 +36,7 @@ export function BugunPage() {
     <main className="flex min-h-full flex-col gap-[18px] px-8 pt-[22px] pb-6">
       <TopBar
         title={format(new Date(), 'EEEE d MMMM', { locale: tr })}
-        status={<MissedReminders count={FAKE_COUNTS.missedReminders} />}
+        status={<MissedReminders />}
       />
       <FlowBand
         blocks={FAKE_BLOCKS}
@@ -53,13 +57,54 @@ export function BugunPage() {
   )
 }
 
-function MissedReminders({ count }: { count: number }) {
+/** Uygulama kapalıyken (ya da uykudayken) geçen hatırlatmalar. Bugüne al: her biri bugünkü görev olur. */
+function MissedReminders() {
+  const missed = (useReminders().data ?? []).filter((r) => r.missedAt !== null)
+  const resolve = useResolveMissed()
+  const { toast } = useToast()
+  const now = useNow(60_000)
+  if (!missed.length) return null
+
+  const ids = missed.map((r) => r.id)
+  const list = missed.map((r) => `${formatReminderAt(r.missedAt!, now)} · ${r.title}`).join('\n')
+  const onError = (e: unknown) => toast({ message: errorText(e), domain: 'warning' })
+
   return (
-    <span className="ml-1.5 flex h-[34px] items-center gap-2 rounded-full bg-coral pr-1.5 pl-3.5 text-[14px] font-bold text-white [--ot-ghost-bg:rgba(255,255,255,.2)] [--ot-ghost-fg:#FFFFFF]">
-      {count} hatırlatma kaçtı
-      <Button size="xs" variant="onTileGhost">
+    <span
+      title={list}
+      className="ml-1.5 flex h-[34px] items-center gap-1.5 rounded-full bg-coral pr-1 pl-3.5 text-[14px] font-bold text-white [--ot-ghost-bg:rgba(255,255,255,.2)] [--ot-ghost-fg:#FFFFFF]"
+    >
+      <span className="pr-0.5">
+        {missed.length === 1 ? `Kaçtı: ${missed[0]!.title}` : `${missed.length} hatırlatma kaçtı`}
+      </span>
+      <Button
+        size="xs"
+        variant="onTileGhost"
+        loading={resolve.isPending}
+        onClick={() =>
+          resolve.mutate(
+            { ids, action: 'today' },
+            {
+              onSuccess: ({ taskIds }) =>
+                toast({
+                  variant: 'fill',
+                  domain: 'today',
+                  message: `${taskIds.length} görev bugüne eklendi.`,
+                }),
+              onError,
+            },
+          )
+        }
+      >
         Bugüne al
       </Button>
+      <IconButton
+        label="Kapat"
+        icon={X}
+        variant="onTileGhost"
+        className="size-[26px]"
+        onClick={() => resolve.mutate({ ids, action: 'dismiss' }, { onError })}
+      />
     </span>
   )
 }
@@ -86,23 +131,98 @@ function NowSection() {
         </div>
       </div>
 
-      <div className="flex w-[330px] shrink-0 flex-col gap-2 pb-0.5">
-        <span className="cx text-ink2">Sıradaki adımlar</span>
-        {FAKE_NEXT_STEPS.map((step) => (
-          <div
-            key={step.id}
-            className="flex items-center gap-2.5 rounded-[18px] bg-s2 py-2.5 pr-2.5 pl-3.5"
-          >
-            <span className="size-2.5 rounded" style={{ background: step.project.color }} />
-            <span className="flex grow flex-col leading-[1.3]">
-              <span className="text-[13px] font-semibold text-ink3">{step.project.name}</span>
-              <span className="font-bold">{step.title}</span>
-            </span>
-            <Button size="sm">Başla</Button>
-          </div>
-        ))}
-      </div>
+      <NextSteps />
     </section>
+  )
+}
+
+const NEXT_STEPS_MAX = 3
+
+/** Sıradaki adımlar: açık görevler (bugünkü önce, domain/tasks sırası) + hızlı görev satırı. */
+function NextSteps() {
+  const { openTask, openTasks } = useShell()
+  const tasks = useTasks('open').data ?? []
+
+  return (
+    <div className="flex w-[360px] shrink-0 flex-col gap-2 pb-0.5">
+      <div className="flex items-baseline">
+        <span className="cx grow text-ink2">Sıradaki adımlar</span>
+        {tasks.length > NEXT_STEPS_MAX && (
+          <button
+            type="button"
+            onClick={openTasks}
+            className="cursor-pointer text-[13px] font-extrabold underline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-indigo"
+          >
+            Tümü · {tasks.length}
+          </button>
+        )}
+      </div>
+      {tasks.slice(0, NEXT_STEPS_MAX).map((t) => (
+        <TaskRow key={t.id} task={t} onEdit={(task) => openTask(task)} />
+      ))}
+      <QuickTask />
+    </div>
+  )
+}
+
+/**
+ * Tek satırda görev: Enter ekler. Gün yazılmazsa bugüne; "yarın", "cuma", "45dk", "!", "son 5 ekim"
+ * tanınır. Ayrıntı için Ctrl G.
+ */
+function QuickTask() {
+  const [text, setText] = useState('')
+  const create = useCreateTask()
+  const { toast } = useToast()
+
+  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Escape') setText('')
+    if (e.key !== 'Enter' || create.isPending) return
+    e.preventDefault()
+    const now = new Date()
+    const p = parseQuickEntry(text, now)
+    if (!p.title) return
+    const planned = p.date ?? format(now, 'yyyy-MM-dd')
+    create.mutate(
+      {
+        title: p.title,
+        plannedDate: planned,
+        dueDate: p.dueDate,
+        estimateMin: p.estimateMin,
+        priority: p.priority ?? 2,
+      },
+      {
+        onSuccess: () => {
+          setText('')
+          const details = [
+            formatDayName(new Date(`${planned}T00:00`), now),
+            p.estimateMin && formatMinutes(p.estimateMin),
+            p.dueDate && `son ${formatDayName(new Date(`${p.dueDate}T00:00`), now)}`,
+            p.priority && 'yüksek öncelik',
+          ].filter(Boolean)
+          toast({
+            variant: 'fill',
+            domain: 'today',
+            message: `${p.title} · ${details.join(' · ')}`,
+          })
+        },
+        onError: (err) => toast({ message: errorText(err), domain: 'warning' }),
+      },
+    )
+  }
+
+  return (
+    <label className="flex h-11 items-center gap-2 rounded-full border-2 border-dashed border-s3 px-3.5 focus-within:border-solid focus-within:border-ink">
+      <Plus size={18} strokeWidth={1.75} aria-hidden className="shrink-0 text-ink3" />
+      <input
+        value={text}
+        maxLength={300}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={onKeyDown}
+        aria-label="Hızlı görev"
+        placeholder="Görev ekle… (yarın, 45dk, !)"
+        className="min-w-0 grow bg-transparent text-[15px] font-semibold outline-none placeholder:font-medium placeholder:text-ink3"
+      />
+    </label>
   )
 }
 
@@ -282,22 +402,61 @@ function IncubationTile() {
   )
 }
 
+const REMINDERS_SHOWN = 3
+
+/** Sıradaki hatırlatmalar; satıra tıklayınca düzenlenir. Kaçırılanlar üst çubuktaki rozette. */
 function RemindersTile() {
+  const { openReminder } = useShell()
+  const now = useNow(60_000)
+  const all = useReminders().data ?? []
+  const upcoming = all.filter((r) => r.at > now)
+  const todayEnd = new Date(now).setHours(24, 0, 0, 0)
+
   return (
-    <Tile variant="standard" className={TILE} eyebrow="Hatırlatmalar">
+    <Tile
+      variant="standard"
+      className={TILE}
+      eyebrow={
+        upcoming.length > REMINDERS_SHOWN ? `Hatırlatmalar · ${upcoming.length}` : 'Hatırlatmalar'
+      }
+      actions={[
+        <Button key="add" size="sm" icon={Plus} onClick={() => openReminder()}>
+          Ekle
+        </Button>,
+      ]}
+    >
+      {!upcoming.length && (
+        <span className="text-[14px] text-ink2">
+          Yaklaşan hatırlatma yok. Ctrl H ile her ekrandan kurabilirsin: “yarın 10:00 kitabı iade
+          et”.
+        </span>
+      )}
       <div className="flex flex-col gap-1.5">
-        {FAKE_REMINDERS.map((r) => (
-          <div key={r.id} className="flex items-center gap-3">
+        {upcoming.slice(0, REMINDERS_SHOWN).map((r) => (
+          <button
+            key={r.id}
+            type="button"
+            onClick={() => openReminder(r)}
+            className="flex cursor-pointer items-center gap-3 rounded-full text-left hover:bg-s3 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-indigo"
+          >
             <span
               className={cn(
                 'x flex h-[26px] w-[92px] shrink-0 items-center justify-center rounded-full text-[13px] font-extrabold',
-                r.today ? 'bg-amber text-fill-ink' : 'bg-s3',
+                r.at < todayEnd ? 'bg-amber text-fill-ink' : 'bg-s3',
               )}
             >
-              {r.when}
+              {formatReminderAt(r.at, now)}
             </span>
-            <span className="font-semibold">{r.title}</span>
-          </div>
+            <span className="min-w-0 truncate font-semibold">{r.title}</span>
+            {r.rule && (
+              <Repeat
+                size={14}
+                strokeWidth={1.75}
+                aria-label="Tekrarlıyor"
+                className="shrink-0 text-ink3"
+              />
+            )}
+          </button>
         ))}
       </div>
     </Tile>

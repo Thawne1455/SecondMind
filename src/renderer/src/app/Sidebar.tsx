@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router'
 import { Moon, Settings, Sun } from 'lucide-react'
 import { usePendingDumpCount } from '../features/dokum/useDumps'
-import { FAKE_COUNTS, FAKE_PROJECTS } from '../lib/fake'
+import { FAKE_PROJECTS } from '../lib/fake'
 import { useSetSetting, useSetting } from '../lib/settings'
 import { Badge, cn } from '../ui'
 import { PANELS, type PanelId } from './panels'
@@ -24,7 +24,7 @@ export function Sidebar() {
   const dark = theme.data === 'dark'
   const counts: Partial<Record<PanelId, number>> = {
     dokum: usePendingDumpCount(),
-    onay: FAKE_COUNTS.inbox,
+    // onay: bekleyen öneri sayısı Aşama 4'te (proposals).
   }
 
   return (
