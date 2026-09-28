@@ -44,7 +44,9 @@ kenar çubuğu projeleri Aşama 5'e kadar sahte, Onay Kutusu rozeti Aşama 4'e k
   (3b: `schedule_blocks`, açılışta ve dakikada bir `fill`, "Böl · Sil · Bugün yap" sorusu, `task:split`)
 - [x] Akış bandında sürükleme, "şimdi" bölümü (3b: sürükle / ← → taşır ve sabitler, işarete tıklamak sabitliği kaldırır;
   Şimdi: süren → sıradaki → en öndeki görev; Başla = bloğu şimdiye çek, Tamamla, Sonraya at)
-- [ ] Zihin günlük kaydı karosu (veri yazımı), başarılar karosu
+- [x] Zihin günlük kaydı karosu (veri yazımı), başarılar karosu (3c: `checkins`, uyku serbest yazım "7:15" / "7,5";
+  başarılar bu hafta + bugün biten görev, commit Aşama 5'te, quiz 6'da; boş karolar gizlenir, kalanlar dengeli yayılır;
+  karar karosu ve sahte karolar kaldırıldı, `lib/fake.ts`'te sadece kenar çubuğu projeleri kaldı)
 **Bitti sayılır:** Bugün ekranı sahte veri olmadan tasarımdaki gibi doluyor.
 
 ## Aşama 4 — AI akışı ve Onay Kutusu

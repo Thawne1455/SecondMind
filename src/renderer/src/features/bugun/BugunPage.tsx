@@ -1,20 +1,22 @@
-import { useState, type KeyboardEvent } from 'react'
+import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { format } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import { Plus, Repeat, X } from 'lucide-react'
-import type { ScheduleBlock } from '@shared/ipc'
+import type { IdeaToday, ScheduleBlock, WeekAchievements } from '@shared/ipc'
 import { TopBar } from '../../app/TopBar'
 import { useShell } from '../../app/shell-context'
-import { FAKE_TILES } from '../../lib/fake'
 import { errorText } from '../../lib/errors'
 import { formatDayName, formatMinutes, formatReminderAt } from '../../lib/format'
 import { parseQuickEntry } from '../../lib/quickEntry'
+import { formatSleep, parseSleep } from '../../lib/sleep'
+import { tileSpans } from '../../lib/tiles'
 import { useNow } from '../../lib/useNow'
 import { Button, cn, IconButton, Scale, Tile, useToast, type ScaleValue } from '../../ui'
 import type { BilgiLocationState } from '../bilgi/BilgiPage'
 import { UNTITLED_IDEA, useIdeaDecision } from '../bilgi/ideas'
 import { useCreateIdea, useIdeaToday } from '../bilgi/useKnowledge'
+import { useSetCheckin, useTodayCheckin, useWeekAchievements } from '../zihin/useMind'
 import { FlowBand, type FlowPin } from './FlowBand'
 import { NowSection } from './NowSection'
 import { PostponeDialog } from './PostponeDialog'
@@ -31,7 +33,8 @@ import {
 } from './usePlanning'
 
 // Bugün — "Şu an ne yapmalıyım?" Tasarım: bugun-acik.png. Aşama 3a'dan beri görevler (Sıradaki adımlar),
-// hatırlatmalar ve kaçırılanlar, 3b'den beri akış bandı ve Şimdi gerçek; kalan karolar 3c'de gerçek veriye geçer.
+// hatırlatmalar ve kaçırılanlar, 3b'den beri akış bandı ve Şimdi, 3c'den beri Nasılsın? ve başarılar gerçek.
+// Karar gözden geçirme karosu Aşama 7'ye (kararlar) kadar yok.
 
 // Bugün karoları tasarım sistemindekinden 2px daha sıkı (bugun.html: padding 16px 20px).
 const TILE = 'py-4'
@@ -81,14 +84,7 @@ export function BugunPage() {
       />
       <NowSection day={day} nowMin={nowMin} openTasks={openTasks} aside={<NextSteps />} />
       <PostponeDialog block={asking} onClose={() => setAsking(null)} />
-      <div className="grid grow grid-cols-3 grid-rows-[repeat(2,minmax(180px,1fr))] gap-4">
-        <MoodTile />
-        <RadarTile />
-        <IncubationTile />
-        <RemindersTile />
-        <DecisionTile />
-        <WeekTile />
-      </div>
+      <TodayTiles />
     </main>
   )
 }
@@ -273,19 +269,125 @@ function MoodRow({
   )
 }
 
-// Günlük kayıt yazımı Aşama 3'te; şimdilik seçim sadece ekranda.
+/**
+ * Karolar 3 × 2. İçeriği olmayan karo gizlenir (sessiz fikir yoksa Radar, bu hafta biten görev yoksa
+ * başarılar), kalanlar satırlara dengeli yayılır.
+ */
+function TodayTiles() {
+  const radar = useIdeaToday().data?.radar
+  const week = useWeekAchievements().data
+  const tiles: Array<{ key: string; el: ReactNode }> = [
+    { key: 'mood', el: <MoodTile /> },
+    ...(radar ? [{ key: 'radar', el: <RadarTile radar={radar} /> }] : []),
+    { key: 'incubation', el: <IncubationTile /> },
+    { key: 'reminders', el: <RemindersTile /> },
+    ...(week && week.tasksWeek > 0 ? [{ key: 'week', el: <WeekTile week={week} /> }] : []),
+  ]
+  const spans = tileSpans(tiles.length)
+  return (
+    <div
+      className="grid grow grid-cols-6 gap-4"
+      style={{ gridTemplateRows: `repeat(${Math.ceil(tiles.length / 3)}, minmax(180px, 1fr))` }}
+    >
+      {tiles.map((t, i) => (
+        <div key={t.key} className="grid" style={{ gridColumn: `span ${spans[i]}` }}>
+          {t.el}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Günlük kayıt: her seçim hemen yazılır (gün başına tek kayıt). Günlük ve not Zihin'de (Aşama 7). */
 function MoodTile() {
-  const [mood, setMood] = useState<ScaleValue | null>(4)
-  const [energy, setEnergy] = useState<ScaleValue | null>(null)
+  const checkin = useTodayCheckin().data
+  const set = useSetCheckin()
+  const { toast } = useToast()
+  const save = (input: Parameters<typeof set.mutate>[0]) =>
+    set.mutate(input, { onError: (e) => toast({ message: errorText(e), domain: 'warning' }) })
+
   return (
     <Tile variant="question" domain="mind" className={TILE}>
       <div className="flex items-baseline">
         <span className="cx grow text-[15px]">Nasılsın?</span>
-        <span className="text-[13px] font-semibold text-[#3A3470]">Uyku {FAKE_TILES.sleep}</span>
+        <SleepField value={checkin?.sleepMin ?? null} onSave={(sleepMin) => save({ sleepMin })} />
       </div>
-      <MoodRow label="Ruh hâli" value={mood} onChange={setMood} />
-      <MoodRow label="Enerji" value={energy} onChange={setEnergy} />
+      <MoodRow
+        label="Ruh hâli"
+        value={(checkin?.mood ?? null) as ScaleValue | null}
+        onChange={(mood) => save({ mood })}
+      />
+      <MoodRow
+        label="Enerji"
+        value={(checkin?.energy ?? null) as ScaleValue | null}
+        onChange={(energy) => save({ energy })}
+      />
     </Tile>
+  )
+}
+
+/**
+ * "Uyku 7:15": tıklayınca yazılır. "7", "7:15", "7,5", "6 sa 40" anlaşılır; Enter ya da odak kaybı kaydeder,
+ * Esc vazgeçer, boş bırakmak siler.
+ */
+function SleepField({
+  value,
+  onSave,
+}: {
+  value: number | null
+  onSave: (sleepMin: number | null) => void
+}) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const { toast } = useToast()
+  const style = 'text-[13px] font-semibold text-[#3A3470]'
+
+  function commit() {
+    if (draft === null) return
+    const parsed = parseSleep(draft)
+    setDraft(null)
+    if (parsed === undefined) {
+      toast({ message: 'Uyku anlaşılmadı. "7:15" ya da "7,5" gibi yaz.', domain: 'warning' })
+      return
+    }
+    if (parsed !== value) onSave(parsed)
+  }
+
+  if (draft !== null) {
+    return (
+      <label className={cn('flex items-baseline gap-1.5', style)}>
+        Uyku
+        <input
+          ref={(el) => el?.focus()}
+          value={draft}
+          maxLength={12}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit()
+            if (e.key === 'Escape') {
+              e.stopPropagation()
+              setDraft(null)
+            }
+          }}
+          placeholder="7:30"
+          aria-label="Uyku süresi"
+          className="x w-[64px] rounded-full bg-white/60 px-2 text-fill-ink outline-none placeholder:text-[#3A3470]/60 focus-visible:outline-2 focus-visible:outline-[#3A3470]"
+        />
+      </label>
+    )
+  }
+  return (
+    <button
+      type="button"
+      title="Uykunu yaz"
+      onClick={() => setDraft(value === null ? '' : formatSleep(value))}
+      className={cn(
+        style,
+        'cursor-pointer rounded-full hover:underline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-indigo',
+      )}
+    >
+      {value === null ? 'Uyku ?' : `Uyku ${formatSleep(value)}`}
+    </button>
   )
 }
 
@@ -298,22 +400,10 @@ function useOpenIdea() {
     })
 }
 
-// Radar: 30 gündür açılmamış aktif fikir. Sessiz projeler Aşama 5'te (tarama) eklenir.
-function RadarTile() {
-  const radar = useIdeaToday().data?.radar
+// Radar: 30 gündür açılmamış aktif fikir; yoksa karo gizlenir. Sessiz projeler Aşama 5'te (tarama) eklenir.
+function RadarTile({ radar }: { radar: NonNullable<IdeaToday['radar']> }) {
   const openIdea = useOpenIdea()
   const decide = useIdeaDecision()
-
-  if (!radar) {
-    return (
-      <Tile variant="standard" className={TILE} eyebrow="Radar">
-        <span className="font-bold">Sessiz kalan fikir yok.</span>
-        <span className="text-[14px] text-ink2">
-          30 gündür açmadığın bir fikir olursa burada çıkar.
-        </span>
-      </Tile>
-    )
-  }
   const title = radar.title || UNTITLED_IDEA
   return (
     <Tile
@@ -497,31 +587,12 @@ function RemindersTile() {
   )
 }
 
-function DecisionTile() {
-  const { ago, decision, expectation } = FAKE_TILES.decision
-  return (
-    <Tile variant="question" fill="#BDB3FF" className={TILE} eyebrow={`${ago} karar verdin`}>
-      <span className="leading-[1.4] font-semibold">
-        <span className="font-extrabold">{decision}</span> Beklenti: {expectation}
-      </span>
-      {/* Üç cevap seçeneği tek sorunun cevabı; karo eylemi değil. */}
-      <div className="mt-auto flex items-center gap-1.5">
-        <span className="grow text-[14px] font-bold">Beklediğin gibi oldu mu?</span>
-        <Button size="sm" variant="onTile">
-          Evet
-        </Button>
-        <Button size="sm" variant="onTileGhost">
-          Kısmen
-        </Button>
-        <Button size="sm" variant="onTileGhost">
-          Hayır
-        </Button>
-      </div>
-    </Tile>
-  )
-}
-
-function WeekTile() {
+/** Bu hafta ve bugün biten görevler. Commit Aşama 5'te, quiz Aşama 6'da eklenir. */
+function WeekTile({ week }: { week: WeekAchievements }) {
+  const stats = [
+    { value: week.tasksWeek, label: 'görev' },
+    { value: week.tasksToday, label: 'bugün' },
+  ]
   return (
     <Tile variant="question" domain="dump" className={TILE}>
       <div className="flex items-baseline">
@@ -531,7 +602,7 @@ function WeekTile() {
         </Link>
       </div>
       <div className="flex grow items-end gap-7">
-        {FAKE_TILES.week.map((s) => (
+        {stats.map((s) => (
           <span key={s.label} className="flex flex-col">
             <span className="x text-[56px] leading-none font-black">{s.value}</span>
             <span className="font-bold">{s.label}</span>

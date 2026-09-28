@@ -7,6 +7,7 @@ import { getSetting } from './db/settings'
 import { registerAppIpc } from './ipc/app'
 import { registerDumpIpc } from './ipc/dump'
 import { registerKnowledgeIpc } from './ipc/knowledge'
+import { registerMindIpc } from './ipc/mind'
 import { registerPlanningIpc } from './ipc/planning'
 import { registerScheduleIpc } from './ipc/schedule'
 import { registerSettingsIpc } from './ipc/settings'
@@ -83,6 +84,7 @@ if (!app.requestSingleInstanceLock()) {
     registerKnowledgeIpc(paths)
     registerPlanningIpc()
     registerScheduleIpc()
+    registerMindIpc()
     registerSettingsIpc((key) => {
       if (key === 'theme') applyTheme(getSetting(getDb(), 'theme'))
     })

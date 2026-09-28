@@ -88,6 +88,7 @@ silinebilenlerde `deleted_at`. Aşağısı başlangıç taslağıdır; aşamalar
   kayar, `postpone_count` kaç gün kaçırılmış olursa olsun bir artar, hepsi `system` aktörüyle tek grupla loglanır.
 - `activity_log`: kim (`taha`/`ai`/`scan`/`system`), işlem (`create`/`update`/`delete`/`restore`), hedef tablo+id,
   `before_json`, `after_json`, `group_id` (birlikte uygulananlar), `undone_at`. Değişiklikle aynı transaction'da yazılır.
+  `id` tekdüze artan ulid (aynı milisaniyedekiler de sıralı; `logUpdateMerged` son kaydı id'yle bulur).
   Not otomatik kaydı her tuşta kayıt açmaz: aynı nota 10 dk içinde gelen update'ler (grupsuz, geri alınmamış son kayıt)
   tek 'update' kaydında birleşir, `after_json` güncellenir (`logUpdateMerged`). Koleksiyon silme notlarla aynı
   `group_id`'yi paylaşır; `collection:restore` grubu izleyip silinen notları döndürür, ayrılanları geri bağlar ve
@@ -101,7 +102,11 @@ silinebilenlerde `deleted_at`. Aşağısı başlangıç taslağıdır; aşamalar
   `exams`, `exam_topics`, `assignments`, `attendance`, `course_materials`.
 
 **Zihin**
-- `checkins` (tarih, ruh hâli 1–5, enerji 1–5, uyku saati, not), `journal_entries`, `decisions` (karar, beklenti, gözden geçirme tarihi, sonuç), `achievements` (türetilir, tablo gerekirse).
+- `checkins` (Aşama 3c): `day` (`YYYY-MM-DD`, benzersiz; günde tek kayıt), `mood` / `energy` (1–5, null = girilmedi),
+  `sleep_min` (uyku süresi dk), `note`. Bugün'deki Nasılsın? karosu her seçimde yazar; alanlar tek tek dolar. Silme
+  arayüzü yok, soft delete de yok (alanı boşaltmak null yazmak). İlk yazım `create`, sonrakiler 10 dk içinde tek
+  `update` kaydında birleşir (`logUpdateMerged`).
+- `journal_entries`, `decisions` (karar, beklenti, gözden geçirme tarihi, sonuç), `achievements` (türetilir, tablo gerekirse).
 
 **AI**
 - `ai_jobs`: tür, model, durum, başlangıç/bitiş, girdi özeti, ham çıktı yolu, hata.

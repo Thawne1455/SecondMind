@@ -18,6 +18,7 @@ import {
   noteUpdateInputSchema,
   tagSummarySchema,
 } from './schemas/knowledge'
+import { checkinSchema, checkinSetInputSchema, weekAchievementsSchema } from './schemas/mind'
 import {
   reminderCreateInputSchema,
   reminderResolveInputSchema,
@@ -38,6 +39,7 @@ import {
 export * from './ipc-channels'
 export * from './schemas/dump'
 export * from './schemas/knowledge'
+export * from './schemas/mind'
 export * from './schemas/planning'
 
 // IPC sözleşmesinin tek kaynağı. Kanal adları `alan:eylem` biçiminde.
@@ -294,6 +296,21 @@ export const ipcContract = {
   'schedule:start': {
     input: z.object({ taskId: z.string() }),
     output: scheduleDaySchema,
+  },
+  /** Bugünün günlük kaydı; henüz yoksa null. */
+  'checkin:today': {
+    input: z.void(),
+    output: checkinSchema.nullable(),
+  },
+  /** Bugünün kaydını oluşturur ya da verilen alanları günceller. */
+  'checkin:set': {
+    input: checkinSetInputSchema,
+    output: checkinSchema,
+  },
+  /** Bugün karosu "Bu hafta başardıkların". */
+  'achievement:week': {
+    input: z.void(),
+    output: weekAchievementsSchema,
   },
 } as const satisfies Record<IpcChannel, { input: z.ZodType; output: z.ZodType }>
 

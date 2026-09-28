@@ -1,7 +1,10 @@
 import { and, desc, eq } from 'drizzle-orm'
-import { ulid } from 'ulid'
+import { monotonicFactory } from 'ulid'
 import type { Db, DbTx } from './client'
 import { activityLog } from './schema'
+
+// Log sırası id'ye göre okunur (`logUpdateMerged`): aynı milisaniyedeki kayıtlar da artan sırada olsun.
+const ulid = monotonicFactory()
 
 type Entry = Omit<typeof activityLog.$inferInsert, 'id' | 'beforeJson' | 'afterJson'> & {
   before?: unknown

@@ -1,5 +1,5 @@
-// SAHTE VERİ — Aşama 1b. Bugün ekranı ve kenar çubuğu tasarımla birebir görünsün diye.
-// Akış bandı ve Şimdi 3b'den beri gerçek; kalan karolar 3c'de, projeler Aşama 5'te kalkar.
+// SAHTE VERİ — Aşama 1b. Kenar çubuğu tasarımla birebir görünsün diye.
+// Bugün ekranı 3c'den beri tamamen gerçek; bu dosya projelerle (Aşama 5) birlikte kalkar.
 
 export type FakeProject = {
   id: string
@@ -14,18 +14,3 @@ export const FAKE_PROJECTS: FakeProject[] = [
   { id: 'secondmind', name: 'SecondMind', color: '#FF8A3D' },
   { id: 'album', name: 'Albüm', color: '#F59BE6', silentDays: 16 },
 ]
-
-// Kuluçka ve radar karoları 2c'den, hatırlatmalar ve sıradaki adımlar 3a'dan beri gerçek veriyle.
-export const FAKE_TILES = {
-  sleep: '7:15',
-  decision: {
-    ago: '3 ay önce',
-    decision: 'Yaz boyunca her gün 1 saat Runika.',
-    expectation: 'Ağustos sonunda oynanabilir demo.',
-  },
-  week: [
-    { value: 12, label: 'görev' },
-    { value: 9, label: 'commit' },
-    { value: 1, label: 'quiz' },
-  ],
-}

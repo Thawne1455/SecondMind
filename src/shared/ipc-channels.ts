@@ -54,6 +54,9 @@ export const ipcChannels = [
   'schedule:move',
   'schedule:unpin',
   'schedule:start',
+  'checkin:today',
+  'checkin:set',
+  'achievement:week',
 ] as const
 export type IpcChannel = (typeof ipcChannels)[number]
 
