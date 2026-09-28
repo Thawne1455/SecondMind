@@ -54,6 +54,7 @@ describe('planlama biçimleri', () => {
     const now = at(28).getTime()
     expect(formatReminderAt(at(28, 20).getTime(), now)).toBe('20:00')
     expect(formatReminderAt(at(29, 10).getTime(), now)).toBe('Yarın 10:00')
+    expect(formatReminderAt(at(27, 18).getTime(), now)).toBe('Dün 18:00')
     expect(formatReminderAt(at(29, 10).getTime() + 86_400_000, now)).toBe('Çar 10:00')
     expect(formatReminderAt(at(14, 9, 0, 9).getTime(), now)).toBe('14 Eki 09:00')
   })

@@ -4,11 +4,9 @@ import type { Reminder, Task } from '@shared/ipc'
 export type ShellApi = {
   openPalette: () => void
   openQuickDump: () => void
-  /** Görev modalı (Ctrl G): görev verilirse düzenler; `planned` yeni görevin günü. */
+  /** Görev çalışma alanı (Ctrl G): solda tüm görevler, sağda form. Görev verilirse onu düzenler. */
   openTask: (task?: Task | null, planned?: string | null) => void
-  /** Tüm görevler listesi. */
-  openTasks: () => void
-  /** Hatırlatma modalı (Ctrl H): verilirse düzenler. */
+  /** Hatırlatma çalışma alanı (Ctrl H): solda tümü, sağda form. Verilirse onu düzenler. */
   openReminder: (reminder?: Reminder | null) => void
 }
 

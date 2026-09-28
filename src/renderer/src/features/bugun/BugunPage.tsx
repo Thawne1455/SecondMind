@@ -140,7 +140,7 @@ const NEXT_STEPS_MAX = 3
 
 /** Sıradaki adımlar: açık görevler (bugünkü önce, domain/tasks sırası) + hızlı görev satırı. */
 function NextSteps() {
-  const { openTask, openTasks } = useShell()
+  const { openTask } = useShell()
   const tasks = useTasks('open').data ?? []
 
   return (
@@ -150,7 +150,7 @@ function NextSteps() {
         {tasks.length > NEXT_STEPS_MAX && (
           <button
             type="button"
-            onClick={openTasks}
+            onClick={() => openTask()}
             className="cursor-pointer text-[13px] font-extrabold underline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-indigo"
           >
             Tümü · {tasks.length}
@@ -416,13 +416,23 @@ function RemindersTile() {
     <Tile
       variant="standard"
       className={TILE}
-      eyebrow={
-        upcoming.length > REMINDERS_SHOWN ? `Hatırlatmalar · ${upcoming.length}` : 'Hatırlatmalar'
-      }
+      eyebrow="Hatırlatmalar"
+      // İkisi de aynı çalışma alanını açar (solda tümü, sağda yeni); "Tümü" sadece gizlenen varsa.
       actions={[
         <Button key="add" size="sm" icon={Plus} onClick={() => openReminder()}>
           Ekle
         </Button>,
+        upcoming.length > REMINDERS_SHOWN ? (
+          <Button
+            key="all"
+            size="sm"
+            variant="secondary"
+            className="[--btn-soft:var(--bg)]"
+            onClick={() => openReminder()}
+          >
+            Tümü · {upcoming.length}
+          </Button>
+        ) : undefined,
       ]}
     >
       {!upcoming.length && (

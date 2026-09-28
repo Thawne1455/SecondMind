@@ -5,10 +5,9 @@ import { format } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import type { Reminder, Task } from '@shared/ipc'
 import { useNoteTitles } from '../features/bilgi/useKnowledge'
-import { ReminderModal } from '../features/bugun/ReminderModal'
-import { TasksModal } from '../features/bugun/TaskList'
-import { TaskModal } from '../features/bugun/TaskModal'
-import { planningKeys, useTasks } from '../features/bugun/usePlanning'
+import { ReminderWorkspace } from '../features/bugun/ReminderWorkspace'
+import { TaskWorkspace } from '../features/bugun/TaskWorkspace'
+import { planningKeys, useReminders, useTasks } from '../features/bugun/usePlanning'
 import { FAKE_PROJECTS } from '../lib/fake'
 import { useSetSetting, useSetting } from '../lib/settings'
 import { CommandPalette, type PaletteItem } from './CommandPalette'
@@ -21,7 +20,6 @@ type Dialog =
   | { kind: 'palette' }
   | { kind: 'dump' }
   | { kind: 'task'; task: Task | null; planned: string | null }
-  | { kind: 'tasks' }
   | { kind: 'reminder'; reminder: Reminder | null }
 
 /**
@@ -75,7 +73,6 @@ export function AppShell() {
       openQuickDump: () => setDialog({ kind: 'dump' }),
       openTask: (task: Task | null = null, planned: string | null = null) =>
         setDialog({ kind: 'task', task, planned }),
-      openTasks: () => setDialog({ kind: 'tasks' }),
       openReminder: (reminder: Reminder | null = null) => setDialog({ kind: 'reminder', reminder }),
     }),
     [],
@@ -84,6 +81,7 @@ export function AppShell() {
   const dark = theme.data === 'dark'
   const noteTitles = useNoteTitles().data
   const openTasks = useTasks('open').data
+  const reminders = useReminders().data
   const items = useMemo<PaletteItem[]>(
     () => [
       ...FAKE_PROJECTS.map((p) => ({
@@ -119,7 +117,14 @@ export function AppShell() {
         group: 'Komutlar',
         label: 'Tüm görevler',
         meta: openTasks ? `${openTasks.length} açık` : undefined,
-        run: () => shell.openTasks(),
+        run: () => shell.openTask(),
+      },
+      {
+        id: 'reminders',
+        group: 'Komutlar',
+        label: 'Tüm hatırlatmalar',
+        meta: reminders ? `${reminders.length} kurulu` : undefined,
+        run: () => shell.openReminder(),
       },
       ...PANELS.map((panel) => ({
         id: `go-${panel.id}`,
@@ -165,7 +170,7 @@ export function AppShell() {
         run: () => navigate(`/bilgi/${n.id}`),
       })),
     ],
-    [navigate, dark, saveTheme, noteTitles, openTasks, shell],
+    [navigate, dark, saveTheme, noteTitles, openTasks, reminders, shell],
   )
 
   return (
@@ -178,19 +183,13 @@ export function AppShell() {
       </div>
       <CommandPalette open={dialog?.kind === 'palette'} onClose={close} items={items} />
       <QuickDump open={dialog?.kind === 'dump'} onClose={close} />
-      <TaskModal
+      <TaskWorkspace
         open={dialog?.kind === 'task'}
         task={dialog?.kind === 'task' ? dialog.task : null}
         defaultPlanned={dialog?.kind === 'task' ? dialog.planned : null}
         onClose={close}
       />
-      <TasksModal
-        open={dialog?.kind === 'tasks'}
-        onClose={close}
-        onEdit={(task) => shell.openTask(task)}
-        onNew={() => shell.openTask()}
-      />
-      <ReminderModal
+      <ReminderWorkspace
         open={dialog?.kind === 'reminder'}
         reminder={dialog?.kind === 'reminder' ? dialog.reminder : null}
         onClose={close}

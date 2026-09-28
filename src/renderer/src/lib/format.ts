@@ -46,13 +46,14 @@ export function formatDayName(at: Date, now: Date): string {
   return format(at, sameYear ? 'd MMM' : 'd MMM yyyy', { locale: tr })
 }
 
-/** Hatırlatma zamanı, kısa: bugün "20:00", yarın "Yarın 10:00", bu hafta "Sal 23:59", sonra "5 Eki 10:00". */
+/** Hatırlatma zamanı, kısa: bugün "20:00", yarın "Yarın 10:00", dün "Dün 18:00", bu hafta "Sal 23:59", sonra "5 Eki 10:00". */
 export function formatReminderAt(at: number, now: number): string {
   const d = new Date(at)
   const time = format(d, 'HH:mm')
   const diff = dayDiff(d, new Date(now))
   if (diff === 0) return time
   if (diff === 1) return `Yarın ${time}`
+  if (diff === -1) return `Dün ${time}`
   if (diff > 1 && diff < 7) return `${SHORT_DAYS[Number(format(d, 'i'))]} ${time}`
   return `${format(d, 'd MMM', { locale: tr })} ${time}`
 }

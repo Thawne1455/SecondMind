@@ -1,14 +1,15 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { addDays, format } from 'date-fns'
 import { Trash2 } from 'lucide-react'
 import type { Task, TaskPriority } from '@shared/ipc'
 import { errorText } from '../../lib/errors'
 import { formatDayName, formatMinutes } from '../../lib/format'
 import { parseQuickEntry } from '../../lib/quickEntry'
-import { Button, Chip, Field, Input, Modal, Textarea, useToast } from '../../ui'
+import { Button, Chip, DialogFrame, Field, Input, ModalPanel, Textarea, useToast } from '../../ui'
+import { TaskListPanel } from './TaskList'
 import { useCreateTask, useDeleteTask, useRestoreTask, useUpdateTask } from './usePlanning'
 
-// Görev ekle / düzenle (Ctrl G, her ekrandan). Yeni görevde başlık hızlı giriş gibi ayrıştırılır:
+// Görev çalışma alanı (Ctrl G, her ekrandan). Yeni görevde başlık hızlı giriş gibi ayrıştırılır:
 // "raporu yaz yarın 45dk ! son cuma" alanları doldurur, başlığa "raporu yaz" kalır.
 
 const ESTIMATES = [15, 30, 45, 60, 90, 120]
@@ -20,45 +21,81 @@ const PRIORITIES: { value: TaskPriority; label: string }[] = [
 
 const dayKey = (d: Date) => format(d, 'yyyy-MM-dd')
 
-type TaskModalProps = {
+type TaskWorkspaceProps = {
   open: boolean
-  /** Düzenlenecek görev; yoksa yeni görev. */
+  /** Açılışta sağda düzenlenecek görev; yoksa yeni görev formu. */
   task: Task | null
-  /** Yeni görevin başlangıç günü (Bugün'den açılınca bugün). */
+  /** Yeni görevin başlangıç günü. */
   defaultPlanned?: string | null
   onClose: () => void
 }
 
-export function TaskModal({ open, task, defaultPlanned = null, onClose }: TaskModalProps) {
+/**
+ * Görev çalışma alanı (Ctrl G, her ekrandan): solda tüm görevler, sağda ekle / düzenle.
+ * Ekleyince pencere kapanmaz, form boşalır: arka arkaya görev girilir. Listeden seçilen sağda açılır.
+ */
+export function TaskWorkspace({ open, task, defaultPlanned = null, onClose }: TaskWorkspaceProps) {
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      width={600}
-      placement="top"
-      title={task ? 'Görev' : 'Yeni görev'}
-      domain="today"
-      hints={
-        task
-          ? 'Enter kaydeder · Esc kapatır'
-          : 'Başlığa "yarın", "cuma", "45dk", "!" (yüksek), "son 5 ekim" yazabilirsin.'
-      }
-      actions={
-        <Button type="submit" form="task-form">
-          {task ? 'Kaydet' : 'Ekle'}
-        </Button>
-      }
-    >
-      {/* Her açılışta form sıfırlansın. */}
-      {open && (
+    <DialogFrame open={open} onClose={onClose} label="Görevler" width={1180} placement="high">
+      <Workspace initial={task} defaultPlanned={defaultPlanned} onClose={onClose} />
+    </DialogFrame>
+  )
+}
+
+function Workspace({
+  initial,
+  defaultPlanned,
+  onClose,
+}: {
+  initial: Task | null
+  defaultPlanned: string | null
+  onClose: () => void
+}) {
+  const [selected, setSelected] = useState<Task | null>(initial)
+  // Her kayıttan sonra yeni ve boş form.
+  const [round, setRound] = useState(0)
+  const fresh = () => {
+    setSelected(null)
+    setRound((r) => r + 1)
+  }
+
+  return (
+    <div className="flex items-start gap-4">
+      <TaskListPanel
+        selectedId={selected?.id ?? null}
+        onEdit={setSelected}
+        className="min-w-0 grow"
+      />
+      <ModalPanel
+        title={selected ? 'Görevi düzenle' : 'Yeni görev'}
+        domain="today"
+        onClose={onClose}
+        className="w-[500px] shrink-0"
+        headerClassName="min-h-[68px]"
+        footerClassName="min-h-[76px]"
+        hints={selected ? 'Enter kaydeder · Esc kapatır' : 'Ctrl G · Enter ekler, form boşalır'}
+        bodyClassName="h-[62vh] overflow-y-auto"
+        actions={
+          <>
+            {selected && (
+              <Button variant="secondary" onClick={fresh}>
+                Yeni
+              </Button>
+            )}
+            <Button type="submit" form="task-form">
+              {selected ? 'Kaydet' : 'Ekle'}
+            </Button>
+          </>
+        }
+      >
         <TaskForm
-          key={task?.id ?? 'new'}
-          task={task}
+          key={selected?.id ?? `new-${round}`}
+          task={selected}
           defaultPlanned={defaultPlanned}
-          onDone={onClose}
+          onDone={fresh}
         />
-      )}
-    </Modal>
+      </ModalPanel>
+    </div>
   )
 }
 
@@ -87,6 +124,9 @@ function TaskForm({
   const remove = useDeleteTask()
   const restore = useRestoreTask()
   const { toast } = useToast()
+  const titleRef = useRef<HTMLInputElement>(null)
+  // Yeni/seçilen form açılınca başlığa odak (ilk açılışta DialogFrame data-autofocus'la yapar).
+  useEffect(() => titleRef.current?.focus(), [])
 
   // Yeni görevde başlık yazılırken tanınan kelimeler alanlara geçer.
   const parsed = task ? null : parseQuickEntry(title, now)
@@ -118,7 +158,7 @@ function TaskForm({
     else
       create.mutate(fields, {
         onSuccess: (t) => {
-          toast({ variant: 'fill', domain: 'today', message: `Görev eklendi: ${t.title}` })
+          toast({ variant: 'fill', domain: 'today', message: `Eklendi: ${t.title}` })
           onDone()
         },
         onError,
@@ -145,7 +185,8 @@ function TaskForm({
       <Field label="Ne yapılacak?" error={error}>
         <Input
           strong
-          autoFocus
+          data-autofocus
+          ref={titleRef}
           value={title}
           maxLength={300}
           onChange={(e) => onTitle(e.target.value)}
@@ -179,7 +220,7 @@ function TaskForm({
         </div>
       </Field>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="flex flex-col gap-4">
         <Field label="Süre" optional>
           <div className="flex flex-wrap gap-1.5">
             {ESTIMATES.map((m) => (

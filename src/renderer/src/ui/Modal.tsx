@@ -10,7 +10,8 @@ type ModalPanelProps = {
   domain?: Domain
   /** Proje rengi gibi özel üst şerit (domain'i ezer). */
   fill?: string
-  onClose: () => void
+  /** Verilmezse kapat butonu çizilmez (yan yana panellerde sadece biri kapatır). */
+  onClose?: () => void
   /** Başlıkla kapat arasında (örn. kısayol etiketi). */
   headerExtra?: ReactNode
   /** Alt şeridin solu: klavye ipuçları ("Enter kaydeder"). */
@@ -56,13 +57,15 @@ export function ModalPanel({
       >
         <h2 className="x m-0 grow text-[20px] leading-tight font-black uppercase">{title}</h2>
         {headerExtra}
-        <IconButton
-          label="Kapat"
-          icon={X}
-          variant="onTileGhost"
-          onClick={onClose}
-          className="size-9"
-        />
+        {onClose && (
+          <IconButton
+            label="Kapat"
+            icon={X}
+            variant="onTileGhost"
+            onClick={onClose}
+            className="size-9"
+          />
+        )}
       </div>
       <div className={cn('flex flex-col gap-4 px-6 py-5', bodyClassName)}>{children}</div>
       {(hints || actions) && (
@@ -80,18 +83,30 @@ export function ModalPanel({
   )
 }
 
-type ModalProps = ModalPanelProps & {
+type DialogFrameProps = {
   open: boolean
+  onClose: () => void
+  /** Ekran okuyucu adı. */
+  label?: string
   width?: number
-  /** center: dikeyde ortada. top: üstten %19 (Hızlı Döküm). */
-  placement?: 'center' | 'top'
+  /** center: dikeyde ortada. top: üstten %19 (Hızlı Döküm). high: üstten %8 (uzun, yan yana paneller). */
+  placement?: 'center' | 'top' | 'high'
+  children: ReactNode
 }
 
 /**
  * Native <dialog>: odak tuzağı, Esc ve arka planın etkisizleşmesi tarayıcıdan gelir.
- * Arka plana tıklamak kapatır.
+ * Arka plana tıklamak kapatır. Açılınca `[data-autofocus]` işaretli alan odak alır
+ * (React'in autoFocus'u showModal'dan önce çalıştığı için işe yaramaz).
  */
-export function Modal({ open, width = 560, placement = 'center', onClose, ...panel }: ModalProps) {
+export function DialogFrame({
+  open,
+  onClose,
+  label,
+  width = 560,
+  placement = 'center',
+  children,
+}: DialogFrameProps) {
   const ref = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
@@ -108,7 +123,7 @@ export function Modal({ open, width = 560, placement = 'center', onClose, ...pan
   return (
     <dialog
       ref={ref}
-      aria-label={typeof panel.title === 'string' ? panel.title : undefined}
+      aria-label={label}
       onCancel={(e) => {
         e.preventDefault()
         onClose()
@@ -118,11 +133,36 @@ export function Modal({ open, width = 560, placement = 'center', onClose, ...pan
       }}
       className={cn(
         'max-w-[calc(100vw-64px)] overflow-visible bg-transparent p-0 text-ink',
-        placement === 'top' ? 'mx-auto mt-[19vh]' : 'm-auto',
+        placement === 'top'
+          ? 'mx-auto mt-[19vh]'
+          : placement === 'high'
+            ? 'mx-auto mt-[8vh]'
+            : 'm-auto',
       )}
       style={{ width }}
     >
-      {open && <ModalPanel onClose={onClose} {...panel} />}
+      {open && children}
     </dialog>
+  )
+}
+
+type ModalProps = ModalPanelProps & {
+  open: boolean
+  onClose: () => void
+  width?: number
+  placement?: 'center' | 'top'
+}
+
+export function Modal({ open, width, placement, onClose, ...panel }: ModalProps) {
+  return (
+    <DialogFrame
+      open={open}
+      onClose={onClose}
+      width={width}
+      placement={placement}
+      label={typeof panel.title === 'string' ? panel.title : undefined}
+    >
+      <ModalPanel onClose={onClose} {...panel} />
+    </DialogFrame>
   )
 }

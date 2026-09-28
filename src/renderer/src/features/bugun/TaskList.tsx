@@ -3,10 +3,10 @@ import { format } from 'date-fns'
 import { Check } from 'lucide-react'
 import type { Task } from '@shared/ipc'
 import { formatDayName, formatMinutes } from '../../lib/format'
-import { Button, Chip, cn, EmptyState, Modal, Skeleton, useToast } from '../../ui'
+import { Button, Chip, cn, EmptyState, ModalPanel, Skeleton, useToast } from '../../ui'
 import { useSetTaskDone, useTasks, useUpdateTask } from './usePlanning'
 
-// Görev satırı (Bugün'deki Sıradaki adımlar ve Görevler listesi) ve tüm görevler modalı.
+// Görev satırı (Bugün'deki Sıradaki adımlar ve Görevler listesi) ve görev çalışma alanının sol karosu.
 
 const dayKey = (d: Date) => format(d, 'yyyy-MM-dd')
 const fromKey = (k: string) => new Date(`${k}T00:00`)
@@ -130,15 +130,15 @@ export function TaskRow({ task, onEdit, className }: TaskRowProps) {
   )
 }
 
-type TasksModalProps = {
-  open: boolean
-  onClose: () => void
+type TaskListPanelProps = {
+  /** Sağdaki formda açık olan görev; satırı işaretlenir. */
+  selectedId: string | null
   onEdit: (task: Task) => void
-  onNew: () => void
+  className?: string
 }
 
-/** Tüm görevler: açıklar (bugünkü önce) ve son bitenler. */
-export function TasksModal({ open, onClose, onEdit, onNew }: TasksModalProps) {
+/** Görev çalışma alanının sol karosu: açıklar (bugünkü önce, sonra) ve son bitenler. */
+export function TaskListPanel({ selectedId, onEdit, className }: TaskListPanelProps) {
   const [tab, setTab] = useState<'open' | 'done'>('open')
   const tasks = useTasks(tab)
   const today = dayKey(new Date())
@@ -146,13 +146,12 @@ export function TasksModal({ open, onClose, onEdit, onNew }: TasksModalProps) {
   const todayCount = tab === 'open' ? list.filter((t) => isForToday(t, today)).length : 0
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      width={720}
-      placement="top"
+    <ModalPanel
       title="Görevler"
       domain="today"
+      className={className}
+      headerClassName="min-h-[68px]"
+      footerClassName="min-h-[76px]"
       headerExtra={
         <div className="flex gap-1.5">
           <Chip selected={tab === 'open'} onClick={() => setTab('open')}>
@@ -163,15 +162,18 @@ export function TasksModal({ open, onClose, onEdit, onNew }: TasksModalProps) {
           </Chip>
         </div>
       }
-      hints={tab === 'open' ? `${list.length} açık görev · ${todayCount} tanesi bugün` : undefined}
-      actions={<Button onClick={onNew}>Yeni görev</Button>}
-      bodyClassName="max-h-[62vh] gap-1.5 overflow-y-auto"
+      hints={
+        tab === 'open'
+          ? `${list.length} açık görev · ${todayCount} tanesi bugün`
+          : 'Son biten 100 görev'
+      }
+      bodyClassName="h-[62vh] gap-1.5 overflow-y-auto"
     >
       {tasks.isPending && <Skeleton lines={4} />}
       {tasks.data && !list.length && (
         <EmptyState
           title={tab === 'open' ? 'Açık görev yok' : 'Henüz biten görev yok'}
-          message={tab === 'open' ? 'Ctrl G ile her ekrandan görev ekleyebilirsin.' : undefined}
+          message={tab === 'open' ? 'Sağdaki karodan ekleyebilirsin.' : undefined}
         />
       )}
       {list.map((t, i) => {
@@ -184,10 +186,14 @@ export function TasksModal({ open, onClose, onEdit, onNew }: TasksModalProps) {
                 {isForToday(t, today) ? 'Bugün' : 'Sonra'}
               </span>
             )}
-            <TaskRow task={t} onEdit={onEdit} />
+            <TaskRow
+              task={t}
+              onEdit={onEdit}
+              className={t.id === selectedId ? 'outline-2 outline-ink' : undefined}
+            />
           </div>
         )
       })}
-    </Modal>
+    </ModalPanel>
   )
 }
