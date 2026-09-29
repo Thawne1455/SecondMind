@@ -369,6 +369,8 @@ export type FolderScanResult = {
   todosResolved: number
   /** Git'siz klasörde yeni + değişen + silinen dosya (ilk taramada 0). */
   filesChanged: number
+  /** Claude Code kayıtlarından yeni eklenen oturumlar (elle oturumu zenginleştirenler sayılmaz). */
+  claudeSessions: number
 }
 
 /**
@@ -384,6 +386,7 @@ export function scanToastText(
     if (r.firstScan) {
       if (r.newCommits) bits.push(`${r.newCommits} commit`)
       if (r.todosAdded) bits.push(`${r.todosAdded} kod notu`)
+      if (r.claudeSessions) bits.push(`${r.claudeSessions} Claude Code oturumu`)
       parts.push(
         bits.length ? `${name} ilk kez tarandı: ${bits.join(', ')}` : `${name} ilk kez tarandı`,
       )
@@ -393,6 +396,7 @@ export function scanToastText(
     if (r.filesChanged) bits.push(`${r.filesChanged} dosya değişti`)
     if (r.todosAdded) bits.push(`${r.todosAdded} yeni kod notu`)
     if (r.todosResolved) bits.push(`${r.todosResolved} kod notu çözüldü`)
+    if (r.claudeSessions) bits.push(`${r.claudeSessions} Claude Code oturumu`)
     if (bits.length) parts.push(`${name}: ${bits.join(', ')}`)
   }
   return parts.length ? parts.join(' · ') : null

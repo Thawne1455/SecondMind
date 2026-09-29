@@ -9,7 +9,15 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { FoundTodo, ParsedCommit } from '../domain/scan'
 import { runScan } from '../scan'
 import type { Db } from './client'
-import { createProject, deleteProject, listProjects } from './projects'
+import {
+  closeSession,
+  createProject,
+  deleteProject,
+  discardSession,
+  listProjects,
+  listSessions,
+  startSession,
+} from './projects'
 import {
   knownCommits,
   lastSnapshot,
@@ -30,6 +38,8 @@ beforeEach(() => {
 })
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour)
+// Testler gerçek ~/.claude kayıtlarını okumasın.
+const NO_CLAUDE = { claudeRoot: join(tmpdir(), 'sm-yok-claude') }
 
 const commit = (
   hash: string,
@@ -88,6 +98,7 @@ describe('recordFolderScan', () => {
       todosAdded: 1,
       todosResolved: 0,
       filesChanged: 0,
+      claudeSessions: 0,
     })
     const target = scanTargets(db)[0]!
     expect(target.lastScanAt).toEqual(at(10))
@@ -245,7 +256,7 @@ describe('runScan (geçici klasör)', () => {
       { name: 'Runika', kind: 'unity', color: '#3BE08F', folderPath: join(dir, 'oyun') },
       new Date(),
     )
-    const first = await runScan(db)
+    const first = await runScan(db, undefined, NO_CLAUDE)
     expect(first.projects[0]).toMatchObject({
       projectId: id,
       firstScan: true,
@@ -272,7 +283,7 @@ describe('runScan (geçici klasör)', () => {
     write('oyun/Assets/Scripts/Boss.cs', 'class Boss {\n  // FIXME geçişte ses patlıyor\n}\n')
     git('add', '-A')
     git('commit', '-q', '-m', 'Boss müziği')
-    const second = await runScan(db)
+    const second = await runScan(db, undefined, NO_CLAUDE)
     expect(second.projects[0]).toMatchObject({
       firstScan: false,
       newCommits: 1,
@@ -297,7 +308,7 @@ describe('runScan (geçici klasör)', () => {
       new Date(),
     )
 
-    const first = await runScan(db)
+    const first = await runScan(db, undefined, NO_CLAUDE)
     expect(first.projects.find((p) => p.name === 'Kayıp')!.errors[0]).toContain('Klasör bulunamadı')
     expect(first.projects.find((p) => p.name === 'Albüm')).toMatchObject({
       firstScan: true,
@@ -309,10 +320,172 @@ describe('runScan (geçici klasör)', () => {
     // Sadece dokunulmuş, içeriği aynı dosya: ilk kez hash alınır, değişmiş sayılır; sonra sayılmaz.
     const t = new Date(Date.now() + 5000)
     utimesSync(join(dir, 'albüm/kapak.png'), t, t)
-    const second = await runScan(db)
+    const second = await runScan(db, undefined, NO_CLAUDE)
     expect(second.projects.find((p) => p.name === 'Albüm')!.filesChanged).toBe(3)
 
-    const third = await runScan(db)
+    const third = await runScan(db, undefined, NO_CLAUDE)
     expect(third.projects.find((p) => p.name === 'Albüm')!.filesChanged).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------- Claude Code oturumları
+
+describe('Claude Code oturumları', () => {
+  const span = (startDay: number, startHour: number, minutes: number, files: string[] = []) => {
+    const start = at(startDay, startHour).getTime()
+    return {
+      externalId: `s:${start}`,
+      sessionId: 's',
+      start,
+      end: start + minutes * 60_000,
+      files: files.map((path) => ({ path, area: 'Kod' })),
+    }
+  }
+  let projectId: string
+
+  beforeEach(() => {
+    projectId = createProject(
+      db,
+      { name: 'Runika', kind: 'unity', color: '#3BE08F', folderPath: 'C:\\ajanda\\Runika' },
+      at(1),
+    )
+  })
+
+  it('kesişmeyen aralık otomatik oturum olur; tekrar taramada uzar, çoğalmaz', () => {
+    const r = recordFolderScan(
+      db,
+      input({ claudeSpans: [span(5, 20, 90, ['Assets/a.cs'])] }),
+      at(6),
+    )
+    expect(r.claudeSessions).toBe(1)
+    const again = recordFolderScan(
+      db,
+      input({ claudeSpans: [{ ...span(5, 20, 120, ['Assets/b.cs']) }] }),
+      at(7),
+    )
+    expect(again.claudeSessions).toBe(0)
+    const [s] = listSessions(db, projectId, 10)
+    expect(s).toMatchObject({
+      source: 'claude_code',
+      startedAt: at(5, 20).getTime(),
+      endedAt: at(5, 20).getTime() + 120 * 60_000,
+      files: [
+        { path: 'Assets/a.cs', area: 'Kod' },
+        { path: 'Assets/b.cs', area: 'Kod' },
+      ],
+    })
+    expect(
+      db
+        .select()
+        .from(schema.activityLog)
+        .all()
+        .filter((l) => l.targetTable === 'sessions'),
+    ).toHaveLength(1)
+  })
+
+  it('elle oturumla kesişen aralık ayrı kayıt olmaz, dosyaları elle oturuma eklenir', () => {
+    const s = startSession(db, { projectId }, at(5, 20))
+    closeSession(db, { id: s.id, leftOff: 'boss', nextStep: 'müzik' }, at(5, 22))
+    const r = recordFolderScan(
+      db,
+      input({ claudeSpans: [span(5, 21, 90, ['Assets/Boss.cs']), span(5, 21, 90, ['x.cs'])] }),
+      at(6),
+    )
+    expect(r.claudeSessions).toBe(0)
+    const list = listSessions(db, projectId, 10)
+    expect(list).toHaveLength(1)
+    expect(list[0]).toMatchObject({ source: 'taha', leftOff: 'boss' })
+    expect(list[0]!.files.map((f) => f.path)).toEqual(['Assets/Boss.cs', 'x.cs'])
+  })
+
+  it('çöp kutusuna atılan otomatik oturum geri gelmez', () => {
+    recordFolderScan(db, input({ claudeSpans: [span(5, 20, 60)] }), at(6))
+    discardSession(db, listSessions(db, projectId, 10)[0]!.id, at(6))
+    const r = recordFolderScan(db, input({ claudeSpans: [span(5, 20, 60)] }), at(7))
+    expect(r.claudeSessions).toBe(0)
+    expect(listSessions(db, projectId, 10)).toHaveLength(0)
+  })
+
+  it('otomatik oturum projenin sıradaki adımını değiştirmez, sessizliği bitirir', () => {
+    recordFolderScan(db, input({ claudeSpans: [span(20, 20, 60)] }), at(21))
+    const p = listProjects(db, at(28))[0]!
+    expect(p.nextStep).toBe('')
+    expect(p.silentDays).toBe(8)
+    expect(p.lastSession?.source).toBe('claude_code')
+  })
+})
+
+describe('runScan + Claude Code kayıt klasörü', () => {
+  let dir: string
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'sm-claude-'))
+  })
+  afterEach(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('üst klasörden açılıp proje içinde çalışılan oturum da yakalanır; komşu proje karışmaz', async () => {
+    const project = join(dir, 'ajanda', 'Runika')
+    mkdirSync(project, { recursive: true })
+    const claude = join(dir, 'claude')
+    const line = (ts: string, cwd: string, extra: object = {}) =>
+      JSON.stringify({ type: 'user', timestamp: ts, cwd, sessionId: 'abc', ...extra })
+    const parentDir = join(
+      claude,
+      `${project.replace(/[^A-Za-z0-9]/g, '-').replace(/-Runika$/, '')}`,
+    )
+    const ownDir = join(claude, project.replace(/[^A-Za-z0-9]/g, '-'))
+    const otherDir = join(claude, `${project.replace(/[^A-Za-z0-9]/g, '-')}2`)
+    for (const d of [parentDir, ownDir, otherDir])
+      mkdirSync(join(d, 'yan-ajan'), { recursive: true })
+    writeFileSync(
+      join(parentDir, 'abc.jsonl'),
+      [
+        line('2026-09-01T10:00:00Z', join(dir, 'ajanda')),
+        line('2026-09-01T10:05:00Z', project),
+        line('2026-09-01T10:30:00Z', join(project, 'Assets'), {
+          type: 'assistant',
+          message: {
+            content: [
+              {
+                type: 'tool_use',
+                name: 'Write',
+                input: { file_path: join(project, 'Assets', 'Boss.cs') },
+              },
+            ],
+          },
+        }),
+        '{"type":"cost-state","sessionId":"abc"}',
+      ].join('\n'),
+    )
+    writeFileSync(
+      join(ownDir, 'def.jsonl'),
+      [line('2026-09-02T10:00:00Z', project), line('2026-09-02T10:02:00Z', project)].join('\n'),
+    )
+    writeFileSync(
+      join(otherDir, 'x.jsonl'),
+      [
+        line('2026-09-03T10:00:00Z', `${project}2`),
+        line('2026-09-03T11:00:00Z', `${project}2`),
+      ].join('\n'),
+    )
+    const id = createProject(
+      db,
+      { name: 'Runika', kind: 'general', color: '#3BE08F', folderPath: project },
+      new Date(),
+    )
+
+    const report = await runScan(db, undefined, { claudeRoot: claude })
+    expect(report.projects[0]).toMatchObject({ claudeSessions: 1, errors: [] })
+    expect(report.toast).toBe('Runika ilk kez tarandı: 1 Claude Code oturumu')
+    const [s] = listSessions(db, id, 10)
+    expect(s).toMatchObject({
+      source: 'claude_code',
+      startedAt: Date.parse('2026-09-01T10:05:00Z'),
+      endedAt: Date.parse('2026-09-01T10:30:00Z'),
+      files: [{ path: 'Assets/Boss.cs', area: 'Diğer' }],
+    })
+
+    const again = await runScan(db, undefined, { claudeRoot: claude })
+    expect(again.projects[0]!.claudeSessions).toBe(0)
+    expect(listSessions(db, id, 10)).toHaveLength(1)
   })
 })

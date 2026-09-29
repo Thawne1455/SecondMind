@@ -42,6 +42,7 @@ const toSession = (r: SessionRow): Session => ({
   leftOff: r.leftOff,
   nextStep: r.nextStep,
   source: r.source,
+  files: r.filesJson ? (JSON.parse(r.filesJson) as Session['files']) : [],
 })
 
 function log(

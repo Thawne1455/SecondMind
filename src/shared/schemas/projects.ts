@@ -37,6 +37,8 @@ export const sessionSchema = z.object({
   leftOff: z.string(),
   nextStep: z.string(),
   source: z.enum(['taha', 'claude_code']),
+  /** Oturumda değişen dosyalar ve alanları (Claude Code kaydından, 5b). */
+  files: z.array(z.object({ path: z.string(), area: z.string() })),
 })
 
 export const projectSummarySchema = z.object({
@@ -169,6 +171,7 @@ export const scanReportSchema = z.object({
       todosAdded: z.number(),
       todosResolved: z.number(),
       filesChanged: z.number(),
+      claudeSessions: z.number(),
       errors: z.array(z.string()),
     }),
   ),

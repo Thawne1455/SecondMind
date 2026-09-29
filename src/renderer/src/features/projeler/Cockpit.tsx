@@ -15,7 +15,7 @@ import { formatAgo, formatMinutes } from '../../lib/format'
 import { parseQuickEntry } from '../../lib/quickEntry'
 import { tileSpans } from '../../lib/tiles'
 import { useNow } from '../../lib/useNow'
-import { Button, cn, IconButton, Input, Kbd, Tile, useToast } from '../../ui'
+import { Button, cn, IconButton, Input, Kbd, Tag, Tile, useToast } from '../../ui'
 import { TaskRow } from '../bugun/TaskList'
 import { useCreateTask, useTasks } from '../bugun/usePlanning'
 import { formatTimer, minutesBetween } from './labels'
@@ -263,9 +263,14 @@ function LastSessionTile({
         >
           <span className="line-clamp-5">{last.leftOff}</span>
         </blockquote>
+      ) : last.source === 'claude_code' ? (
+        <span className="text-[15px] text-ink3">
+          Claude Code ile çalıştın; kayıtlardan kendiliğinden eklendi.
+        </span>
       ) : (
         <span className="text-[15px] text-ink3">Nerede bıraktığını yazmamışsın.</span>
       )}
+      {last.files.length > 0 && <SessionFiles files={last.files} />}
       {earlier.length > 0 && (
         <ol className="m-0 mt-auto flex list-none flex-col gap-2 border-t-2 border-line p-0 pt-3">
           {earlier.slice(0, 3).map((s) => (
@@ -275,13 +280,38 @@ function LastSessionTile({
                 {formatMinutes(minutesBetween(s.startedAt, s.endedAt!))}
               </span>
               <span className="line-clamp-1 text-[14px] font-semibold text-ink2">
-                {s.leftOff || s.nextStep || '—'}
+                {s.leftOff || s.nextStep || sessionLabel(s)}
               </span>
             </li>
           ))}
         </ol>
       )}
     </Tile>
+  )
+}
+
+/** Notsuz oturumun satırı: "Claude Code · 4 dosya" ya da "—". */
+function sessionLabel(s: Session): string {
+  if (s.source !== 'claude_code') return '—'
+  return s.files.length ? `Claude Code · ${s.files.length} dosya` : 'Claude Code'
+}
+
+/** Oturumda değişen dosyalar: en fazla 4 dosya adı, fazlası sayıyla. Tam yol üzerine gelince. */
+function SessionFiles({ files }: { files: Session['files'] }) {
+  const shown = files.slice(0, 4)
+  return (
+    <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
+      {shown.map((f) => (
+        <li key={f.path} title={`${f.path} · ${f.area}`}>
+          <Tag className="bg-bg">{f.path.split('/').pop()}</Tag>
+        </li>
+      ))}
+      {files.length > shown.length && (
+        <li>
+          <Tag className="bg-bg">+{files.length - shown.length}</Tag>
+        </li>
+      )}
+    </ul>
   )
 }
 

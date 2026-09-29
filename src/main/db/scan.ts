@@ -10,9 +10,10 @@ import {
   type ScanKind,
   type SnapshotSummary,
 } from '../domain/scan'
+import { overlaps, type ClaudeSpan } from '../domain/claudeSessions'
 import { logActivity } from './activity'
-import type { Db } from './client'
-import { codeTodos, commits, projectFolders, projects, scanSnapshots } from './schema'
+import type { Db, DbTx } from './client'
+import { codeTodos, commits, projectFolders, projects, scanSnapshots, sessions } from './schema'
 
 // Tarama verisinin yazımı ve okunması (Aşama 5b). Dosya sistemi ve git src/main/scan/'da; burası senkron ve test edilir.
 // Tarama Taha'nın verisini değiştirmez: satır başına log yok, klasör taraması başına tek `scan` özeti.
@@ -98,6 +99,113 @@ export type FolderScanInput = {
   /** Sonuç sayıları hariç anlık görüntü; sonuç burada hesaplanıp eklenir. */
   summary: Omit<SnapshotSummary, 'result' | 'todosOpen'>
   filesChanged: number
+  /** Claude Code kayıtlarından çalışma aralıkları; kayıt klasörü okunmadıysa null. */
+  claudeSpans?: ClaudeSpanInput[] | null
+}
+
+export type SessionFile = { path: string; area: string }
+export type ClaudeSpanInput = Omit<ClaudeSpan, 'files'> & { files: SessionFile[] }
+
+/** Dosya listelerini birleştirir (yol tekrarsız, sıralı). */
+function mergeFiles(a: SessionFile[], b: SessionFile[]): SessionFile[] {
+  const byPath = new Map<string, SessionFile>()
+  for (const f of [...a, ...b]) byPath.set(f.path, f)
+  return [...byPath.values()].sort((x, y) => x.path.localeCompare(y.path))
+}
+
+/**
+ * Claude Code aralıklarını oturumlara çevirir (PROJELER.md > Oturumlar):
+ * - `external_id` ile bilinen aralık güncellenir (dosya büyüdükçe uzar); çöp kutusundaysa dokunulmaz, geri gelmez.
+ * - Elle açılmış bir oturumla kesişen aralık ayrı kayıt olmaz: o oturuma dosyaları eklenir.
+ * - Kalanlar `claude_code` kaynaklı kapalı oturum olur; açılışı `scan` aktörüyle loglanır.
+ * Dönen: yeni oluşturulan oturum sayısı.
+ */
+function upsertClaudeSessions(
+  tx: DbTx,
+  projectId: string,
+  spans: readonly ClaudeSpanInput[],
+  now: Date,
+): number {
+  if (!spans.length) return 0
+  const manual = tx
+    .select()
+    .from(sessions)
+    .where(
+      and(
+        eq(sessions.projectId, projectId),
+        eq(sessions.source, 'taha'),
+        isNull(sessions.deletedAt),
+      ),
+    )
+    .all()
+  const readFiles = (json: string | null) => (json ? (JSON.parse(json) as SessionFile[]) : [])
+  let created = 0
+  for (const span of spans) {
+    const start = new Date(span.start)
+    const end = new Date(span.end)
+    const known = tx.select().from(sessions).where(eq(sessions.externalId, span.externalId)).get()
+    if (known) {
+      if (known.deletedAt) continue
+      const files = mergeFiles(readFiles(known.filesJson), span.files)
+      const isAuto = known.source === 'claude_code'
+      tx.update(sessions)
+        .set({
+          ...(isAuto ? { startedAt: start, endedAt: end } : {}),
+          filesJson: JSON.stringify(files),
+          updatedAt: now,
+        })
+        .where(eq(sessions.id, known.id))
+        .run()
+      continue
+    }
+    const host = manual.find((m) =>
+      overlaps(
+        { start: span.start, end: span.end },
+        { start: m.startedAt.getTime(), end: (m.endedAt ?? now).getTime() },
+      ),
+    )
+    if (host) {
+      const files = mergeFiles(readFiles(host.filesJson), span.files)
+      host.filesJson = JSON.stringify(files)
+      tx.update(sessions)
+        .set({
+          filesJson: host.filesJson,
+          // İlk eşleşen aralığın kimliği tutulur; sonrakiler her taramada yeniden birleşir (aynı sonuç).
+          ...(host.externalId ? {} : { externalId: span.externalId }),
+          updatedAt: now,
+        })
+        .where(eq(sessions.id, host.id))
+        .run()
+      host.externalId ??= span.externalId
+      continue
+    }
+    const row = tx
+      .insert(sessions)
+      .values({
+        id: ulid(),
+        projectId,
+        startedAt: start,
+        endedAt: end,
+        source: 'claude_code',
+        externalId: span.externalId,
+        filesJson: JSON.stringify(span.files),
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning()
+      .get()
+    logActivity(tx, {
+      actor: 'scan',
+      action: 'create',
+      targetTable: 'sessions',
+      targetId: row.id,
+      after: row,
+      createdAt: now,
+      updatedAt: now,
+    })
+    created++
+  }
+  return created
 }
 
 /** Klasör taramasının tüm yazımı tek transaction'da: commit'ler, notlar, anlık görüntü, son tarama zamanı, özet log. */
@@ -203,6 +311,9 @@ export function recordFolderScan(
       todosAdded,
       todosResolved,
       filesChanged: firstScan ? 0 : input.filesChanged,
+      claudeSessions: input.claudeSpans
+        ? upsertClaudeSessions(tx, target.projectId, input.claudeSpans, now)
+        : 0,
     }
     const summary: SnapshotSummary = { ...input.summary, todosOpen, result }
     tx.insert(scanSnapshots)

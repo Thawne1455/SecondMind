@@ -252,6 +252,7 @@ describe('tarama özeti', () => {
     todosAdded: 0,
     todosResolved: 0,
     filesChanged: 0,
+    claudeSessions: 0,
   }
 
   it('değişiklik yoksa toast yok', () => {

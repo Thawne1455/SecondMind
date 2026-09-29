@@ -188,6 +188,11 @@ Tarama bu dosyalardan **sadece üst veri** okur: satır zaman damgaları, `cwd`,
 boşluk yoksa tek oturumdur; süre ilk ve son olay arası. Değişen dosyalar alan kurallarıyla gruplanır.
 Elle açılmış oturumla çakışan otomatik oturum ayrı kayıt olmaz, elle olanı zenginleştirir (dosyalar eklenir).
 Jsonl dosyası değiştirme zamanı son taramadan eskiyse atlanır.
+Uygulanan ayrıntılar (5b-2): okunan kayıt klasörleri projenin kendisi, üstü ve altı (`C:\ajanda`'dan açılıp Runika'da
+çalışılan oturum da sayılır), eşleşme her satırın `cwd`'siyle; yan ajan kayıtları okunmaz. 5 dakikadan kısa aralık
+oturum sayılmaz. Dosya sayılan araçlar: `Edit`, `Write`, `MultiEdit`, `NotebookEdit` (Unity MCP'nin `execute_code`
+değişiklikleri görünmez; commit'te görünür). Otomatik oturum projenin sıradaki adımını değiştirmez; çöp kutusuna
+atılan otomatik oturum sonraki taramada geri gelmez.
 
 **Oturum kapanışı:** `Oturumu kapat` → proje renginde modal: "NEREDE BIRAKTIN?" (isteğe bağlı, çok satır),
 "SIRADAKİ İLK SOMUT ADIM NE?" (zorunlu, tek satır; mevcut sıradaki adımla dolu ve seçili gelir, Enter aynen kabul eder).

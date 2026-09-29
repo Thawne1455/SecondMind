@@ -110,7 +110,7 @@ Proje kararları (ADR) ayrı tablo değil, `project_docs.kind = 'adr'`.
   duyarsız), çünkü Windows yolları öyle. DB'deki unique index düz metin üzerinde, asıl kontrol sorgu katmanında.
   5d eki: `image_dirs_json` (zaman makinesi klasörleri).
 - `sessions` (5a): `project_id`, `task_id` (null olabilir), `started_at`, `ended_at` (null = sürüyor), `left_off`,
-  `next_step`, `source` (`taha`/`claude_code`), `external_id` (Claude Code jsonl oturum id'si, unique, 5b),
+  `next_step`, `source` (`taha`/`claude_code`), `external_id` (`<jsonl oturum id>:<aralık başlangıcı ms>`, unique, 5b),
   `files_json` (değişen dosyalar + alan, 5b), soft delete. **Tüm projelerde aynı anda en fazla bir açık oturum**: DB
   kısıtı değil, `startSession` başka projede süren oturum varsa hata verir (arayüz önce onun kapanışını açar).
   Kapanış `durationMin` alabilir (4 saatten uzun oturumda gerçek süre; bitiş şimdiyi geçmez) ve projenin `next_step`'ini
