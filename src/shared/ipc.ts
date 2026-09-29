@@ -27,6 +27,7 @@ import {
   projectCreateInputSchema,
   projectSummarySchema,
   projectUpdateInputSchema,
+  scanReportSchema,
   sessionCloseInputSchema,
   sessionSchema,
   sessionStartInputSchema,
@@ -411,6 +412,11 @@ export const ipcContract = {
   'park:hide': {
     input: z.void(),
     output: z.void(),
+  },
+  /** Güncelle: bağlı klasörleri tarar (projectId verilirse sadece o proje; arşivdekiler sadece böyle). */
+  'scan:run': {
+    input: z.object({ projectId: z.string().optional() }),
+    output: scanReportSchema,
   },
 } as const satisfies Record<IpcChannel, { input: z.ZodType; output: z.ZodType }>
 

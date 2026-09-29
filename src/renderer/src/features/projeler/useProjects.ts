@@ -101,6 +101,19 @@ export const useResolveParking = () =>
 export const useRestoreParking = () =>
   useInvalidating(PT, (id: string) => window.api.invoke('parking:restore', { id }))
 
+/** Güncelle (tüm projeler) ya da Tara (tek proje). Klasörler sadece okunur. */
+export const useScan = () =>
+  useInvalidating(P, (projectId?: string) => window.api.invoke('scan:run', { projectId }))
+
+/** Projelerin en son taranma anı; hiç taranmadıysa null. */
+export function useLastScanAt(): number | null {
+  const list = useProjects().data
+  return useMemo(() => {
+    const times = (list ?? []).map((p) => p.lastScanAt).filter((t): t is number => t !== null)
+    return times.length ? Math.max(...times) : null
+  }, [list])
+}
+
 /** Detay sayfası açıldı: sıralama ve geri dönüş brifingi için (log'a yazılmaz). */
 export function useMarkOpened(id: string | undefined): void {
   const client = useQueryClient()

@@ -73,7 +73,7 @@ Projeyi açınca ilk görülen yer. Karo düzeni, her karo tek soru. Yukarıdan 
 - **Koddaki notlar** (Unity/Yazılım): TODO/FIXME sayısı, son taramadan beri eklenen/çözülen.
 - **GDD ile gerçeklik** (Unity): fark olan sayımlar (aşağıda). Fark yoksa gizli.
 - **Açık hatalar** (Unity): önem derecesine göre sayı.
-- **Aktivite ısı haritası:** son 12 hafta, gün bazında.
+- **Proje notları:** projeye ait serbest notlar (metin + görsel, markdown). Isı haritası yerine (Taha kararı, 5b).
 
 Boş karolar gizlenir, kalanlar dengeli yayılır (Bugün'deki `lib/tiles.ts` kuralı). Kokpit, Bugün'ün kopyası değildir:
 akış bandı ve saat ekseni yoktur, ana birim tek projenin sıradaki adımı ve onun gerekçesidir.

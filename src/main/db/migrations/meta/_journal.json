@@ -57,6 +57,13 @@
       "when": 1790608803048,
       "tag": "0007_projects",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1790637861743,
+      "tag": "0008_scan",
+      "breakpoints": true
     }
   ]
 }

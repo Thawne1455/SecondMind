@@ -10,6 +10,7 @@ import { registerKnowledgeIpc } from './ipc/knowledge'
 import { registerMindIpc } from './ipc/mind'
 import { registerPlanningIpc } from './ipc/planning'
 import { registerProjectsIpc } from './ipc/projects'
+import { registerScanIpc } from './ipc/scan'
 import { registerScheduleIpc } from './ipc/schedule'
 import { registerSettingsIpc } from './ipc/settings'
 import { handleMediaProtocol, registerMediaScheme } from './mediaProtocol'
@@ -92,6 +93,7 @@ if (!app.requestSingleInstanceLock()) {
     registerScheduleIpc()
     registerMindIpc()
     registerProjectsIpc(hideParkWindow)
+    registerScanIpc()
     registerSettingsIpc((key) => {
       if (key === 'theme') applyTheme(getSetting(getDb(), 'theme'))
     })

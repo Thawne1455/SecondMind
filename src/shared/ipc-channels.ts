@@ -75,6 +75,7 @@ export const ipcChannels = [
   'parking:resolve',
   'parking:restore',
   'park:hide',
+  'scan:run',
 ] as const
 export type IpcChannel = (typeof ipcChannels)[number]
 

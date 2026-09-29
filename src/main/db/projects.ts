@@ -18,9 +18,11 @@ import {
   silenceDays,
   type SessionSpan,
 } from '../domain/projects'
+import { lastTouch } from '../domain/scan'
 import { logActivity } from './activity'
 import type { Db, DbTx } from './client'
-import { parking, projectFolders, projects, sessions, tasks } from './schema'
+import { scanActivity } from './scan'
+import { codeTodos, commits, parking, projectFolders, projects, sessions, tasks } from './schema'
 
 // Projeler, oturumlar ve park alanı (Aşama 5a). Taha'nın her değişikliği activity_log'a yazılır;
 // `last_opened_at` bir okuma sinyalidir, log'a yazılmaz.
@@ -132,6 +134,8 @@ export function listProjects(db: Db, now = new Date()): ProjectSummary[] {
       .map((r) => [r.projectId!, r.n]),
   )
 
+  const scanned = scanActivity(db, ids)
+
   const weekStart = startOfWeek(now, { weekStartsOn: 1 })
   const summaries = rows.map((p): ProjectSummary & { sessionOpen: boolean } => {
     const mine = recent.filter((s) => s.projectId === p.id)
@@ -144,10 +148,17 @@ export function listProjects(db: Db, now = new Date()): ProjectSummary[] {
         endedAt: s.endedAt,
       }))
       .filter((s) => (s.endedAt ?? now) > weekStart)
-    const lastActivity = Math.max(
-      p.createdAt.getTime(),
-      active ? now.getTime() : 0,
-      last?.endedAt?.getTime() ?? 0,
+    const scan = scanned.get(p.id)
+    // Klasördeki dosya zamanı gelecekte olamaz (saat kayması, kopyalanmış dosya).
+    const lastActivity = Math.min(
+      now.getTime(),
+      lastTouch(
+        p.createdAt.getTime(),
+        active ? now.getTime() : null,
+        last?.endedAt?.getTime(),
+        scan?.lastCommitAt,
+        scan?.latestMtime,
+      ),
     )
     return {
       id: p.id,
@@ -169,6 +180,7 @@ export function listProjects(db: Db, now = new Date()): ProjectSummary[] {
       rhythm: dailyMinutes(spans, now, RHYTHM_DAYS),
       weekMinutes: dailyMinutes(thisWeek, now, 7).reduce((a, b) => a + b, 0),
       weekSessions: thisWeek.length,
+      lastScanAt: scan?.lastScanAt ?? null,
       sessionOpen: active !== null,
     }
   })
@@ -221,6 +233,10 @@ export function createProject(db: Db, input: ProjectCreateInput, now = new Date(
           .returning()
           .get()
         log(tx, 'update', 'project_folders', after, existing.folder, groupId)
+        // Klasörün tarama verisi de yeni projeye geçer (tarama verisi, log'a yazılmaz).
+        const moved = { projectId: row.id, updatedAt: now }
+        tx.update(commits).set(moved).where(eq(commits.folderId, existing.folder.id)).run()
+        tx.update(codeTodos).set(moved).where(eq(codeTodos.folderId, existing.folder.id)).run()
       } else {
         const folder = tx
           .insert(projectFolders)

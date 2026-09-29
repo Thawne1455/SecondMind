@@ -1,7 +1,11 @@
 import type { ReactNode } from 'react'
 import { Plus, RefreshCw } from 'lucide-react'
 import { usePendingDumpCount } from '../features/dokum/useDumps'
-import { Badge, Button, cn } from '../ui'
+import { useLastScanAt, useProjects, useScan } from '../features/projeler/useProjects'
+import { errorText } from '../lib/errors'
+import { formatAgo } from '../lib/format'
+import { useNow } from '../lib/useNow'
+import { Badge, Button, cn, useToast } from '../ui'
 import { useShell } from './shell-context'
 
 type TopBarProps = {
@@ -16,6 +20,7 @@ type TopBarProps = {
 export function TopBar({ title, status, className }: TopBarProps) {
   const { openPalette, openQuickDump } = useShell()
   const dumpCount = usePendingDumpCount()
+  const scan = useUpdateButton()
 
   return (
     <header className={cn('flex h-[42px] shrink-0 items-center gap-2.5', className)}>
@@ -36,11 +41,17 @@ export function TopBar({ title, status, className }: TopBarProps) {
         <span className="cx text-ink3">Ctrl K</span>
       </button>
 
-      {/* Tarama Aşama 5'te, AI akışı Aşama 4'te; şimdilik sadece görünüm. */}
-      <Button variant="secondary" icon={RefreshCw}>
+      <Button
+        variant="secondary"
+        icon={RefreshCw}
+        onClick={scan.run}
+        loading={scan.loading}
+        loadingLabel={scan.loadingLabel}
+      >
         Güncelle
-        <span className="ml-2 text-[13px] font-medium text-ink3">2 sa önce</span>
+        {scan.ago && <span className="ml-2 text-[13px] font-medium text-ink3">{scan.ago}</span>}
       </Button>
+      {/* AI akışı Aşama 4'te; şimdilik sadece görünüm. */}
       <Button variant="ai">
         AI ile İşle
         {dumpCount > 0 && <Badge count={dumpCount} className="ml-2" />}
@@ -50,4 +61,41 @@ export function TopBar({ title, status, className }: TopBarProps) {
       </Button>
     </header>
   )
+}
+
+/** Güncelle: bağlı klasörleri tarar, sonucu toast'la söyler. Yanında son tarama zamanı. */
+function useUpdateButton() {
+  const { toast } = useToast()
+  const scan = useScan()
+  const now = useNow(60_000)
+  const lastScanAt = useLastScanAt()
+  const folders = (useProjects().data ?? []).filter(
+    (p) => p.folderPath && p.status !== 'archived',
+  ).length
+
+  function run() {
+    scan.mutate(undefined, {
+      onSuccess: (report) => {
+        const errors = report.projects.flatMap((p) => p.errors.map((e) => `${p.name}: ${e}`))
+        if (report.folders === 0)
+          toast({ message: 'Taranacak klasör yok. Bir projeye klasör bağla.', domain: 'projects' })
+        else
+          toast({
+            title: 'Tarama bitti',
+            message: report.toast ?? 'Yeni bir şey yok.',
+            variant: 'band',
+            domain: 'projects',
+          })
+        if (errors.length) toast({ message: errors.join(' · '), domain: 'warning', duration: 0 })
+      },
+      onError: (e) => toast({ message: errorText(e), domain: 'warning' }),
+    })
+  }
+
+  return {
+    run,
+    loading: scan.isPending,
+    loadingLabel: folders > 1 ? `${folders} klasör taranıyor…` : 'Taranıyor…',
+    ago: lastScanAt === null ? null : formatAgo(lastScanAt, now),
+  }
 }

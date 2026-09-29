@@ -95,7 +95,7 @@ silinebilenlerde `deleted_at`. Aşağısı başlangıç taslağıdır; aşamalar
   grubu `undone_at` ile işaretler.
 
 **Projeler** (ayrıntı `docs/PROJELER.md`)
-5a tabloları yazıldı (`0007_projects`); 5b–5d taslak. Her alt aşama kendi migration'ını getirir; hepsi **sadece ekleme**
+5a (`0007_projects`) ve 5b tarama tabloları (`0008_scan`) yazıldı; gerisi taslak. Her alt aşama kendi migration'ını getirir; hepsi **sadece ekleme**
 (yeni tablo, `tasks`'a null olabilen/varsayılanlı kolon). Geri dönüş: yeni tabloları düşür, `tasks` kolonları için SQLite
 `DROP COLUMN`. `tasks`/`reminders`/`ideas.project_id`'ye FK eklenmez; bütünlük sorgu katmanında.
 Proje kararları (ADR) ayrı tablo değil, `project_docs.kind = 'adr'`.
@@ -119,11 +119,21 @@ Proje kararları (ADR) ayrı tablo değil, `project_docs.kind = 'adr'`.
 - `parking` (5a): `project_id`, `text`, `source` (`shortcut`/`app`/`dump`/`bridge`), `status`: `waiting` → `converted`
   (aynı grupta görev oluşturulur, `task_id` dolar) ya da `dismissed`; ikisinde de `resolved_at` dolar. Sadece bekleyen
   öğe çözülür. Geri alma öğeyi yeniden `waiting` yapar, çevrilmiş görevi çöp kutusuna atar. Soft delete.
-- `commits` (5b): `project_id`, `folder_id`, `hash` (klasörde unique), `message`, `author`, `committed_at`, `areas_json`
-  (alan → dosya sayısı), `files_json` (yol, ekleme, silme). Tarama verisi: log'a tek özet satırı.
-- `code_todos` (5b): `project_id`, `path`, `line`, `text`, `tag` (TODO/FIXME/HACK), `first_seen_at`, `resolved_at`, `task_id`.
-- `scan_snapshots` (5b): `folder_id`, `scanned_at`, `summary_json` (alan sayımları, commit'lenmemiş dosyalar + mtime,
-  Unity sürümü, sahneler, yapı sahneleri, GDD sayımları), `inventory_json` (git'siz klasörde yol→boyut/mtime/hash). Son 30'u tutulur.
+Tarama tabloları (5b, `0008_scan`) tarama verisidir: soft delete yok, satır başına log yok; her klasör taraması
+`activity_log`'a `scan` aktörüyle tek özet satırı yazar. `folder_id` FK'leri `ON DELETE CASCADE` (klasör kaldırılınca
+tarama verisi gider). Çöp kutusundaki projenin klasörü yeni projeye geçerse `commits`/`code_todos.project_id` de geçer.
+- `commits` (5b): `project_id`, `folder_id`, `hash` (klasörde unique; tekrar gelen yok sayılır), `message`, `author`,
+  `committed_at`, `areas_json` (alan → dosya sayısı), `files_json` (yol, ekleme, silme). İlk tarama HEAD'in tüm geçmişi,
+  sonra son bilinen commit'in 14 gün öncesinden beri.
+- `code_todos` (5b): `project_id`, `folder_id`, `key` (yol + etiket + metin; satır numarası kimliğe girmez, klasörde
+  unique), `path`, `line`, `text`, `tag` (TODO/FIXME/HACK), `first_seen_at`, `resolved_at` (kaybolunca dolar, yeniden
+  görünürse boşalır), `task_id`. Sadece Unity (`Assets/**/*.cs`) ve Yazılım (kaynak uzantıları) taranır; tırnak
+  içindeki yorum işaretleri sayılmaz.
+- `scan_snapshots` (5b): `folder_id`, `scanned_at`, `summary_json` (`SnapshotSummary`: commit'lenmemişler + alanları +
+  en eski mtime, Unity sürümü / sahneler / yapı sahneleri / script ve satır sayısı, açık not sayısı, envanter dosya
+  sayısı, `latest_mtime`, tarama sonucu; 5d'de GDD sayımları), `inventory_json` (git'siz klasörde yol→boyut/mtime/hash;
+  hash sadece bilinen dosyanın boyutu ya da mtime'ı değişince). Klasör başına son 30'u tutulur.
+- Sessizlik (liste, radar): son oturum, son commit ve son taramadaki `latest_mtime`'ın en yenisi (gelecek zaman kırpılır).
 - `milestones` (5c): `project_id`, `title`, `description`, `target_date` (`YYYY-MM-DD`), `sort`, `criteria_json`
   (`[{id,text,done,taskId}]`), `done_at`, soft delete.
 - `tasks` ekleri (5c): `kanban_status` (`todo`/`doing`/`testing`/`done`; null = proje dışı görev), `severity`

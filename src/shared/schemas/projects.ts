@@ -65,6 +65,8 @@ export const projectSummarySchema = z.object({
   /** Bu hafta (Pazartesi'den) çalışılan dakika ve oturum sayısı. */
   weekMinutes: z.number(),
   weekSessions: z.number(),
+  /** Bağlı klasörlerin en son taranma anı (Unix ms); hiç taranmadıysa null. */
+  lastScanAt: z.number().nullable(),
 })
 
 const projectName = z.string().trim().min(1, 'Ad boş').max(PROJECT_NAME_MAX)
@@ -153,3 +155,24 @@ export type SessionStartInput = z.input<typeof sessionStartInputSchema>
 export type SessionCloseInput = z.infer<typeof sessionCloseInputSchema>
 export type ParkingItem = z.infer<typeof parkingItemSchema>
 export type ParkingAddInput = z.input<typeof parkingAddInputSchema>
+
+/** Güncelle / Tara sonucu (Aşama 5b). Proje başına sayılar; bir klasör hata verirse errors'a düşer, tarama sürer. */
+export const scanReportSchema = z.object({
+  folders: z.number(),
+  projects: z.array(
+    z.object({
+      projectId: z.string(),
+      name: z.string(),
+      firstScan: z.boolean(),
+      newCommits: z.number(),
+      uncommitted: z.number(),
+      todosAdded: z.number(),
+      todosResolved: z.number(),
+      filesChanged: z.number(),
+      errors: z.array(z.string()),
+    }),
+  ),
+  /** Değişiklik yoksa null. */
+  toast: z.string().nullable(),
+})
+export type ScanReport = z.infer<typeof scanReportSchema>
