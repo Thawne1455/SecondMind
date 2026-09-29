@@ -69,6 +69,8 @@ export const projectSummarySchema = z.object({
   weekSessions: z.number(),
   /** Bağlı klasörlerin en son taranma anı (Unix ms); hiç taranmadıysa null. */
   lastScanAt: z.number().nullable(),
+  /** Son 8 haftanın commit sayısı ve oturum dakikası, en eski önce (şerit aktivite çubukları). */
+  weeks: z.array(z.object({ commits: z.number(), minutes: z.number() })),
 })
 
 const projectName = z.string().trim().min(1, 'Ad boş').max(PROJECT_NAME_MAX)
@@ -179,3 +181,47 @@ export const scanReportSchema = z.object({
   toast: z.string().nullable(),
 })
 export type ScanReport = z.infer<typeof scanReportSchema>
+
+/** Geri dönüş brifingi (`project:opened` döner; 3 günden kısa aradaysa null). Metni renderer kurar. */
+export const briefingSchema = z.object({
+  daysAway: z.number(),
+  lastSession: z
+    .object({ endedAt: z.number(), minutes: z.number(), leftOff: z.string() })
+    .nullable(),
+  commits: z.array(z.object({ message: z.string(), committedAt: z.number() })),
+  commitCount: z.number(),
+  commitAreas: z.array(z.tuple([z.string(), z.number()])),
+  files: z.array(z.string()),
+  uncommitted: z
+    .object({ count: z.number(), oldestAt: z.number().nullable(), stale: z.boolean() })
+    .nullable(),
+  nextStep: z.string().nullable(),
+  parkedSince: z.number(),
+})
+export type Briefing = z.infer<typeof briefingSchema>
+
+/** Kokpit'in tarama karoları: Bu hafta ve Koddaki notlar. Klasörsüz ya da hiç taranmamışsa null. */
+export const projectScanInfoSchema = z.object({
+  lastScanAt: z.number(),
+  week: z.object({
+    commits: z.number(),
+    /** Bu haftanın commit'lerindeki alan → dosya sayısı, kalabalık önce. */
+    areas: z.array(z.tuple([z.string(), z.number()])),
+  }),
+  /** Not taranmayan türde (yaratıcı, genel) null. */
+  todos: z
+    .object({
+      open: z.number(),
+      byTag: z.object({ TODO: z.number(), FIXME: z.number(), HACK: z.number() }),
+      /** Son taramada eklenen / çözülen; ilk taramada null. */
+      added: z.number().nullable(),
+      resolved: z.number().nullable(),
+      /** En yeni açık notlar (en fazla 5). */
+      recent: z.array(
+        z.object({ path: z.string(), line: z.number(), tag: z.string(), text: z.string() }),
+      ),
+    })
+    .nullable(),
+  uncommitted: z.object({ count: z.number(), oldestAt: z.number().nullable() }).nullable(),
+})
+export type ProjectScanInfo = z.infer<typeof projectScanInfoSchema>

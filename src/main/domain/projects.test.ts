@@ -10,6 +10,7 @@ import {
   projectNameFromPath,
   sessionMinutes,
   silenceDays,
+  weeklyActivity,
 } from './projects'
 
 const at = (day: number, hour = 12, min = 0) => new Date(2026, 8, day, hour, min)
@@ -62,6 +63,23 @@ describe('oturum süreleri', () => {
   it('sessizlik takvim günüyle', () => {
     expect(silenceDays(at(27, 23), at(28, 1))).toBe(1)
     expect(silenceDays(at(28, 9), at(28, 20))).toBe(0)
+  })
+})
+
+describe('haftalık aktivite', () => {
+  it('Pazartesi başlangıçlı haftalar, son eleman bu hafta; hafta sınırını geçen oturum bölünür', () => {
+    // 28 Eylül 2026 Pazartesi. Bu hafta: 28 Eyl–; geçen hafta: 21–27 Eyl.
+    const now = at(29, 18)
+    const commits = [at(29, 9), at(28, 9), at(27, 9), at(14, 9), at(1, 9)]
+    const spans = [
+      { startedAt: at(27, 23), endedAt: at(28, 1) },
+      { startedAt: at(29, 17), endedAt: null },
+    ]
+    expect(weeklyActivity(commits, spans, now, 3)).toEqual([
+      { commits: 1, minutes: 0 },
+      { commits: 1, minutes: 60 },
+      { commits: 2, minutes: 120 },
+    ])
   })
 })
 

@@ -69,15 +69,19 @@ Runika'nın yayın platformu itch.io (Windows + WebGL), Steam iptal. Hızlı Dö
   liste şeritleri, proje başlığı bandı, Kokpit iskeleti (sıradaki adım, son oturum, Sonra karoları), oturum başlat/kapat
   ve kapanış modalı, park alanı (uygulama içi P + küresel Ctrl Alt P mini penceresi), kenar çubuğu ve komut paletinde
   gerçek projeler (`lib/fake.ts` silinir), Bugün'de proje renkleri + Şimdi'de gerçek oturum, seed'e Runika/SecondMind/Albüm
-- [ ] 5b Tarama ve geri dönüş: git (commit'ler, alanlar, commit'lenmemiş değişiklikler), Unity (sürüm, sahneler,
+- [x] 5b Tarama ve geri dönüş: git (commit'ler, alanlar, commit'lenmemiş değişiklikler), Unity (sürüm, sahneler,
   EditorBuildSettings, script sayısı), TODO taraması, git'siz envanter, Claude Code oturum kayıtlarından otomatik
   oturumlar (sadece üst veri), geri dönüş brifingi, Bu hafta / Koddaki notlar karoları, proje notları (metin + görsel; ısı haritası çıkarıldı), Güncelle ve toast,
   sessizlik ve radar, şeritte aktivite çubukları
   - [x] 5b-1 Tarayıcılar: `commits` / `code_todos` / `scan_snapshots` (0008), git + Unity + kod notu + envanter
     (sadece okur), Güncelle butonu ve toast, sessizliğe commit ve dosya değişikliği
   - [x] 5b-2 Claude Code kayıtlarından otomatik oturumlar (30 dk boşluk kuralı, elle oturumu zenginleştirme)
-  - [ ] 5b-3 Arayüz: geri dönüş brifingi, Bu hafta / Koddaki notlar karoları, proje notları, başlık bandında Tara,
+  - [x] 5b-3 Arayüz: geri dönüş brifingi, Bu hafta / Koddaki notlar karoları, proje notları, başlık bandında Tara,
     şerit aktivite çubukları, radar
+  Kararlar (5b): ısı haritası yerine proje notları (ayrı "Notlar" sekmesi, Bilgi ile aynı `notes` tablosu ve editör,
+  `project_id` ile; Bilgi aramasında da çıkar). Brifing son açılışa göre, sessizlik takvim günüyle (ikisi aynı sayı).
+  Şerit çubuğu: hafta başına commit × 30 dk + oturum dakikası, en yoğun haftaya göre. Radar: fikir ile proje
+  arasında en uzun sessiz olan; eşitlikte proje; proje için Aç / Duraklat.
 - [ ] 5c Planlama: `domain/nextSteps` (sıradaki adım motoru) + test, kilometre taşları ve çıkış kriterleri, kanban
   (türler, önem, erteleme), `domain/playtest` (bölme + benzerlik) + test ve playtest kutusu, kapsam ölçer ve gerçekçi
   bitiş tahmini (`domain/scope` + test), taş planlarken park sütunu, Yol haritası zaman çizelgesi, yayın platformu şablonu

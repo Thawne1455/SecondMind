@@ -1,4 +1,4 @@
-import { addDays, differenceInCalendarDays, startOfDay } from 'date-fns'
+import { addDays, differenceInCalendarDays, startOfDay, startOfWeek } from 'date-fns'
 import { PROJECT_COLORS, type ProjectKind } from '@shared/ipc'
 
 export { PROJECT_COLORS }
@@ -83,6 +83,33 @@ export function dailyMinutes(spans: readonly SessionSpan[], now: Date, days: num
     }
   }
   return out.map(Math.round)
+}
+
+export type WeekActivity = { commits: number; minutes: number }
+
+/**
+ * Şeritteki aktivite çubukları: son `weeks` haftanın (Pazartesi başlangıçlı, son eleman bu hafta) commit sayısı
+ * ve oturum dakikası. Hafta sınırını geçen oturum bölünür.
+ */
+export function weeklyActivity(
+  commitTimes: readonly Date[],
+  spans: readonly SessionSpan[],
+  now: Date,
+  weeks: number,
+): WeekActivity[] {
+  const out = Array.from({ length: weeks }, () => ({ commits: 0, minutes: 0 }))
+  const first = addDays(startOfWeek(now, { weekStartsOn: 1 }), -7 * (weeks - 1))
+  const index = (d: Date) => Math.floor(differenceInCalendarDays(d, first) / 7)
+  for (const t of commitTimes) {
+    const i = index(t)
+    if (i >= 0 && i < weeks) out[i]!.commits++
+  }
+  // Günlük dakikaları haftalara topla: dailyMinutes gece yarısı bölmesini zaten yapar.
+  const days = differenceInCalendarDays(now, first) + 1
+  dailyMinutes(spans, now, days).forEach((m, d) => {
+    out[Math.floor(d / 7)]!.minutes += m
+  })
+  return out
 }
 
 /** Son etkinlikten bugüne takvim günü (bugün = 0). */

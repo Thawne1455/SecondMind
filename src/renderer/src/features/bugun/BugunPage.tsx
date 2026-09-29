@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router'
 import { format } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import { Plus, Repeat, X } from 'lucide-react'
-import type { IdeaToday, ScheduleBlock, WeekAchievements } from '@shared/ipc'
+import type { ScheduleBlock, WeekAchievements } from '@shared/ipc'
 import { TopBar } from '../../app/TopBar'
 import { useShell } from '../../app/shell-context'
 import { errorText } from '../../lib/errors'
@@ -16,10 +16,12 @@ import { Button, cn, IconButton, Scale, Tile, useToast, type ScaleValue } from '
 import type { BilgiLocationState } from '../bilgi/BilgiPage'
 import { UNTITLED_IDEA, useIdeaDecision } from '../bilgi/ideas'
 import { useCreateIdea, useIdeaToday } from '../bilgi/useKnowledge'
+import { useProjects, useUpdateProject } from '../projeler/useProjects'
 import { useSetCheckin, useTodayCheckin, useWeekAchievements } from '../zihin/useMind'
 import { FlowBand, type FlowPin } from './FlowBand'
 import { NowSection } from './NowSection'
 import { PostponeDialog } from './PostponeDialog'
+import { pickRadar, type RadarPick } from './radar'
 import { TaskRow } from './TaskList'
 import {
   useCreateTask,
@@ -270,11 +272,11 @@ function MoodRow({
 }
 
 /**
- * Karolar 3 × 2. İçeriği olmayan karo gizlenir (sessiz fikir yoksa Radar, bu hafta biten görev yoksa
+ * Karolar 3 × 2. İçeriği olmayan karo gizlenir (sessiz fikir ya da proje yoksa Radar, bu hafta biten görev yoksa
  * başarılar), kalanlar satırlara dengeli yayılır.
  */
 function TodayTiles() {
-  const radar = useIdeaToday().data?.radar
+  const radar = pickRadar(useIdeaToday().data?.radar, useProjects().data ?? [])
   const week = useWeekAchievements().data
   const tiles: Array<{ key: string; el: ReactNode }> = [
     { key: 'mood', el: <MoodTile /> },
@@ -400,35 +402,101 @@ function useOpenIdea() {
     })
 }
 
-// Radar: 30 gündür açılmamış aktif fikir; yoksa karo gizlenir. Sessiz projeler Aşama 5'te (tarama) eklenir.
-function RadarTile({ radar }: { radar: NonNullable<IdeaToday['radar']> }) {
+// Radar: 30 gündür açılmamış aktif fikir ya da 14 gündür dokunulmamış aktif proje (en uzun sessiz olan).
+function RadarTile({ radar }: { radar: RadarPick }) {
+  return radar.kind === 'project' ? <ProjectRadar radar={radar} /> : <IdeaRadar radar={radar} />
+}
+
+function SilentDays({ days }: { days: number }) {
+  return (
+    <div className="flex items-end gap-2.5">
+      <span className="x text-[48px] leading-[.9] font-black">{days}</span>
+      <span className="cx pb-[5px] text-[15px]">gün sessiz</span>
+    </div>
+  )
+}
+
+function IdeaRadar({ radar }: { radar: Extract<RadarPick, { kind: 'idea' }> }) {
   const openIdea = useOpenIdea()
   const decide = useIdeaDecision()
-  const title = radar.title || UNTITLED_IDEA
+  const title = radar.idea.title || UNTITLED_IDEA
   return (
     <Tile
       variant="alert"
       className={TILE}
       actions={[
-        <Button key="open" size="sm" variant="onTile" onClick={() => openIdea(radar.noteId)}>
+        <Button key="open" size="sm" variant="onTile" onClick={() => openIdea(radar.idea.noteId)}>
           Aç
         </Button>,
         <Button
           key="archive"
           size="sm"
           variant="onTileGhost"
-          onClick={() => decide({ noteId: radar.noteId, title, status: 'active' }, 'archived')}
+          onClick={() => decide({ noteId: radar.idea.noteId, title, status: 'active' }, 'archived')}
         >
           Arşivle
         </Button>,
       ]}
     >
-      <div className="flex items-end gap-2.5">
-        <span className="x text-[48px] leading-[.9] font-black">{radar.days}</span>
-        <span className="cx pb-[5px] text-[15px]">gün sessiz</span>
-      </div>
+      <SilentDays days={radar.days} />
       <span className="line-clamp-2 font-bold">{title}</span>
       <span className="text-[14px]">Bu fikri {radar.days} gündür açmadın.</span>
+    </Tile>
+  )
+}
+
+/** Sessiz proje: Aç ya da Duraklat (bilerek bekletiyorsan radardan çıkar; geri alınabilir). */
+function ProjectRadar({ radar }: { radar: Extract<RadarPick, { kind: 'project' }> }) {
+  const navigate = useNavigate()
+  const update = useUpdateProject()
+  const { toast } = useToast()
+  const p = radar.project
+  const onError = (e: unknown) => toast({ message: errorText(e), domain: 'warning' })
+  return (
+    <Tile
+      variant="alert"
+      className={TILE}
+      actions={[
+        <Button
+          key="open"
+          size="sm"
+          variant="onTile"
+          onClick={() => void navigate(`/projeler/${p.id}`)}
+        >
+          Aç
+        </Button>,
+        <Button
+          key="pause"
+          size="sm"
+          variant="onTileGhost"
+          onClick={() =>
+            update.mutate(
+              { id: p.id, status: 'paused' },
+              {
+                onSuccess: () =>
+                  toast({
+                    message: `${p.name} duraklatıldı.`,
+                    domain: 'projects',
+                    action: {
+                      label: 'Geri al',
+                      onClick: () => update.mutate({ id: p.id, status: 'active' }, { onError }),
+                    },
+                  }),
+                onError,
+              },
+            )
+          }
+        >
+          Duraklat
+        </Button>,
+      ]}
+    >
+      <SilentDays days={radar.days} />
+      <span className="flex items-center gap-2 font-bold">
+        <span className="size-3 shrink-0 rounded" style={{ backgroundColor: p.color }} />
+        <span className="line-clamp-1">{p.name}</span>
+      </span>
+      <span className="text-[14px]">Bu projeye {radar.days} gündür dokunmadın.</span>
     </Tile>
   )
 }

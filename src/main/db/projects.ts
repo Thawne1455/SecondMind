@@ -16,6 +16,7 @@ import {
   dailyMinutes,
   folderKey,
   silenceDays,
+  weeklyActivity,
   type SessionSpan,
 } from '../domain/projects'
 import { lastTouch } from '../domain/scan'
@@ -32,6 +33,7 @@ type SessionRow = typeof sessions.$inferSelect
 type ParkingRow = typeof parking.$inferSelect
 
 const RHYTHM_DAYS = 14
+const ACTIVITY_WEEKS = 8
 
 const toSession = (r: SessionRow): Session => ({
   id: r.id,
@@ -99,8 +101,8 @@ export function listProjects(db: Db, now = new Date()): ProjectSummary[] {
   for (const f of folders) if (!folderOf.has(f.projectId)) folderOf.set(f.projectId, f.path)
 
   const liveSessions = and(inArray(sessions.projectId, ids), isNull(sessions.deletedAt))
-  // Ritim penceresi ve bu haftanın oturumları (hafta 14 günden kısa).
-  const windowStart = subDays(now, RHYTHM_DAYS + 1)
+  // Ritim (14 gün), bu hafta ve şerit aktivite çubukları (8 hafta) için oturumlar.
+  const windowStart = subDays(now, Math.max(RHYTHM_DAYS, ACTIVITY_WEEKS * 7) + 1)
   const recent = db
     .select()
     .from(sessions)
@@ -136,6 +138,16 @@ export function listProjects(db: Db, now = new Date()): ProjectSummary[] {
   )
 
   const scanned = scanActivity(db, ids)
+  const commitTimes = new Map<string, Date[]>()
+  for (const c of db
+    .select({ projectId: commits.projectId, at: commits.committedAt })
+    .from(commits)
+    .where(and(inArray(commits.projectId, ids), gte(commits.committedAt, windowStart)))
+    .all()) {
+    const list = commitTimes.get(c.projectId) ?? []
+    list.push(c.at)
+    commitTimes.set(c.projectId, list)
+  }
 
   const weekStart = startOfWeek(now, { weekStartsOn: 1 })
   const summaries = rows.map((p): ProjectSummary & { sessionOpen: boolean } => {
@@ -182,6 +194,7 @@ export function listProjects(db: Db, now = new Date()): ProjectSummary[] {
       weekMinutes: dailyMinutes(thisWeek, now, 7).reduce((a, b) => a + b, 0),
       weekSessions: thisWeek.length,
       lastScanAt: scan?.lastScanAt ?? null,
+      weeks: weeklyActivity(commitTimes.get(p.id) ?? [], spans, now, ACTIVITY_WEEKS),
       sessionOpen: active !== null,
     }
   })

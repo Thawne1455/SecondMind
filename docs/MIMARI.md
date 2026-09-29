@@ -47,6 +47,7 @@ silinebilenlerde `deleted_at`. Aşağısı başlangıç taslağıdır; aşamalar
   silinen koleksiyon geri gelirken ad çakışırsa "(2)" eki alır.
 - `notes`: başlık, `body_md` (markdown; resimler `![](sm-media://m/…)`), `collection_id` (null = koleksiyonsuz),
   bağlam (`project_id` | `course_id` | `week_id`; FK yok, tablolar Aşama 5/6'da), `pinned`, `ai_excluded`, soft delete.
+  `project_id` dolu not = proje notu (Projeler > Notlar, 5b); `note:list`/`note:create` `projectId` alır.
   `updated_at` sadece içerik (başlık, gövde, etiket) değişince ilerler; sabitleme/taşıma liste sırasını bozmaz.
 - `notes_fts`: FTS5 external content (`content='notes'`, rowid), `unicode61 remove_diacritics 2`; insert/update/delete
   trigger'larıyla senkron. Sorgu kelimeleri tırnaklanır, son kelime önek eşleşir; `bm25` başlığı 5 kat ağır tartar.

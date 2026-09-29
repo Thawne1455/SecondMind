@@ -1,8 +1,9 @@
 import { BrowserWindow, dialog, shell } from 'electron'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import type { FolderInspection, IpcEvent } from '@shared/ipc'
+import type { Briefing, FolderInspection, IpcEvent } from '@shared/ipc'
 import { getDb } from '../db/client'
+import { projectBriefing, projectScanInfo } from '../db/projectInfo'
 import {
   addParking,
   closeSession,
@@ -35,6 +36,9 @@ import { handle } from './handle'
 /** Kökte bu adlardan biri varsa kod projesi sayılır. */
 const CODE_MARKERS =
   /^(package\.json|cargo\.toml|pyproject\.toml|go\.mod|cmakelists\.txt|.*\.sln)$/i
+
+const REOPEN_MS = 15_000
+const recentOpens = new Map<string, { at: number; briefing: Briefing | null }>()
 
 function inspectFolder(path: string): FolderInspection {
   // Windows biçimi (ters eğik çizgi); sonda ayraç yok.
@@ -75,7 +79,16 @@ export function registerProjectsIpc(hidePark: () => void): void {
   handle('project:list', () => listProjects(getDb()))
   handle('project:create', (input) => ({ id: createProject(getDb(), input) }))
   handle('project:update', (input) => updateProject(getDb(), input))
-  handle('project:opened', ({ id }) => markProjectOpened(getDb(), id))
+  handle('project:opened', ({ id }) => {
+    // Aynı açılışın tekrarı (React StrictMode, hızlı geri-ileri) brifingi kaybetmesin: kısa süre aynı sonuç.
+    const cached = recentOpens.get(id)
+    if (cached && Date.now() - cached.at < REOPEN_MS) return cached.briefing
+    const briefing = projectBriefing(getDb(), id)
+    markProjectOpened(getDb(), id)
+    recentOpens.set(id, { at: Date.now(), briefing })
+    return briefing
+  })
+  handle('project:scanInfo', ({ id }) => projectScanInfo(getDb(), id))
   handle('project:delete', ({ id }) => deleteProject(getDb(), id))
   handle('project:restore', ({ id }) => restoreProject(getDb(), id))
   handle('project:pickFolder', async () => {

@@ -5,6 +5,7 @@ import { ListPlus, Pencil, Play, Square, X } from 'lucide-react'
 import {
   NEXT_STEP_MAX,
   type ParkingItem,
+  type ProjectScanInfo,
   type ProjectSummary,
   type Session,
   type Task,
@@ -24,13 +25,14 @@ import {
   useParking,
   useResolveParking,
   useRestoreParking,
+  useScanInfo,
   useSessions,
   useUpdateProject,
 } from './useProjects'
 
 // Kokpit (PROJELER.md): projeyi açınca ilk görülen yer, her karo tek soru. Üstte vurgulu "Şimdi bunu yap"
 // (ekrandaki tek poster başlık) ve "Son oturum"; altta içeriği olan karolar dengeli yayılır:
-// Sonra (park alanı), Görevler, Ritim. Sıradaki adım motoru (5c) gelene kadar vurgulu karo oturum
+// Sonra (park alanı), Görevler, Ritim, Bu hafta ve Koddaki notlar (tarama, 5b). Sıradaki adım motoru (5c) gelene kadar vurgulu karo oturum
 // kapanışında yazılan adımı, o yoksa projenin en öndeki görevini gösterir.
 
 export function Cockpit({ project }: { project: ProjectSummary }) {
@@ -38,6 +40,8 @@ export function Cockpit({ project }: { project: ProjectSummary }) {
   const parking = useParking(project.id).data ?? []
   const sessions = useSessions(project.id, 5).data ?? []
   const closed = sessions.filter((s) => s.endedAt !== null)
+  const scan = useScanInfo(project.id).data ?? null
+  const now = useNow(60_000)
 
   const lower: { key: string; node: ReactNode }[] = []
   if (parking.length) lower.push({ key: 'park', node: <ParkingTile items={parking} /> })
@@ -47,6 +51,10 @@ export function Cockpit({ project }: { project: ProjectSummary }) {
   })
   if (closed.length || project.activeSession)
     lower.push({ key: 'rhythm', node: <RhythmTile project={project} /> })
+  if (scan && (scan.week.commits || scan.uncommitted?.count))
+    lower.push({ key: 'week', node: <WeekTile info={scan} now={now} /> })
+  if (scan?.todos && (scan.todos.open || scan.todos.resolved))
+    lower.push({ key: 'todos', node: <TodosTile todos={scan.todos} /> })
   const spans = tileSpans(lower.length)
 
   return (
@@ -467,6 +475,90 @@ function RhythmTile({ project: p }: { project: ProjectSummary }) {
           ? `Son 14 günde ${days} gün çalıştın · toplam ${formatMinutes(total)}`
           : 'Son 14 günde oturum yok.'}
       </span>
+    </Tile>
+  )
+}
+
+// ---------------------------------------------------------------- Bu hafta (tarama)
+
+const STALE_DAYS = 3
+
+/** Bu haftanın commit'leri, değişen alanlar ve commit'lenmemiş dosyalar. Dakika Ritim karosunda. */
+function WeekTile({ info, now }: { info: ProjectScanInfo; now: number }) {
+  const u = info.uncommitted
+  const stale = u?.oldestAt != null && now - u.oldestAt > STALE_DAYS * 86_400_000
+  return (
+    <Tile
+      variant="standard"
+      className="grow"
+      eyebrow="Bu hafta"
+      metric={{ value: info.week.commits, label: 'commit' }}
+    >
+      {info.week.areas.length > 0 ? (
+        <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
+          {info.week.areas.slice(0, 6).map(([area, n]) => (
+            <li key={area}>
+              <Tag className="bg-bg">
+                {area} <span className="ml-1 opacity-60 tabular-nums">{n}</span>
+              </Tag>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <span className="text-[14px] text-ink3">Bu hafta commit yok.</span>
+      )}
+      {u && u.count > 0 && (
+        <span
+          className={cn('mt-auto text-[14px] font-semibold', stale ? 'text-coral' : 'text-ink2')}
+        >
+          {u.count} dosya commit'lenmemiş
+          {u.oldestAt !== null && ` · en eskisi ${formatAgo(u.oldestAt, now)}`}
+        </span>
+      )}
+      <span className={cn('text-[12px] font-semibold text-ink3', !(u && u.count > 0) && 'mt-auto')}>
+        Tarandı: {formatAgo(info.lastScanAt, now)}
+      </span>
+    </Tile>
+  )
+}
+
+// ---------------------------------------------------------------- Koddaki notlar (tarama)
+
+function TodosTile({ todos }: { todos: NonNullable<ProjectScanInfo['todos']> }) {
+  const diff =
+    todos.added !== null && (todos.added || todos.resolved)
+      ? `son taramada +${todos.added} / −${todos.resolved}`
+      : null
+  return (
+    <Tile
+      variant="standard"
+      className="grow"
+      eyebrow={diff ? `Koddaki notlar · ${diff}` : 'Koddaki notlar'}
+      metric={{ value: todos.open, label: 'açık not' }}
+    >
+      <div className="flex gap-1.5">
+        {(['FIXME', 'TODO', 'HACK'] as const)
+          .filter((t) => todos.byTag[t] > 0)
+          .map((t) => (
+            <Tag key={t} className="bg-bg">
+              {t} <span className="ml-1 opacity-60 tabular-nums">{todos.byTag[t]}</span>
+            </Tag>
+          ))}
+      </div>
+      <ul className="m-0 mt-auto flex list-none flex-col gap-1 p-0">
+        {todos.recent.slice(0, 3).map((t) => (
+          <li
+            key={`${t.path}:${t.line}`}
+            className="flex min-w-0 gap-2 text-[14px]"
+            title={`${t.path}:${t.line}`}
+          >
+            <span className="shrink-0 font-mono text-[12px] leading-[1.6] text-ink3">
+              {t.path.split('/').pop()}:{t.line}
+            </span>
+            <span className="truncate font-semibold">{t.text || t.tag}</span>
+          </li>
+        ))}
+      </ul>
     </Tile>
   )
 }

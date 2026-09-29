@@ -54,6 +54,9 @@ Kenar çubuğu aktif projelerin renkli karelerini (en fazla 5, aynı sıra) gös
 son tarama zamanı, sağda `Başla` ↔ `Oturumu kapat` (oturum sürerken canlı süreyle), `Tara`, `Klasörde aç`.
 
 Altında sekmeler (Ctrl 1…6). Her sekme projenin farklı bir hafızası. Henüz yapılmamış sekme görünmez.
+5b'de iki sekme var: **Kokpit** (Ctrl 1) ve **Notlar** (Ctrl 2). Notlar: projeye ait serbest notlar (metin + görsel,
+markdown); solda liste (son düzenlenen üstte), sağda Bilgi'nin editörü. Aynı `notes` tablosu (`project_id` dolu),
+bu yüzden Bilgi'de ve aramada da görünürler. Dokümantasyon ağacı (5d) ayrı kalır: o yapılandırılmış belge, bu serbest not.
 
 ### 1. Kokpit
 Projeyi açınca ilk görülen yer. Karo düzeni, her karo tek soru. Yukarıdan aşağı önem sırasıyla:
@@ -73,7 +76,7 @@ Projeyi açınca ilk görülen yer. Karo düzeni, her karo tek soru. Yukarıdan 
 - **Koddaki notlar** (Unity/Yazılım): TODO/FIXME sayısı, son taramadan beri eklenen/çözülen.
 - **GDD ile gerçeklik** (Unity): fark olan sayımlar (aşağıda). Fark yoksa gizli.
 - **Açık hatalar** (Unity): önem derecesine göre sayı.
-- **Proje notları:** projeye ait serbest notlar (metin + görsel, markdown). Isı haritası yerine (Taha kararı, 5b).
+- ~~Aktivite ısı haritası~~ çıkarıldı (Taha kararı, 5b); yerine **Notlar** sekmesi (aşağıda).
 
 Boş karolar gizlenir, kalanlar dengeli yayılır (Bugün'deki `lib/tiles.ts` kuralı). Kokpit, Bugün'ün kopyası değildir:
 akış bandı ve saat ekseni yoktur, ana birim tek projenin sıradaki adımı ve onun gerekçesidir.

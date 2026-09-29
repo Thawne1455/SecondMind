@@ -78,6 +78,8 @@ export const noteListInputSchema = z.object({
   collectionId: z.string().optional(),
   tagId: z.string().optional(),
   pinned: z.boolean().optional(),
+  /** Proje notları (Projeler > Notlar sekmesi). */
+  projectId: z.string().optional(),
 })
 
 export const noteSummarySchema = z.object({
@@ -114,7 +116,11 @@ export const noteSchema = z.object({
   updatedAt: z.number(),
 })
 
-export const noteCreateInputSchema = z.object({ collectionId: z.string().nullable().optional() })
+export const noteCreateInputSchema = z.object({
+  collectionId: z.string().nullable().optional(),
+  /** Projeler > Notlar'dan açılan not projeye bağlanır. */
+  projectId: z.string().nullable().optional(),
+})
 
 export const noteUpdateInputSchema = z.object({
   id: z.string(),

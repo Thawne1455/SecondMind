@@ -33,8 +33,11 @@ import {
 } from './useKnowledge'
 import './note-body.css'
 
-/** Sağ sütun: seçili notun şeridi, başlığı ve gövdesi. Not değişince `key` ile yeniden kurulur. */
-export function NoteEditor({ note }: { note: Note }) {
+/**
+ * Sağ sütun: seçili notun şeridi, başlığı ve gövdesi. Not değişince `key` ile yeniden kurulur.
+ * `basePath`: notun açıldığı yer (Bilgi ya da proje notları); silince oraya, geri alınca `basePath/id`'ye dönülür.
+ */
+export function NoteEditor({ note, basePath = '/bilgi' }: { note: Note; basePath?: string }) {
   const { status, schedule, flush } = useAutosave(note.id)
   const [title, setTitle] = useState(note.title)
   const titleRef = useRef<HTMLInputElement>(null)
@@ -92,7 +95,7 @@ export function NoteEditor({ note }: { note: Note }) {
 
   return (
     <article className="flex min-h-0 grow flex-col gap-4">
-      <NoteStrip note={note} status={status} beforeDelete={flush} />
+      <NoteStrip note={note} status={status} beforeDelete={flush} basePath={basePath} />
       {note.idea && <IdeaStrip note={note} title={title} />}
       <div className="flex min-h-0 grow flex-col overflow-y-auto pb-10">
         <div className="flex w-full max-w-[720px] flex-col gap-3">
@@ -238,9 +241,14 @@ const STATUS_TEXT: Record<SaveStatus, string> = {
   error: 'Kaydedilemedi',
 }
 
-type NoteStripProps = { note: Note; status: SaveStatus; beforeDelete: () => Promise<void> }
+type NoteStripProps = {
+  note: Note
+  status: SaveStatus
+  beforeDelete: () => Promise<void>
+  basePath: string
+}
 
-function NoteStrip({ note, status, beforeDelete }: NoteStripProps) {
+function NoteStrip({ note, status, beforeDelete, basePath }: NoteStripProps) {
   const update = useUpdateNote()
   const remove = useDeleteNote()
   const restore = useRestoreNote()
@@ -258,7 +266,7 @@ function NoteStrip({ note, status, beforeDelete }: NoteStripProps) {
     await beforeDelete()
     remove.mutate(note.id, {
       onSuccess: () => {
-        void navigate('/bilgi')
+        void navigate(basePath)
         toast({
           variant: 'band',
           domain: 'knowledge',
@@ -266,7 +274,7 @@ function NoteStrip({ note, status, beforeDelete }: NoteStripProps) {
           action: {
             label: 'Geri al',
             onClick: () =>
-              restore.mutate(note.id, { onSuccess: () => void navigate(`/bilgi/${note.id}`) }),
+              restore.mutate(note.id, { onSuccess: () => void navigate(`${basePath}/${note.id}`) }),
           },
         })
       },

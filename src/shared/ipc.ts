@@ -28,6 +28,8 @@ import {
   projectSummarySchema,
   projectUpdateInputSchema,
   scanReportSchema,
+  briefingSchema,
+  projectScanInfoSchema,
   sessionCloseInputSchema,
   sessionSchema,
   sessionStartInputSchema,
@@ -341,9 +343,15 @@ export const ipcContract = {
     output: z.void(),
   },
   /** Detay sayfası açıldı (`last_opened_at`); log'a yazılmaz. */
+  /** Detay sayfası açıldı: önceki açılışa göre geri dönüş brifingini döner, sonra açılışı kaydeder. */
   'project:opened': {
     input: z.object({ id: z.string() }),
-    output: z.void(),
+    output: briefingSchema.nullable(),
+  },
+  /** Kokpit'in tarama karoları (son anlık görüntü + bu haftanın commit'leri). */
+  'project:scanInfo': {
+    input: z.object({ id: z.string() }),
+    output: projectScanInfoSchema.nullable(),
   },
   /** Çöp kutusuna; süren oturum varsa şimdi kapanır. */
   'project:delete': {

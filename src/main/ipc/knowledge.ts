@@ -32,7 +32,9 @@ export function registerKnowledgeIpc(paths: DataPaths): void {
 
   handle('note:list', (filter) => listNotes(getDb(), filter))
   handle('note:get', ({ id }) => getNote(getDb(), id))
-  handle('note:create', ({ collectionId }) => createNote(getDb(), collectionId))
+  handle('note:create', ({ collectionId, projectId }) =>
+    createNote(getDb(), collectionId, projectId),
+  )
   handle('note:update', (input) => updateNote(getDb(), input))
   handle('note:delete', ({ id }) => deleteNote(getDb(), id))
   handle('note:restore', ({ id }) => restoreNote(getDb(), id))

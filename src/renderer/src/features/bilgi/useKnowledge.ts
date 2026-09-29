@@ -109,6 +109,10 @@ export const useDeleteCollection = () =>
 export const useRestoreCollection = () =>
   useKnowledgeMutation((id: string) => window.api.invoke('collection:restore', { id }))
 
+/** Proje notu: Projeler > Notlar sekmesinden, projeye bağlı. */
+export const useCreateProjectNote = () =>
+  useKnowledgeMutation((projectId: string) => window.api.invoke('note:create', { projectId }))
+
 export const useCreateNote = () =>
   useKnowledgeMutation((collectionId: string | null) =>
     window.api.invoke('note:create', { collectionId }),

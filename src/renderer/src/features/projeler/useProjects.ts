@@ -1,6 +1,7 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
 import type {
+  Briefing,
   ParkingAddInput,
   ProjectCreateInput,
   ProjectSummary,
@@ -17,6 +18,7 @@ export const projectKeys = {
   list: ['project', 'list'] as const,
   sessions: (projectId: string) => ['project', 'sessions', projectId] as const,
   parking: (projectId?: string) => ['project', 'parking', projectId ?? 'all'] as const,
+  scanInfo: (projectId: string) => ['project', 'scanInfo', projectId] as const,
 }
 
 /** Süren oturumun süresi ve ritim dakikada bir ilerlesin. */
@@ -114,13 +116,29 @@ export function useLastScanAt(): number | null {
   }, [list])
 }
 
-/** Detay sayfası açıldı: sıralama ve geri dönüş brifingi için (log'a yazılmaz). */
-export function useMarkOpened(id: string | undefined): void {
+/**
+ * Detay sayfası açıldı: sıralama için açılış kaydedilir (log'a yazılmaz) ve önceki açılışa göre geri dönüş
+ * brifingi gelir. Bant o açılışta bir kez görünür; `dismiss` kapatır. Proje değişince bileşen yeniden kurulur.
+ */
+export function useProjectOpened(id: string): { briefing: Briefing | null; dismiss: () => void } {
   const client = useQueryClient()
+  const [briefing, setBriefing] = useState<Briefing | null>(null)
   useEffect(() => {
-    if (!id) return
-    void window.api
-      .invoke('project:opened', { id })
-      .then(() => client.invalidateQueries({ queryKey: projectKeys.list }))
+    let alive = true
+    void window.api.invoke('project:opened', { id }).then((b) => {
+      if (alive) setBriefing(b)
+      return client.invalidateQueries({ queryKey: projectKeys.list })
+    })
+    return () => {
+      alive = false
+    }
   }, [id, client])
+  return { briefing, dismiss: () => setBriefing(null) }
 }
+
+/** Kokpit'in Bu hafta ve Koddaki notlar karoları; Güncelle / Tara sonrası yenilenir. */
+export const useScanInfo = (projectId: string) =>
+  useQuery({
+    queryKey: projectKeys.scanInfo(projectId),
+    queryFn: () => window.api.invoke('project:scanInfo', { id: projectId }),
+  })

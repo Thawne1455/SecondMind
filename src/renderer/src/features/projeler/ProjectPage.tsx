@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import {
   ArrowLeft,
   Copy,
@@ -7,6 +7,7 @@ import {
   MoreHorizontal,
   ParkingSquare,
   Play,
+  RefreshCw,
   Square,
 } from 'lucide-react'
 import { PROJECT_COLORS, PROJECT_NAME_MAX, type ProjectSummary } from '@shared/ipc'
@@ -15,25 +16,29 @@ import { useShell } from '../../app/shell-context'
 import { errorText } from '../../lib/errors'
 import { typingOrDialog } from '../../lib/keys'
 import { useNow } from '../../lib/useNow'
-import { Button, cn, EmptyState, IconButton, Kbd, Menu, Skeleton, useToast } from '../../ui'
+import { formatAgo } from '../../lib/format'
+import { Button, Chip, cn, EmptyState, IconButton, Kbd, Menu, Skeleton, useToast } from '../../ui'
+import { useNotes } from '../bilgi/useKnowledge'
+import { BriefingBand } from './BriefingBand'
 import { Cockpit } from './Cockpit'
+import { ProjectNotes } from './ProjectNotes'
 import { formatTimer, KIND_LABEL, STATUS_LABEL } from './labels'
 import {
   useDeleteProject,
-  useMarkOpened,
+  useProjectOpened,
   useProjects,
   useRestoreProject,
+  useScan,
   useUpdateProject,
 } from './useProjects'
 
-// Proje detayı: proje renginde başlık bandı + sekmeler. 5a'da tek sekme (Kokpit) olduğu için sekme
-// çubuğu yok; yapılmamış sekmeler görünmez. Klavye: B başla/kapat, P park (yazı alanında değilken).
+// Proje detayı: proje renginde başlık bandı + sekmeler (Kokpit, Notlar; yapılmamış sekmeler görünmez).
+// Klavye: B başla/kapat, P park (yazı alanında değilken), Ctrl 1 / Ctrl 2 sekme.
 
 export function ProjectPage() {
   const { projectId } = useParams()
   const { data, isPending } = useProjects()
   const project = data?.find((p) => p.id === projectId)
-  useMarkOpened(project?.id)
 
   return (
     <main className="flex min-h-full flex-col gap-[18px] px-8 pt-[22px] pb-8">
@@ -57,9 +62,28 @@ export function ProjectPage() {
   )
 }
 
+type Tab = 'cockpit' | 'notes'
+
 function ProjectView({ project }: { project: ProjectSummary }) {
   const { startSession, closeSession, openPark } = useShell()
   const session = project.activeSession
+  const { noteId } = useParams()
+  const navigate = useNavigate()
+  const tab: Tab = useLocation().pathname.includes('/notlar') ? 'notes' : 'cockpit'
+  const { briefing, dismiss } = useProjectOpened(project.id)
+  const now = useNow(60_000)
+
+  useEffect(() => {
+    function onTabKey(e: KeyboardEvent) {
+      if (!e.ctrlKey || e.altKey || e.shiftKey) return
+      if (e.key === '1' || e.key === '2') {
+        e.preventDefault()
+        void navigate(e.key === '1' ? `/projeler/${project.id}` : `/projeler/${project.id}/notlar`)
+      }
+    }
+    window.addEventListener('keydown', onTabKey)
+    return () => window.removeEventListener('keydown', onTabKey)
+  }, [project.id, navigate])
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -81,8 +105,56 @@ function ProjectView({ project }: { project: ProjectSummary }) {
   return (
     <>
       <HeaderBand project={project} />
-      <Cockpit project={project} />
+      <Tabs project={project} tab={tab} />
+      {tab === 'notes' ? (
+        <ProjectNotes project={project} noteId={noteId} />
+      ) : (
+        <>
+          {briefing && (
+            <BriefingBand
+              project={project}
+              briefing={briefing}
+              now={now}
+              onDismiss={dismiss}
+              onStart={() => {
+                dismiss()
+                startSession(project.id)
+              }}
+            />
+          )}
+          <Cockpit project={project} />
+        </>
+      )}
     </>
+  )
+}
+
+function Tabs({ project, tab }: { project: ProjectSummary; tab: Tab }) {
+  const navigate = useNavigate()
+  const notes = useNotes({ projectId: project.id }).data?.length ?? 0
+  const items: { id: Tab; label: string; to: string; key: string }[] = [
+    { id: 'cockpit', label: 'Kokpit', to: `/projeler/${project.id}`, key: 'Ctrl 1' },
+    {
+      id: 'notes',
+      label: notes ? `Notlar · ${notes}` : 'Notlar',
+      to: `/projeler/${project.id}/notlar`,
+      key: 'Ctrl 2',
+    },
+  ]
+  return (
+    <nav aria-label="Proje sekmeleri" className="flex items-center gap-2">
+      {items.map((t) => (
+        <Chip
+          key={t.id}
+          selected={tab === t.id}
+          aria-current={tab === t.id ? 'page' : undefined}
+          onClick={() => void navigate(t.to)}
+        >
+          {t.label}
+          <span className="ml-2 text-[12px] font-semibold opacity-50">{t.key}</span>
+        </Chip>
+      ))}
+    </nav>
   )
 }
 
@@ -99,6 +171,7 @@ function HeaderBand({ project: p }: { project: ProjectSummary }) {
   const remove = useDeleteProject()
   const restore = useRestoreProject()
   const { toast } = useToast()
+  const scan = useScan()
   const [mode, setMode] = useState<'rename' | 'color' | null>(null)
   const [name, setName] = useState(p.name)
   const session = p.activeSession
@@ -183,6 +256,34 @@ function HeaderBand({ project: p }: { project: ProjectSummary }) {
                 void window.api.invoke('project:openFolder', { id: p.id }).catch(onError)
               }
             />
+            <Button
+              size="sm"
+              variant="onTileGhost"
+              icon={RefreshCw}
+              loading={scan.isPending}
+              loadingLabel="Taranıyor…"
+              title="Sadece bu projenin klasörünü tara"
+              onClick={() =>
+                scan.mutate(p.id, {
+                  onSuccess: (r) => {
+                    const errors = r.projects.flatMap((x) => x.errors)
+                    toast(
+                      errors.length
+                        ? { message: errors.join(' · '), domain: 'warning' }
+                        : { message: r.toast ?? 'Yeni bir şey yok.', domain: 'projects' },
+                    )
+                  },
+                  onError,
+                })
+              }
+            >
+              Tara
+              {p.lastScanAt !== null && (
+                <span className="ml-1.5 text-[12px] font-semibold opacity-60">
+                  {formatAgo(p.lastScanAt, now)}
+                </span>
+              )}
+            </Button>
           </>
         )}
         <Menu

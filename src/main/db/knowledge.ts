@@ -372,6 +372,7 @@ export function listNotes(db: Db, filter: NoteListInput): NoteSummary[] {
   if (filter.collectionId === 'none') where.push(isNull(notes.collectionId))
   else if (filter.collectionId) where.push(eq(notes.collectionId, filter.collectionId))
   if (filter.pinned !== undefined) where.push(eq(notes.pinned, filter.pinned))
+  if (filter.projectId) where.push(eq(notes.projectId, filter.projectId))
   if (filter.tagId) {
     where.push(
       inArray(
@@ -406,12 +407,12 @@ export function getNote(db: Db, id: string, now = new Date()): Note | null {
   return row ? toNote(row, tagsByNote(db, [id]).get(id) ?? [], ideaOfNote(db, id), now) : null
 }
 
-export function createNote(db: Db, collectionId?: string | null): Note {
+export function createNote(db: Db, collectionId?: string | null, projectId?: string | null): Note {
   return db.transaction((tx) => {
     if (collectionId && !liveCollection(tx, collectionId)) throw new Error('Koleksiyon bulunamadı')
     const row = tx
       .insert(notes)
-      .values({ id: ulid(), collectionId: collectionId ?? null })
+      .values({ id: ulid(), collectionId: collectionId ?? null, projectId: projectId ?? null })
       .returning()
       .get()
     logActivity(tx, {

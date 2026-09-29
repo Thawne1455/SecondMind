@@ -6,7 +6,7 @@ import { useShell } from '../../app/shell-context'
 import { formatAgo, formatMinutes } from '../../lib/format'
 import { Button, cn, Kbd } from '../../ui'
 import { formatTimer, KIND_LABEL, SILENT_AFTER_DAYS, STATUS_LABEL } from './labels'
-import { Rhythm } from './Rhythm'
+import { WeekBars } from './WeekBars'
 
 // Proje şeridi (PROJELER.md "Liste ekranı"): tam genişlikte yatay şerit, kart ızgarası değil.
 // Soldan sağa: proje renginde ad bloğu · sıradaki adım + Başla · ritim, son oturum, sessizlik, Sonra.
@@ -115,10 +115,10 @@ export function ProjectStrip({ project: p, now, ref, onKeyDown }: Props) {
         </div>
       </div>
 
-      {/* Ritim ve hafıza */}
+      {/* Son 8 hafta ve hafıza */}
       <div className="flex w-[330px] shrink-0 flex-col justify-between gap-3 px-6 py-5">
         <div className="flex items-end justify-between gap-3">
-          <Rhythm days={p.rhythm} color={p.color} />
+          <WeekBars weeks={p.weeks} color={p.color} />
           <span className="flex flex-col items-end leading-tight">
             <span className="x text-[22px] font-black whitespace-nowrap">
               {formatTimer(p.weekMinutes * 60_000)}
