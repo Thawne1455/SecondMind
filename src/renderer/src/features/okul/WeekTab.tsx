@@ -228,16 +228,40 @@ function WeekNotebook({ detail, week }: { detail: CourseDetail; week: CourseWeek
         <div className="flex flex-col gap-1.5 rounded-tile bg-s2 px-5 py-4">
           <span className="cx">Anlamadım · hocaya sor</span>
           {flags.map((f) => (
-            <label key={f.id} className="flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={f.resolved}
-                disabled={ro}
-                onChange={() => resolveFlag.mutate({ id: f.id, resolved: !f.resolved }, { onError })}
-                className="mt-1 size-4 accent-[var(--ink)]"
-              />
-              <span className={cn('grow text-[14px]', f.resolved && 'text-ink3 line-through')}>{f.excerpt}</span>
-            </label>
+            <div key={f.id} className="flex items-start gap-3">
+              <label className="flex grow cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={f.resolved}
+                  disabled={ro}
+                  title="Çözüldü"
+                  onChange={() => resolveFlag.mutate({ id: f.id, resolved: !f.resolved }, { onError })}
+                  className="mt-1 size-4 accent-[var(--ink)]"
+                />
+                <span className={cn('grow text-[14px]', f.resolved && 'text-ink3 line-through')}>{f.excerpt}</span>
+              </label>
+              {!ro && (
+                <IconButton
+                  label="İşareti sil"
+                  icon={X}
+                  className="size-7"
+                  onClick={() =>
+                    remove.mutate(
+                      { table: 'note_flags', id: f.id },
+                      {
+                        onSuccess: () =>
+                          toast({
+                            message: 'İşaret silindi.',
+                            domain: 'school',
+                            action: { label: 'Geri al', onClick: () => restore.mutate({ table: 'note_flags', id: f.id }) },
+                          }),
+                        onError,
+                      },
+                    )
+                  }
+                />
+              )}
+            </div>
           ))}
         </div>
       )}

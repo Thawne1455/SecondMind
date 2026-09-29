@@ -165,9 +165,31 @@ export function InstructorTab({ detail }: { detail: CourseDetail }) {
             </span>
           ) : (
             openFlags.map((f) => (
-              <span key={f.id} className="flex gap-3">
+              <span key={f.id} className="flex items-start gap-3">
                 <span className="x shrink-0 font-black">{f.weekNo}.</span>
-                <span className="font-semibold">{f.excerpt}</span>
+                <span className="grow font-semibold">{f.excerpt}</span>
+                {!ro && (
+                  <IconButton
+                    label="İşareti sil"
+                    icon={Trash2}
+                    variant="onTileGhost"
+                    className="size-7"
+                    onClick={() =>
+                      remove.mutate(
+                        { table: 'note_flags', id: f.id },
+                        {
+                          onSuccess: () =>
+                            toast({
+                              message: 'İşaret silindi.',
+                              domain: 'school',
+                              action: { label: 'Geri al', onClick: () => restore.mutate({ table: 'note_flags', id: f.id }) },
+                            }),
+                          onError,
+                        },
+                      )
+                    }
+                  />
+                )}
               </span>
             ))
           )}

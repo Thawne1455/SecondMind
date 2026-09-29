@@ -184,7 +184,7 @@ function TermCourses({ term, onEdit }: { term: Term; onEdit: () => void }) {
             </span>
             <span className="truncate text-[13px] font-semibold text-ink3">
               {[
-                c.credit ? `${c.credit} AKTS` : null,
+                c.credit ? `${c.credit} kredi` : null,
                 c.instructorName,
                 c.slots.length ? formatSlots(c.slots) : 'Program yok',
                 c.attendanceLimit

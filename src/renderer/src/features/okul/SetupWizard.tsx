@@ -3,8 +3,9 @@ import { format, nextMonday, isMonday } from 'date-fns'
 import { Plus, Trash2 } from 'lucide-react'
 import type { CourseSaveInput } from '@shared/ipc'
 import { errorText } from '../../lib/errors'
-import { Button, Chip, cn, Field, IconButton, Input, Modal, useToast } from '../../ui'
-import { guessTermName, parseSlots, SCHEME_PRESETS } from './schoolText'
+import { Button, cn, Field, IconButton, Input, Modal, useToast } from '../../ui'
+import { ComponentsEditor } from './ComponentsEditor'
+import { DEFAULT_COMPONENTS, guessTermName, parseSlots, toComponents } from './schoolText'
 import { useSchoolWrite } from './useSchool'
 
 // İlk kurulum sihirbazı (OKUL.md, Ayarlar + ilk kurulum): 1) dönem, 2) dersler ve program,
@@ -26,7 +27,7 @@ export function SetupWizard({ open, onClose }: { open: boolean; onClose: () => v
   const [start, setStart] = useState(defaultStart)
   const [weeks, setWeeks] = useState('14')
   const [rows, setRows] = useState<Row[]>([{ ...EMPTY_ROW }])
-  const [scheme, setScheme] = useState('vf')
+  const [comps, setComps] = useState(DEFAULT_COMPONENTS)
   const [limit, setLimit] = useState('30')
   const [target, setTarget] = useState('BB')
   const setup = useSchoolWrite('school:setup')
@@ -42,7 +43,7 @@ export function SetupWizard({ open, onClose }: { open: boolean; onClose: () => v
   }
 
   function finish() {
-    const components = SCHEME_PRESETS.find((s) => s.id === scheme)?.components ?? []
+    const components = toComponents(comps)
     const pct = Number(limit)
     const courses: Omit<CourseSaveInput, 'termId'>[] = rows.flatMap((r, i) =>
       r.name.trim()
@@ -135,7 +136,7 @@ export function SetupWizard({ open, onClose }: { open: boolean; onClose: () => v
           <div className="cx grid grid-cols-[1.6fr_.7fr_.5fr_1.1fr_2fr_34px] gap-2 px-1 text-ink3">
             <span>Ders</span>
             <span>Kod</span>
-            <span>AKTS</span>
+            <span>Kredi</span>
             <span>Hoca</span>
             <span>Program</span>
             <span />
@@ -208,14 +209,11 @@ export function SetupWizard({ open, onClose }: { open: boolean; onClose: () => v
 
       {step === 2 && (
         <div className="flex flex-col gap-5">
-          <Field label="Değerlendirme şeması" hint="Bütün derslere aynı şema; farklı olanı ders sayfasında düzeltirsin.">
-            <div className="flex flex-wrap gap-2">
-              {SCHEME_PRESETS.map((s) => (
-                <Chip key={s.id} selected={scheme === s.id} onClick={() => setScheme(s.id)}>
-                  {s.label}
-                </Chip>
-              ))}
-            </div>
+          <Field
+            label="Değerlendirme"
+            hint="Ağırlıkları kendin yaz (Quiz, Vize, Final…). Bütün derslere uygulanır; farklı olanı ders sayfasında düzeltirsin. Boş bırakılan satır eklenmez."
+          >
+            <ComponentsEditor rows={comps} onChange={setComps} />
           </Field>
           <div className="grid grid-cols-[220px_220px] gap-4">
             <Field label="Devam sınırı (%)" hint="Boş ya da 0: sınır yok">

@@ -172,28 +172,6 @@ export function parseLetterTable(text: string): { letter: string; min: number; p
   return rows.length ? rows : null
 }
 
-/** Kurulumda ve yeni derste seçilen hazır değerlendirme şemaları. */
-export const SCHEME_PRESETS: { id: string; label: string; components: ComponentInput[] }[] = [
-  {
-    id: 'vf',
-    label: 'Vize %40 · Final %60',
-    components: [
-      { name: 'Vize', kind: 'midterm', weight: 40 },
-      { name: 'Final', kind: 'final', weight: 60 },
-    ],
-  },
-  {
-    id: 'vof',
-    label: 'Vize %30 · Ödevler %20 · Final %50',
-    components: [
-      { name: 'Vize', kind: 'midterm', weight: 30 },
-      { name: 'Ödevler', kind: 'homework', weight: 20 },
-      { name: 'Final', kind: 'final', weight: 50 },
-    ],
-  },
-  { id: 'later', label: 'Sonra her derse ayrı gireceğim', components: [] },
-]
-
 /** Sınav çalışma bloğu: dersin tonunda çapraz çizgili (TASARIM.md "Sınav bloğu"). */
 export const stripes = (tone: string): CSSProperties => ({
   backgroundImage: `repeating-linear-gradient(135deg, ${tone} 0 7px, color-mix(in srgb, ${tone} 45%, #FFFFFF) 7px 14px)`,
@@ -202,3 +180,23 @@ export const stripes = (tone: string): CSSProperties => ({
 /** 7 günden az kaldı ve hazırlık %50'nin altında: mercan. */
 export const examUrgent = (e: Pick<ExamCard, 'daysLeft' | 'readiness'>) =>
   e.daysLeft < 7 && (e.readiness ?? 0) < 50
+
+// ---------------------------------------------------------------- değerlendirme şeması (elle giriş)
+
+export type ComponentDraft = { name: string; kind: ComponentKind; weight: string }
+
+/** Boş ağırlıklı Quiz · Vize · Final; ağırlıkları Taha yazar. */
+export const DEFAULT_COMPONENTS: ComponentDraft[] = [
+  { name: 'Quiz', kind: 'quiz', weight: '' },
+  { name: 'Vize', kind: 'midterm', weight: '' },
+  { name: 'Final', kind: 'final', weight: '' },
+]
+
+const num = (s: string) => Number(s.replace(',', '.'))
+
+/** Adı ve ağırlığı dolu satırlar. */
+export function toComponents(rows: ComponentDraft[]): ComponentInput[] {
+  return rows
+    .filter((r) => r.name.trim() && r.weight.trim() && num(r.weight) > 0)
+    .map((r) => ({ name: r.name.trim(), kind: r.kind, weight: num(r.weight) }))
+}

@@ -3,7 +3,15 @@ import type { Course } from '@shared/ipc'
 import { DEFAULT_LETTER_TABLE } from '@shared/school/grades'
 import { errorText } from '../../lib/errors'
 import { Button, Chip, cn, Field, Input, Modal, useToast } from '../../ui'
-import { formatLetterTable, formatSlots, parseLetterTable, parseSlots, SCHEME_PRESETS } from './schoolText'
+import { ComponentsEditor } from './ComponentsEditor'
+import {
+  DEFAULT_COMPONENTS,
+  formatLetterTable,
+  formatSlots,
+  parseLetterTable,
+  parseSlots,
+  toComponents,
+} from './schoolText'
 import { useSchoolWrite } from './useSchool'
 
 // Ders ekle / düzenle: ad, kod, kredi, hoca, derslik, haftalık program (serbest yazım), devam sınırı,
@@ -40,7 +48,7 @@ function CourseForm({ open, onClose, termId, course, instructorName }: Props) {
   const [letter, setLetter] = useState(course?.letter ?? '')
   const [tone, setTone] = useState(course?.tone ?? '')
   const [table, setTable] = useState(formatLetterTable(course?.letterTable ?? DEFAULT_LETTER_TABLE))
-  const [scheme, setScheme] = useState('vf')
+  const [comps, setComps] = useState(DEFAULT_COMPONENTS)
 
   const slots = parseSlots(program)
   const letters = parseLetterTable(table)
@@ -69,7 +77,7 @@ function CourseForm({ open, onClose, termId, course, instructorName }: Props) {
         letter: letter.trim() || null,
         letterTable: tableIsDefault ? null : letters,
         ...(tone && { tone }),
-        ...(!course && { components: SCHEME_PRESETS.find((s) => s.id === scheme)?.components ?? [] }),
+        ...(!course && { components: toComponents(comps) }),
       },
       {
         onSuccess: () => {
@@ -108,7 +116,7 @@ function CourseForm({ open, onClose, termId, course, instructorName }: Props) {
         <Field label="Kod" className="col-span-2">
           <Input value={code} maxLength={30} onChange={(e) => setCode(e.target.value)} />
         </Field>
-        <Field label="AKTS">
+        <Field label="Kredi">
           <Input inputMode="decimal" value={credit} onChange={(e) => setCredit(e.target.value)} strong />
         </Field>
         <Field label="Hoca" className="col-span-3" hint="Aynı adlı hoca varsa ona bağlanır">
@@ -160,14 +168,8 @@ function CourseForm({ open, onClose, termId, course, instructorName }: Props) {
           </div>
         </Field>
         {!course && (
-          <Field label="Değerlendirme" className="col-span-6">
-            <div className="flex flex-wrap gap-2">
-              {SCHEME_PRESETS.map((s) => (
-                <Chip key={s.id} selected={scheme === s.id} onClick={() => setScheme(s.id)}>
-                  {s.label}
-                </Chip>
-              ))}
-            </div>
+          <Field label="Değerlendirme" className="col-span-6" hint="Ağırlıkları yaz; boş satır eklenmez.">
+            <ComponentsEditor rows={comps} onChange={setComps} />
           </Field>
         )}
         <Field label="Ton" className="col-span-6">

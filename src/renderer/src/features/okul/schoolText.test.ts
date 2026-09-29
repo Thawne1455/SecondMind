@@ -9,6 +9,7 @@ import {
   parseSlots,
   parseWeekday,
   requiredText,
+  toComponents,
 } from './schoolText'
 
 describe('parseWeekday', () => {
@@ -87,5 +88,21 @@ describe('metinler', () => {
     ])
     expect(formatLetterTable(rows!)).toBe('AA 90 4, BA 85 3.5, FF 0 0')
     expect(parseLetterTable('AA 90')).toBeNull()
+  })
+})
+
+describe('toComponents', () => {
+  it('adı ve ağırlığı dolu satırlar; virgüllü ağırlık', () => {
+    expect(
+      toComponents([
+        { name: 'Quiz', kind: 'quiz', weight: '10' },
+        { name: 'Vize', kind: 'midterm', weight: '' },
+        { name: ' Final ', kind: 'final', weight: '52,5' },
+        { name: '', kind: 'other', weight: '5' },
+      ]),
+    ).toEqual([
+      { name: 'Quiz', kind: 'quiz', weight: 10 },
+      { name: 'Final', kind: 'final', weight: 52.5 },
+    ])
   })
 })

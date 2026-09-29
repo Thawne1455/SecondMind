@@ -158,6 +158,12 @@ baytlar IPC ile (`material:bytes`). AI ile izlenceden müfredat çıkarma, `crea
 - [x] `domain/school` testleri (+ `shared/school/grades`, `db/school` entegrasyon testleri)
   Bugün: ders ve çalışma blokları akış bandında, Şimdi'de "Çalıştım", "Derse katıldın mı?" karosu, başarılarda ödev;
   komut paletinde Okul grubu; seed'e iki dönem, 9 ders, 2 sınav (biri planlı).
+  Taha geri bildirimi (6 sonrası düzeltme): "anlamadım" işareti silinebilir (geri alınır); arayüzde AKTS yerine
+  "Kredi"; değerlendirme şeması hazır seçenek yerine elle (Quiz · Vize · Final, boş ağırlık, satır eklenip silinir);
+  harf tahmini kaldırıldı: harf ya elle girilir ya da bütün notlar girilince çıkar (dönem ortalaması da buna göre).
+  **Açık konular:** (1) Okul panosunun tasarımı işlevsiz bulundu; Taha ile ayrıca konuşulacak, o zamana kadar düzen
+  değişmez. (2) Ders ekleme yorucu: Aşama 4'te LLM ders programı görselinden/PDF'inden (jpeg dahil) dönem, ders,
+  saat, derslik ve hocayı çıkarıp öneri olarak Onay Kutusu'na koymalı (`changes.json`'a okul işlemleri).
 **Bitti sayılır:** Gerçek dönem programı girilmiş, bir sınav için plan üretilip Bugün'e yerleşiyor, not hesaplayıcı doğru sonuç veriyor.
 
 ## Aşama 7 — Zihin

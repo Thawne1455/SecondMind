@@ -51,7 +51,7 @@ export function TermBand({ board }: { board: SchoolBoard }) {
         title="Ortalama ekranı: harfleri değiştirip dene"
         className="flex shrink-0 items-end gap-8 rounded-[22px] px-3 py-2 hover:bg-[rgba(19,19,22,.08)] focus-visible:outline-3 focus-visible:outline-indigo"
       >
-        <BigNumber label="Dönem ort. · tahmini" value={board.termGpa} />
+        <BigNumber label="Dönem ort." value={board.termGpa} />
         <BigNumber label="Genel ort." value={board.overallGpa} />
       </Link>
     </header>
@@ -126,7 +126,7 @@ export function GradeTable({ courses }: { courses: BoardCourse[] }) {
         <thead>
           <tr className="cx text-[12px] text-ink3 [&>th]:px-2 [&>th]:py-1.5 [&>th]:font-extrabold">
             <th className="!pl-0">Ders</th>
-            <th className="text-right">AKTS</th>
+            <th className="text-right">Kredi</th>
             <th className="text-right">Puan</th>
             <th className="text-right">Harf</th>
             <th className="!pl-4">Hedef</th>
@@ -152,7 +152,6 @@ export function GradeTable({ courses }: { courses: BoardCourse[] }) {
               </td>
               <td className="x text-right font-black">
                 {c.score.letter ?? '—'}
-                {c.score.letter && !c.score.letterManual && <span className="text-ink3">?</span>}
               </td>
               <td className="!pl-4 text-[13px] font-semibold text-ink2">
                 <RequiredCell course={c} />

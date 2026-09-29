@@ -9,8 +9,8 @@ import { Button, cn, EmptyState, ErrorState, Select, Skeleton, useToast } from '
 import { formatScore } from './schoolText'
 import { useGpa, useSchoolWrite } from './useSchool'
 
-// Ortalama (GANO) ekranı: bütün dönemler ve dersleri (kredi, harf, katsayı). Aktif dönemde harfler tahmindir;
-// değiştirmek sadece simülasyondur ("BB yerine CB gelirse?"), ortalamalar anında güncellenir. Arşiv dönemde
+// Ortalama (GANO) ekranı: bütün dönemler ve dersleri (kredi, harf, katsayı). Harf tahmin edilmez: elle girilen ya da
+// bütün notlar girilince çıkan harf. Aktif dönemde harf seçmek sadece simülasyondur ("BB yerine CB gelirse?"), ortalamalar anında güncellenir. Arşiv dönemde
 // harf gerçek nottur: seçmek kaydeder. Formül Σ(kredi × katsayı) / Σ kredi, tekrar alınan derste son not.
 
 type Term = GpaOverview['terms'][number]
@@ -60,7 +60,7 @@ function GpaView({ terms }: { terms: Term[] }) {
           </Link>
           <h2 className="x m-0 mt-auto text-[28px] leading-none font-black uppercase">Ortalama</h2>
           <span className="font-semibold opacity-80">
-            {simulating ? 'Simülasyon: değiştirdiğin harflerle.' : 'Aktif dönemin harfleri tahmin; birini değiştir, ne olacağını gör.'}
+            {simulating ? 'Simülasyon: değiştirdiğin harflerle.' : 'Aktif dönemde bir derse harf seç, ortalamanın ne olacağını gör.'}
           </span>
         </div>
         {termGpa && <Big label={`${active!.name} · dönem`} value={termGpa.gpa} />}
@@ -124,7 +124,6 @@ function GpaView({ terms }: { terms: Term[] }) {
                           {c.letterTable.map((r) => (
                             <option key={r.letter} value={r.letter}>
                               {r.letter}
-                              {c.estimated && !changed && r.letter === c.letter ? ' ?' : ''}
                             </option>
                           ))}
                         </Select>

@@ -49,7 +49,7 @@ function Scheme({ detail }: { detail: CourseDetail }) {
       <div className="flex items-end gap-6">
         <span className="cx grow">Değerlendirme ve notlar</span>
         <Stat label="Gidişat" value={s.current === null ? '—' : formatScore(s.current)} />
-        <Stat label={s.letterManual ? 'Harf' : 'Harf tahmini'} value={s.letter ?? '—'} />
+        <Stat label="Harf" value={s.letter ?? '—'} />
       </div>
       {detail.components.length === 0 && (
         <span className="text-ink2">Bileşen yok. Vize, Final, Ödevler… ve ağırlıklarını ekle.</span>

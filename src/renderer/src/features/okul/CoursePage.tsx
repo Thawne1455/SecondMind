@@ -142,7 +142,7 @@ function CourseBand({ detail }: { detail: CourseDetail }) {
         <h2 className="x m-0 truncate text-[44px] leading-[.95] font-black uppercase">{c.name}</h2>
         <span className="flex flex-wrap gap-x-4 gap-y-1 text-[14px] font-bold">
           {c.code && <span>{c.code}</span>}
-          {c.credit > 0 && <span>{formatScore(c.credit)} AKTS</span>}
+          {c.credit > 0 && <span>{formatScore(c.credit)} kredi</span>}
           {c.room && <span>{c.room}</span>}
           {slots && <span className="x">{slots}</span>}
           {detail.instructor && <span>{detail.instructor.name}</span>}

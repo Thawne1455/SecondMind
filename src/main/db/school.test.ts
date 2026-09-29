@@ -93,7 +93,7 @@ describe('kurulum', () => {
 })
 
 describe('not ve pano', () => {
-  it('ağırlıklı puan, harf tahmini ve finalde gereken', () => {
+  it('ağırlıklı puan, harf tahmin edilmez, finalde gereken', () => {
     const { ds } = setup()
     const comps = db.select().from(schema.gradeComponents).all()
     setGrade(db, comps.find((c) => c.name === 'Vize')!.id, 70, at(10, 5))
@@ -101,10 +101,10 @@ describe('not ve pano', () => {
     const board = getBoard(db, 180, at(10, 5))
     const row = board.courses.find((c) => c.id === ds.id)!
     expect(row.score.current).toBe(78)
-    expect(row.score.letter).toBe('CB')
+    expect(row.score.letter).toBeNull()
     expect(row.score.required).toEqual({ status: 'needs', min: 82, remaining: [comps.find((c) => c.name === 'Final')!.id] })
     expect(board.week).toBe(3)
-    expect(board.termGpa).toBe(2.5)
+    expect(board.termGpa).toBeNull()
   })
 
   it('haftalık program, yoklama ve devamsızlık', () => {
@@ -134,14 +134,16 @@ describe('not ve pano', () => {
     expect(attendanceQuestions(db, at(10, 5, 11))).toHaveLength(0)
   })
 
-  it('GANO: elle harf ve tahmini', () => {
+  it('GANO: elle harf; eksik notlu derste harf yok, hepsi girilince sonuç', () => {
     const { ds, la } = setup()
     saveCourse(db, { id: la.id, termId: la.termId, name: la.name, credit: 4, letter: 'AA' })
     const comps = db.select().from(schema.gradeComponents).all()
     setGrade(db, comps.find((c) => c.name === 'Vize')!.id, 85)
     const g = gpaOverview(db)
     const rows = g.terms[0]!.courses
-    expect(rows.find((c) => c.id === ds.id)).toMatchObject({ letter: 'BA', estimated: true })
+    expect(rows.find((c) => c.id === ds.id)).toMatchObject({ letter: null })
+    for (const c of comps.filter((x) => x.courseId === ds.id && x.name !== 'Vize')) setGrade(db, c.id, 85)
+    expect(gpaOverview(db).terms[0]!.courses.find((c) => c.id === ds.id)).toMatchObject({ letter: 'BA' })
     expect(rows.find((c) => c.id === la.id)).toMatchObject({ letter: 'AA', estimated: false })
   })
 })

@@ -567,7 +567,9 @@ function courseScore(course: CourseRow, comps: readonly ComponentRow[]): CourseS
     .filter((c) => c.courseId === course.id)
     .map((c) => ({ id: c.id, weight: c.weight, score: c.score }))
   const w = weightedScore(inputs)
-  const estimated = w.current !== null ? letterFor(w.current, table).letter : null
+  // Harf tahmin edilmez: elle girilen harf ya da bütün bileşenler girilince çıkan sonuç.
+  const complete = inputs.length > 0 && inputs.every((c) => c.weight <= 0 || c.score !== null)
+  const estimated = complete ? letterFor(w.earned, table).letter : null
   return {
     earned: w.earned,
     current: w.current,
