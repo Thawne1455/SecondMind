@@ -3,6 +3,8 @@ import { ulid } from 'ulid'
 import type { ScheduleBlock, ScheduleDay, TaskPriority } from '@shared/ipc'
 import { dayKey } from '../domain/recurrence'
 import {
+  DAY_END_MIN,
+  DAY_START_MIN,
   clampMove,
   floorSnap,
   freeGaps,
@@ -15,7 +17,9 @@ import {
 } from '../domain/scheduler'
 import { logActivity } from './activity'
 import type { Db, DbTx } from './client'
+import { schoolDayBlocks, sweepMissedStudy } from './school'
 import { routines, scheduleBlocks, tasks } from './schema'
+import { getSetting } from './settings'
 
 // Günün yerleşimi (schedule_blocks). Algoritmanın yazdıkları türetilmiş plandır, log'a yazılmaz;
 // Taha'nın taşıması / sabitliği kaldırması / "Başla"sı ve gün sonu kaydırması log'a yazılır.
@@ -89,6 +93,9 @@ function sync(tx: DbTx, now: Date, mode: 'fill' | 'replace'): ScheduleDay {
   const today = dayKey(now)
   const nowMin = minuteOfDay(now)
   const rolledOver = rollover(tx, now)
+  // Dünden kalan işaretlenmemiş çalışma blokları kalan günlere yayılır (Okul).
+  sweepMissedStudy(tx, now, getSetting(tx as unknown as Db, 'studyDailyMaxMin'))
+  const school = schoolDayBlocks(tx, today)
 
   const routineRows = tx.select().from(routines).where(isNull(routines.deletedAt)).all()
   const existing = tx.select().from(scheduleBlocks).where(eq(scheduleBlocks.day, today)).all()
@@ -110,10 +117,21 @@ function sync(tx: DbTx, now: Date, mode: 'fill' | 'replace'): ScheduleDay {
   const plan = planDay({
     today,
     nowMin,
-    routines: routineIntervals(
-      routineRows.map((r) => ({ ...r, days: JSON.parse(r.daysJson) as number[] })),
-      now,
-    ),
+    routines: [
+      ...routineIntervals(
+        routineRows.map((r) => ({ ...r, days: JSON.parse(r.daysJson) as number[] })),
+        now,
+      ),
+      ...school
+        .map((b) => ({
+          kind: b.kind,
+          sourceId: b.sourceId,
+          start: Math.max(b.start, DAY_START_MIN),
+          end: Math.min(b.end, DAY_END_MIN),
+          pinned: false,
+        }))
+        .filter((b) => b.end > b.start),
+    ],
     tasks: taskRows.map((r) => toSchedTask(r, today)),
     existing: existing.map(toBlock),
     mode,
@@ -164,8 +182,10 @@ function sync(tx: DbTx, now: Date, mode: 'fill' | 'replace'): ScheduleDay {
 
   const taskById = new Map(taskRows.map((t) => [t.id, t]))
   const routineById = new Map(routineRows.map((r) => [r.id, r]))
+  const schoolById = new Map(school.map((b) => [`${b.kind}:${b.sourceId}`, b]))
   const blocks: ScheduleBlock[] = rows.map((r) => {
     const t = r.kind === 'task' ? taskById.get(r.sourceId) : undefined
+    const sb = schoolById.get(`${r.kind}:${r.sourceId}`)
     return {
       id: r.id,
       kind: r.kind,
@@ -173,10 +193,17 @@ function sync(tx: DbTx, now: Date, mode: 'fill' | 'replace'): ScheduleDay {
       start: r.startMin,
       end: r.endMin,
       pinned: r.pinned,
-      title: t?.title ?? routineById.get(r.sourceId)?.title ?? '',
+      title: t?.title ?? routineById.get(r.sourceId)?.title ?? sb?.title ?? '',
       projectId: t?.projectId ?? null,
-      done: t?.status === 'done',
+      done: t?.status === 'done' || (sb?.kind === 'study' && sb.mark === 'done'),
       postponeCount: t?.postponeCount ?? 0,
+      tone: sb?.tone ?? null,
+      detail: sb?.detail ?? '',
+      courseId: sb?.courseId ?? null,
+      attendance:
+        sb?.kind === 'class' && (sb.mark === 'present' || sb.mark === 'absent' || sb.mark === 'cancelled')
+          ? sb.mark
+          : null,
     }
   })
   const gaps = freeGaps(plan.blocks, nowMin)

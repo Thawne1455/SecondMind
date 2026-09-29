@@ -15,6 +15,7 @@ import { registerProjectMemoryIpc } from './ipc/memory'
 import { registerProjectsIpc } from './ipc/projects'
 import { registerScanIpc } from './ipc/scan'
 import { registerScheduleIpc } from './ipc/schedule'
+import { registerSchoolIpc } from './ipc/school'
 import { registerSettingsIpc } from './ipc/settings'
 import {
   handleMediaProtocol,
@@ -104,6 +105,7 @@ if (!app.requestSingleInstanceLock()) {
     registerProjectMemoryIpc(paths)
     registerBridgeIpc()
     registerScanIpc(paths)
+    registerSchoolIpc(paths)
     registerSettingsIpc((key) => {
       if (key === 'theme') applyTheme(getSetting(getDb(), 'theme'))
     })

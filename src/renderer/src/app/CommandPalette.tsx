@@ -3,8 +3,8 @@ import { Search } from 'lucide-react'
 import { matchText, type Range } from '../lib/match'
 import { cn } from '../ui'
 
-export type PaletteGroup = 'Projeler' | 'Komutlar' | 'Görevler' | 'Notlar'
-const GROUP_ORDER: PaletteGroup[] = ['Projeler', 'Komutlar', 'Görevler', 'Notlar']
+export type PaletteGroup = 'Projeler' | 'Okul' | 'Komutlar' | 'Görevler' | 'Notlar'
+const GROUP_ORDER: PaletteGroup[] = ['Projeler', 'Okul', 'Komutlar', 'Görevler', 'Notlar']
 
 export type PaletteItem = {
   id: string

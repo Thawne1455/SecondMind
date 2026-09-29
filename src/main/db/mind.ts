@@ -5,6 +5,7 @@ import type { Checkin, CheckinSetInput, WeekAchievements } from '@shared/ipc'
 import { dayKey } from '../domain/recurrence'
 import { logActivity, logUpdateMerged } from './activity'
 import type { Db } from './client'
+import { submittedSince } from './school'
 import { checkins, tasks } from './schema'
 
 // Zihin: günlük kayıt ve haftanın başarıları (Aşama 3c).
@@ -76,10 +77,12 @@ function doneSince(db: Db, since: Date): number {
   return row?.n ?? 0
 }
 
-/** Bu hafta (Pazartesi 00:00'dan) ve bugün tamamlanan görevler; silinenler sayılmaz. */
+/** Bu hafta (Pazartesi 00:00'dan) ve bugün tamamlanan görevler, bu hafta teslim edilen ödevler; silinenler sayılmaz. */
 export function getWeekAchievements(db: Db, now = new Date()): WeekAchievements {
+  const week = startOfWeek(now, { weekStartsOn: 1 })
   return {
-    tasksWeek: doneSince(db, startOfWeek(now, { weekStartsOn: 1 })),
+    tasksWeek: doneSince(db, week),
     tasksToday: doneSince(db, startOfDay(now)),
+    submittedWeek: submittedSince(db, week),
   }
 }

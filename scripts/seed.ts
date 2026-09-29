@@ -11,7 +11,7 @@ import { homedir } from 'node:os'
 import { join, resolve, win32 } from 'node:path'
 import { deflateSync, crc32 } from 'node:zlib'
 import Database from 'better-sqlite3'
-import { addDays, addHours, format, startOfDay, subDays } from 'date-fns'
+import { addDays, addHours, format, startOfDay, startOfWeek, subDays } from 'date-fns'
 import { eq, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
@@ -31,6 +31,22 @@ import { addParking, closeSession, createProject, startSession } from '../src/ma
 import { applyDocTemplate, createDoc, updateDoc } from '../src/main/db/docs'
 import { convertCluster, pastePlaytest, playtestOverview } from '../src/main/db/playtest'
 import * as schema from '../src/main/db/schema'
+import {
+  addFlag,
+  addInstructorNote,
+  applyPlan,
+  saveAssignment,
+  saveCourse,
+  saveExam,
+  saveTerm,
+  saveTopic,
+  setAttendance,
+  setExamTopic,
+  setGrade,
+  setupSchool,
+  setWeekTitle,
+  weekNote,
+} from '../src/main/db/school'
 import { defaultDataDir } from '../src/main/domain/dataDir'
 import { storeMedia } from '../src/main/media'
 
@@ -579,6 +595,215 @@ const ROUTINES = [
 
 // ---------------------------------------------------------------- çalıştır
 
+// ---------------------------------------------------------------- Okul (Aşama 6)
+
+type CourseSeed = {
+  name: string
+  code: string
+  credit: number
+  teacher: string
+  room: string
+  slots: { weekday: number; start: string; end: string }[]
+  weeks: string[]
+  emphasized?: number[]
+}
+
+const COURSES: CourseSeed[] = [
+  {
+    name: 'Veri Yapıları',
+    code: 'BIL201',
+    credit: 6,
+    teacher: 'Ayşe Kaya',
+    room: 'D-201',
+    slots: [
+      { weekday: 1, start: '09:00', end: '10:50' },
+      { weekday: 3, start: '13:00', end: '14:50' },
+    ],
+    weeks: ['Diziler ve karmaşıklık', 'Bağlı listeler', 'Yığın ve kuyruk', 'Ağaçlar', 'İkili arama ağaçları', 'AVL ağaçları'],
+    emphasized: [4, 6],
+  },
+  {
+    name: 'Lineer Cebir',
+    code: 'MAT205',
+    credit: 5,
+    teacher: 'Mehmet Demir',
+    room: 'B-105',
+    slots: [{ weekday: 2, start: '10:00', end: '11:50' }],
+    weeks: ['Lineer denklem sistemleri', 'Matrisler', 'Determinant', 'Vektör uzayları'],
+    emphasized: [3],
+  },
+  {
+    name: 'Olasılık ve İstatistik',
+    code: 'MAT221',
+    credit: 5,
+    teacher: 'Zeynep Arslan',
+    room: 'A-12',
+    slots: [{ weekday: 4, start: '14:00', end: '15:50' }],
+    weeks: ['Olasılık aksiyomları', 'Koşullu olasılık', 'Rastgele değişkenler', 'Beklenen değer'],
+  },
+  {
+    name: 'Bilgisayar Mimarisi',
+    code: 'BIL231',
+    credit: 5,
+    teacher: 'Ayşe Kaya',
+    room: 'D-104',
+    slots: [{ weekday: 5, start: '09:00', end: '11:50' }],
+    weeks: ['Sayı sistemleri', 'Mantık kapıları', 'Kombinasyonel devreler', 'Ardışıl devreler'],
+  },
+  {
+    name: 'Teknik İngilizce',
+    code: 'ING201',
+    credit: 3,
+    teacher: 'Sarah Miller',
+    room: 'C-3',
+    slots: [{ weekday: 2, start: '15:00', end: '16:50' }],
+    weeks: ['Technical reading', 'Writing definitions', 'Describing processes', 'Presentations'],
+  },
+]
+
+const clockToMin = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number) as [number, number]
+  return h * 60 + m
+}
+
+function seedSchool(db: Db, now: Date): { courses: number; exams: number } {
+  const monday = startOfWeek(now, { weekStartsOn: 1 })
+  // Aktif dönem 3 hafta önce başladı: bugün 4. hafta.
+  const termStart = format(subDays(monday, 21), 'yyyy-MM-dd')
+  const day = (offset: number) => format(addDays(now, offset), 'yyyy-MM-dd')
+
+  // Geçmiş dönem: GANO'ya girer.
+  const past = saveTerm(db, { name: '2025-2026 Bahar', startDate: '2026-02-16', weekCount: 14, active: false }, subDays(now, 200))
+  for (const [name, code, credit, letter] of [
+    ['Programlamaya Giriş II', 'BIL102', 6, 'BA'],
+    ['Analiz II', 'MAT102', 6, 'CB'],
+    ['Fizik II', 'FIZ102', 5, 'CC'],
+    ['Ayrık Matematik', 'MAT112', 5, 'BB'],
+  ] as const)
+    saveCourse(db, { termId: past.id, name, code, credit, letter }, subDays(now, 200))
+
+  const term = setupSchool(
+    db,
+    {
+      term: { name: '2026-2027 Güz', startDate: termStart, weekCount: 14 },
+      courses: COURSES.map((c) => ({
+        name: c.name,
+        code: c.code,
+        credit: c.credit,
+        room: c.room,
+        instructorName: c.teacher,
+        attendanceLimit: { kind: 'percent' as const, value: 30 },
+        targetLetter: 'BB',
+        slots: c.slots.map((s) => ({ weekday: s.weekday, startMin: clockToMin(s.start), endMin: clockToMin(s.end), room: '' })),
+        components:
+          c.code === 'ING201'
+            ? [
+                { name: 'Sunum', kind: 'project' as const, weight: 40 },
+                { name: 'Final', kind: 'final' as const, weight: 60 },
+              ]
+            : [
+                { name: 'Quiz', kind: 'quiz' as const, weight: 10 },
+                { name: 'Vize', kind: 'midterm' as const, weight: 30 },
+                { name: 'Final', kind: 'final' as const, weight: 60 },
+              ],
+      })),
+    },
+    subDays(now, 22),
+  )
+
+  const rows = db.select().from(schema.courses).where(eq(schema.courses.termId, term.id)).all()
+  const byCode = new Map(rows.map((r) => [r.code, r]))
+  let examCount = 0
+  for (const c of COURSES) {
+    const course = byCode.get(c.code)!
+    c.weeks.forEach((title, i) => {
+      setWeekTitle(db, course.id, i + 1, title)
+      saveTopic(db, { courseId: course.id, weekNo: i + 1, name: title, emphasized: c.emphasized?.includes(i + 1) ?? false })
+    })
+    const quiz = db
+      .select()
+      .from(schema.gradeComponents)
+      .where(eq(schema.gradeComponents.courseId, course.id))
+      .all()
+      .find((g) => g.kind === 'quiz')
+    if (quiz) setGrade(db, quiz.id, c.code === 'MAT205' ? 55 : 85, subDays(now, 5))
+  }
+
+  const ds = byCode.get('BIL201')!
+  const la = byCode.get('MAT205')!
+  const comps = (courseId: string) =>
+    db.select().from(schema.gradeComponents).where(eq(schema.gradeComponents.courseId, courseId)).all()
+
+  // Sınavlar: Lineer Cebir vizesi 5 gün sonra (plan kurulu), Veri Yapıları vizesi 12 gün sonra.
+  const laExam = saveExam(
+    db,
+    {
+      courseId: la.id,
+      title: 'Vize',
+      day: day(5),
+      startMin: 600,
+      place: 'B-105',
+      componentId: comps(la.id).find((g) => g.kind === 'midterm')!.id,
+      weekFrom: 1,
+      weekTo: 4,
+    },
+    subDays(now, 3),
+  ).id
+  const dsExam = saveExam(
+    db,
+    {
+      courseId: ds.id,
+      title: 'Vize',
+      day: day(12),
+      startMin: 540,
+      place: 'D-201',
+      componentId: comps(ds.id).find((g) => g.kind === 'midterm')!.id,
+      weekFrom: 1,
+      weekTo: 6,
+    },
+    subDays(now, 3),
+  ).id
+  examCount += 2
+  const laTopics = db.select().from(schema.examTopics).where(eq(schema.examTopics.examId, laExam)).all()
+  laTopics.forEach((t, i) => setExamTopic(db, { examId: laExam, topicId: t.topicId, level: [2, 1, 0, 1][i] ?? 0 }))
+  const dsTopics = db.select().from(schema.examTopics).where(eq(schema.examTopics.examId, dsExam)).all()
+  dsTopics.forEach((t, i) => setExamTopic(db, { examId: dsExam, topicId: t.topicId, level: [3, 2, 2, 1, 0, 0][i] ?? 0 }))
+  applyPlan(db, laExam, 180, now)
+
+  // Ödevler: biri 3 gün sonra, biri geçen hafta teslim edildi.
+  saveAssignment(db, { courseId: ds.id, title: 'Bağlı liste uygulaması', dueAt: addHours(startOfDay(addDays(now, 3)), 23).getTime(), weekNo: 2 }, subDays(now, 6))
+  const done = saveAssignment(db, { courseId: la.id, title: 'Problem seti 1', dueAt: addHours(startOfDay(subDays(now, 4)), 17).getTime(), weekNo: 2 }, subDays(now, 12))
+  saveAssignment(db, { id: done.id, courseId: la.id, title: 'Problem seti 1', dueAt: addHours(startOfDay(subDays(now, 4)), 17).getTime(), status: 'graded', score: 90 }, subDays(now, 5))
+
+  // Yoklama: geçen haftalarda iki devamsızlık, kalanlar katıldı.
+  for (const c of rows) {
+    const slots = db.select().from(schema.courseSlots).where(eq(schema.courseSlots.courseId, c.id)).all()
+    for (let w = 0; w < 3; w++)
+      for (const s of slots) {
+        const d = format(addDays(subDays(monday, 21 - w * 7), s.weekday - 1), 'yyyy-MM-dd')
+        const absent = (c.code === 'BIL231' && w === 1) || (c.code === 'MAT221' && w === 0)
+        setAttendance(db, { slotId: s.id, day: d, status: absent ? 'absent' : 'present' })
+      }
+  }
+
+  // Hafta notu ve "anlamadım" işareti; hoca notu.
+  const { noteId } = weekNote(db, ds.id, 3, subDays(now, 9))
+  updateNote(
+    db,
+    {
+      id: noteId,
+      bodyMd:
+        '## Yığın (stack)\n\n- LIFO; push / pop O(1)\n- Dizi ile ya da bağlı liste ile\n\n## Kuyruk\n\nDairesel dizide baş ve son indeksleri modla ilerler; dolu ile boşu ayırmak için bir hücre boş bırakılır.',
+    },
+    subDays(now, 9),
+  )
+  addFlag(db, noteId, 'Dairesel dizide dolu ile boşu ayırmak için neden bir hücre boş bırakılıyor?', subDays(now, 9))
+  addInstructorNote(db, ds.id, 'Vizede ispat yok, kod okuma ve karmaşıklık soruyor. Kağıda kod yazdırıyor.', subDays(now, 14))
+  addInstructorNote(db, la.id, 'Devamı sıkı alıyor: %30 sınırı var, imza ilk 10 dakikada.', subDays(now, 20))
+
+  return { courses: COURSES.length + 4, exams: examCount }
+}
+
 function openDb(file: string): { db: Db; close: () => void } {
   const sqlite = new Database(file)
   sqlite.pragma('journal_mode = WAL')
@@ -793,6 +1018,8 @@ function main(): void {
     ago(10),
   )
 
+  const school = seedSchool(db, now)
+
   // Örnek veri Taha'nın işlemi değil: geri alınacak bir geçmişi olmasın.
   db.run(sql`DELETE FROM activity_log`)
   close()
@@ -802,7 +1029,7 @@ function main(): void {
       `  ${Object.keys(NOTES).filter(Boolean).length} koleksiyon, ${noteCount} not, ` +
       `${IDEAS.length} fikir, ${DUMPS.length} döküm, 2 resim, ${TASKS.length} görev, ` +
       `${ROUTINES.length} rutin, 6 hatırlatma (1 kaçırılmış), ${PROJECTS.length} proje ` +
-      `(Runika'da süren oturum).\n` +
+      `(Runika'da süren oturum), ${school.courses} ders (2 dönem), ${school.exams} sınav.\n` +
       `  Uygulamayı bu klasörle açmak için userData/config.json: {"dataDir": "${dataDir.replace(/\\/g, '\\\\')}"}`,
   )
 }

@@ -44,6 +44,31 @@ import {
   playtestWriteSchema,
   PLAYTEST_TEXT_MAX,
 } from './schemas/playtest'
+import {
+  assignmentSaveInputSchema,
+  attendanceMarkSchema,
+  attendanceQuestionSchema,
+  componentKindSchema,
+  courseDetailSchema,
+  courseListItemSchema,
+  courseSaveInputSchema,
+  courseSchema,
+  examPrepSchema,
+  examSaveInputSchema,
+  examTopicSetInputSchema,
+  gpaOverviewSchema,
+  instructorSaveInputSchema,
+  instructorSchema,
+  materialKindSchema,
+  planPreviewSchema,
+  schoolBoardSchema,
+  schoolRestoreInputSchema,
+  schoolSetupInputSchema,
+  SCHOOL_TEXT_MAX,
+  termSaveInputSchema,
+  termSchema,
+  topicSaveInputSchema,
+} from './schemas/school'
 import { checkinSchema, checkinSetInputSchema, weekAchievementsSchema } from './schemas/mind'
 import {
   folderInspectionSchema,
@@ -98,6 +123,7 @@ export * from './schemas/docs'
 export * from './schemas/log'
 export * from './schemas/shots'
 export * from './schemas/projects'
+export * from './schemas/school'
 
 // IPC sözleşmesinin tek kaynağı. Kanal adları `alan:eylem` biçiminde.
 // Ana süreç her girdiyi burada tanımlı şemayla doğrular.
@@ -107,6 +133,8 @@ export const themeSchema = z.enum(['light', 'dark']) satisfies z.ZodType<Theme>
 /** Her ayar anahtarının değer şeması. Yeni ayar = buraya bir satır + `settingDefaults`. */
 export const settingValueSchemas = {
   theme: themeSchema,
+  /** Okul: sınav çalışma planında günlük en fazla çalışma (dk). */
+  studyDailyMaxMin: z.number().int().min(30).max(720),
 } as const
 
 export type SettingKey = keyof typeof settingValueSchemas
@@ -114,6 +142,7 @@ export type SettingValue<K extends SettingKey> = z.infer<(typeof settingValueSch
 
 export const settingDefaults: { [K in SettingKey]: SettingValue<K> } = {
   theme: 'light',
+  studyDailyMaxMin: 180,
 }
 
 const settingKeySchema = z.enum(Object.keys(settingValueSchemas) as [SettingKey, ...SettingKey[]])
@@ -726,6 +755,189 @@ export const ipcContract = {
   'scan:run': {
     input: z.object({ projectId: z.string().optional() }),
     output: scanReportSchema,
+  },
+  // ---------------------------------------------------------------- Okul (Aşama 6)
+  'term:list': {
+    input: z.void(),
+    output: z.array(termSchema),
+  },
+  /** Oluştur ya da güncelle; `active` verilirse diğer dönemler arşive iner. */
+  'term:save': {
+    input: termSaveInputSchema,
+    output: termSchema,
+  },
+  'term:activate': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** İlk kurulum sihirbazı: aktif dönem + dersler tek seferde. */
+  'school:setup': {
+    input: schoolSetupInputSchema,
+    output: termSchema,
+  },
+  /** Dönem panosu; önce kaçırılan çalışma blokları yeniden dağıtılır. */
+  'school:board': {
+    input: z.void(),
+    output: schoolBoardSchema,
+  },
+  /** Okul kayıtlarını çöp kutusuna atar (dönem dersleriyle birlikte). */
+  'school:delete': {
+    input: schoolRestoreInputSchema,
+    output: z.void(),
+  },
+  'school:restore': {
+    input: schoolRestoreInputSchema,
+    output: z.void(),
+  },
+  'course:list': {
+    input: z.object({ termId: z.string() }),
+    output: z.array(courseListItemSchema),
+  },
+  'course:get': {
+    input: z.object({ id: z.string() }),
+    output: courseDetailSchema.nullable(),
+  },
+  /** Oluştur ya da güncelle (program, hoca adı, devam sınırı, harf tablosu, hedef harf). */
+  'course:save': {
+    input: courseSaveInputSchema,
+    output: courseSchema,
+  },
+  'course:move': {
+    input: z.object({ id: z.string(), dir: z.union([z.literal(-1), z.literal(1)]) }),
+    output: z.void(),
+  },
+  'instructor:list': {
+    input: z.void(),
+    output: z.array(instructorSchema),
+  },
+  /** Yeni hoca `courseId` verilirse o derse bağlanır. */
+  'instructor:save': {
+    input: instructorSaveInputSchema.extend({ courseId: z.string().optional() }),
+    output: z.object({ id: z.string() }),
+  },
+  'instructorNote:add': {
+    input: z.object({ courseId: z.string(), text: z.string().trim().min(1).max(SCHOOL_TEXT_MAX) }),
+    output: z.object({ id: z.string() }),
+  },
+  'week:setTitle': {
+    input: z.object({
+      courseId: z.string(),
+      weekNo: z.number().int().min(1),
+      title: z.string().max(200),
+    }),
+    output: z.void(),
+  },
+  /** Haftanın ders notu; yoksa oluşturur. */
+  'week:note': {
+    input: z.object({ courseId: z.string(), weekNo: z.number().int().min(1) }),
+    output: z.object({ noteId: z.string() }),
+  },
+  'topic:save': {
+    input: topicSaveInputSchema,
+    output: z.object({ id: z.string() }),
+  },
+  /** "Anlamadım" işareti: hafta notundaki paragrafın metni. */
+  'flag:add': {
+    input: z.object({ noteId: z.string(), excerpt: z.string().trim().min(1).max(SCHOOL_TEXT_MAX) }),
+    output: z.object({ id: z.string() }),
+  },
+  'flag:resolve': {
+    input: z.object({ id: z.string(), resolved: z.boolean() }),
+    output: z.void(),
+  },
+  /** Materyal (slayt PDF'i, tahta fotoğrafı…) `media/`'ya kopyalanır. */
+  'material:add': {
+    input: assetAddInputSchema.omit({ projectId: true }).extend({
+      courseId: z.string(),
+      weekNo: z.number().int().min(1).nullable(),
+      kind: materialKindSchema,
+    }),
+    output: z.object({ id: z.string() }),
+  },
+  'material:update': {
+    input: z.object({
+      id: z.string(),
+      title: z.string().max(200).optional(),
+      kind: materialKindSchema.optional(),
+      weekNo: z.number().int().min(1).nullable().optional(),
+    }),
+    output: z.void(),
+  },
+  /** Sistemdeki varsayılan uygulamayla açar. */
+  'material:open': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** PDF görüntüleyici için dosyanın baytları. */
+  'material:bytes': {
+    input: z.object({ id: z.string() }),
+    output: z.instanceof(Uint8Array),
+  },
+  'component:save': {
+    input: z.object({
+      id: z.string().optional(),
+      courseId: z.string(),
+      name: z.string().trim().min(1).max(60),
+      kind: componentKindSchema,
+      weight: z.number().min(0).max(100),
+    }),
+    output: z.object({ id: z.string() }),
+  },
+  'grade:set': {
+    input: z.object({ componentId: z.string(), score: z.number().min(0).max(100).nullable() }),
+    output: z.void(),
+  },
+  'exam:save': {
+    input: examSaveInputSchema,
+    output: z.object({ id: z.string() }),
+  },
+  'exam:prep': {
+    input: z.object({ id: z.string() }),
+    output: examPrepSchema.nullable(),
+  },
+  'examTopic:set': {
+    input: examTopicSetInputSchema,
+    output: z.void(),
+  },
+  /** Planın önizlemesi (yazmaz). */
+  'exam:planPreview': {
+    input: z.object({ id: z.string() }),
+    output: planPreviewSchema,
+  },
+  /** "Planı onayla": başlamamış planlı blokların yerine yeni plan. */
+  'exam:planApply': {
+    input: z.object({ id: z.string() }),
+    output: z.object({ blocks: z.number() }),
+  },
+  'exam:planClear': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  'study:setStatus': {
+    input: z.object({ id: z.string(), status: z.enum(['planned', 'done']) }),
+    output: z.void(),
+  },
+  'assignment:save': {
+    input: assignmentSaveInputSchema,
+    output: z.object({ id: z.string() }),
+  },
+  /** Bir ders saatinin o günkü yoklaması; null işareti kaldırır. */
+  'attendance:set': {
+    input: z.object({
+      slotId: z.string(),
+      day: dayKeySchema,
+      status: attendanceMarkSchema.nullable(),
+    }),
+    output: z.void(),
+  },
+  /** Bugün biten, yoklaması girilmemiş dersler ("Derse katıldın mı?"). */
+  'attendance:questions': {
+    input: z.void(),
+    output: z.array(attendanceQuestionSchema),
+  },
+  'gpa:overview': {
+    input: z.void(),
+    output: gpaOverviewSchema,
   },
 } as const satisfies Record<IpcChannel, { input: z.ZodType; output: z.ZodType }>
 

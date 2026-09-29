@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router'
 import { format } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import { Plus, Repeat, X } from 'lucide-react'
-import type { ScheduleBlock, WeekAchievements } from '@shared/ipc'
+import type { AttendanceQuestion, ScheduleBlock, WeekAchievements } from '@shared/ipc'
 import { TopBar } from '../../app/TopBar'
 import { useShell } from '../../app/shell-context'
 import { errorText } from '../../lib/errors'
@@ -17,6 +17,7 @@ import type { BilgiLocationState } from '../bilgi/BilgiPage'
 import { UNTITLED_IDEA, useIdeaDecision } from '../bilgi/ideas'
 import { useCreateIdea, useIdeaToday } from '../bilgi/useKnowledge'
 import { useProjects, useUpdateProject } from '../projeler/useProjects'
+import { useAttendanceQuestions, useSchoolWrite } from '../okul/useSchool'
 import { useSetCheckin, useTodayCheckin, useWeekAchievements } from '../zihin/useMind'
 import { FlowBand, type FlowPin } from './FlowBand'
 import { NowSection } from './NowSection'
@@ -54,7 +55,34 @@ export function BugunPage() {
   const reschedule = useReschedule()
   const { toast } = useToast()
   const [asking, setAsking] = useState<ScheduleBlock | null>(null)
+  const navigate = useNavigate()
+  const studyStatus = useSchoolWrite('study:setStatus')
   const onError = (e: unknown) => toast({ message: errorText(e), domain: 'warning' })
+
+  // Okul blokları: ders dersi açar; çalışma bloğu yapıldı / yapılmadı (geri alınabilir).
+  function onSchool(block: ScheduleBlock) {
+    if (block.kind === 'class') {
+      if (block.courseId) void navigate(`/okul/ders/${block.courseId}`)
+      return
+    }
+    const status = block.done ? 'planned' : 'done'
+    studyStatus.mutate(
+      { id: block.sourceId, status },
+      {
+        onSuccess: () =>
+          toast({
+            message: status === 'done' ? `${block.detail} çalışıldı.` : `${block.detail} yapılmadı olarak işaretlendi.`,
+            domain: 'school',
+            action: {
+              label: 'Geri al',
+              onClick: () =>
+                studyStatus.mutate({ id: block.sourceId, status: status === 'done' ? 'planned' : 'done' }),
+            },
+          }),
+        onError,
+      },
+    )
+  }
 
   // Blok tıklaması: 3. ertelemeye ulaşmış ve henüz sabitlenmemiş görev sorar, diğerleri görevi açar.
   function openBlock(block: ScheduleBlock) {
@@ -83,6 +111,7 @@ export function BugunPage() {
         onReschedule={() => reschedule.mutate(undefined, { onError })}
         rescheduling={reschedule.isPending}
         onShowUnplaced={() => openTask()}
+        onSchool={onSchool}
       />
       <NowSection day={day} nowMin={nowMin} openTasks={openTasks} aside={<NextSteps />} />
       <PostponeDialog block={asking} onClose={() => setAsking(null)} />
@@ -278,12 +307,16 @@ function MoodRow({
 function TodayTiles() {
   const radar = pickRadar(useIdeaToday().data?.radar, useProjects().data ?? [])
   const week = useWeekAchievements().data
+  const questions = useAttendanceQuestions().data ?? []
   const tiles: Array<{ key: string; el: ReactNode }> = [
     { key: 'mood', el: <MoodTile /> },
     ...(radar ? [{ key: 'radar', el: <RadarTile radar={radar} /> }] : []),
     { key: 'incubation', el: <IncubationTile /> },
     { key: 'reminders', el: <RemindersTile /> },
-    ...(week && week.tasksWeek > 0 ? [{ key: 'week', el: <WeekTile week={week} /> }] : []),
+    ...(week && (week.tasksWeek > 0 || week.submittedWeek > 0)
+      ? [{ key: 'week', el: <WeekTile week={week} /> }]
+      : []),
+    ...(questions.length ? [{ key: 'attendance', el: <AttendanceTile questions={questions} /> }] : []),
   ]
   const spans = tileSpans(tiles.length)
   return (
@@ -660,6 +693,7 @@ function WeekTile({ week }: { week: WeekAchievements }) {
   const stats = [
     { value: week.tasksWeek, label: 'görev' },
     { value: week.tasksToday, label: 'bugün' },
+    ...(week.submittedWeek ? [{ value: week.submittedWeek, label: 'ödev' }] : []),
   ]
   return (
     <Tile variant="question" domain="dump" className={TILE}>
@@ -680,3 +714,55 @@ function WeekTile({ week }: { week: WeekAchievements }) {
     </Tile>
   )
 }
+
+/**
+ * "Derse katıldın mı?" (OKUL.md Devamsızlık): bugün biten, yoklaması girilmemiş ders. Tek tık cevap
+ * devamsızlığa yazılır; birden çoksa sırayla sorulur.
+ */
+function AttendanceTile({ questions }: { questions: AttendanceQuestion[] }) {
+  const set = useSchoolWrite('attendance:set')
+  const { toast } = useToast()
+  const q = questions[0]!
+  const answer = (status: 'present' | 'absent') =>
+    set.mutate(
+      { slotId: q.slotId, day: q.day, status },
+      {
+        onSuccess: () =>
+          toast({
+            message: status === 'present' ? `${q.name}: katıldın.` : `${q.name}: devamsızlığa yazıldı.`,
+            domain: 'school',
+            action: {
+              label: 'Geri al',
+              onClick: () => set.mutate({ slotId: q.slotId, day: q.day, status: null }),
+            },
+          }),
+        onError: (e) => toast({ message: errorText(e), domain: 'warning' }),
+      },
+    )
+  return (
+    <Tile
+      variant="question"
+      fill={q.tone}
+      className={TILE}
+      eyebrow={
+        <>
+          Ders bitti · {formatClockRange(q.startMin, q.endMin)}
+          {questions.length > 1 && <span className="opacity-70"> · +{questions.length - 1} ders</span>}
+        </>
+      }
+      title={`${q.name} dersine katıldın mı?`}
+      actions={[
+        <Button key="yes" size="sm" variant="onTile" loading={set.isPending} onClick={() => answer('present')}>
+          Katıldım
+        </Button>,
+        <Button key="no" size="sm" variant="onTileGhost" onClick={() => answer('absent')}>
+          Katılmadım
+        </Button>,
+      ]}
+    />
+  )
+}
+
+const pad = (n: number) => String(n).padStart(2, '0')
+const formatClockRange = (a: number, b: number) =>
+  `${pad(Math.floor(a / 60))}:${pad(a % 60)}–${pad(Math.floor(b / 60))}:${pad(b % 60)}`

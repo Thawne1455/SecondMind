@@ -5,6 +5,9 @@ import { AyarlarPage } from './features/ayarlar/AyarlarPage'
 import { BilgiPage } from './features/bilgi/BilgiPage'
 import { BugunPage } from './features/bugun/BugunPage'
 import { DokumPage } from './features/dokum/DokumPage'
+import { CoursePage } from './features/okul/CoursePage'
+import { ExamPrepPage } from './features/okul/ExamPrepPage'
+import { GpaPage } from './features/okul/GpaPage'
 import { OkulPage } from './features/okul/OkulPage'
 import { OnayPage } from './features/onay/OnayPage'
 import { ParkWindow } from './features/projeler/ParkWindow'
@@ -40,6 +43,9 @@ export function App() {
         <Route path="/projeler/:projectId/gunluk" element={<ProjectPage />} />
         <Route path="/projeler/:projectId/varliklar" element={<ProjectPage />} />
         <Route path="/okul" element={<OkulPage />} />
+        <Route path="/okul/gano" element={<GpaPage />} />
+        <Route path="/okul/ders/:courseId/:tab?" element={<CoursePage />} />
+        <Route path="/okul/sinav/:examId" element={<ExamPrepPage />} />
         <Route path="/zihin" element={<ZihinPage />} />
         <Route path="/bilgi/:noteId?" element={<BilgiPage />} />
         <Route path="/ayarlar" element={<AyarlarPage />} />

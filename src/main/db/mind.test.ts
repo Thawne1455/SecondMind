@@ -56,9 +56,9 @@ describe('haftanın başarıları', () => {
     const reopened = mk('geri açılan')
     setTaskDone(db, reopened.id, true, at(28, 10))
     setTaskDone(db, reopened.id, false, at(28, 10, 5))
-    expect(getWeekAchievements(db, at(28, 18))).toEqual({ tasksWeek: 1, tasksToday: 1 })
+    expect(getWeekAchievements(db, at(28, 18))).toEqual({ tasksWeek: 1, tasksToday: 1, submittedWeek: 0 })
 
     setTaskDone(db, mk('çarşamba').id, true, at(30, 14))
-    expect(getWeekAchievements(db, at(30, 18))).toEqual({ tasksWeek: 2, tasksToday: 1 })
+    expect(getWeekAchievements(db, at(30, 18))).toEqual({ tasksWeek: 2, tasksToday: 1, submittedWeek: 0 })
   })
 })

@@ -3,7 +3,7 @@ import type { DayKey } from '@shared/ipc'
 import { compareTasks, DEFAULT_ESTIMATE_MIN, isForToday, type TaskOrderFields } from './tasks'
 
 // Günün yerleştirmesi (EKRANLAR.md Bugün). Saf: "şimdi" günün dakikası olarak dışarıdan gelir.
-// Önce sabit bloklar (rutinler; dersler ve sınav blokları Aşama 6), sonra bugüne alınmış görevler
+// Önce sabit bloklar (rutinler, dersler, sınav çalışma blokları), sonra bugüne alınmış görevler
 // `compareTasks` sırasıyla ilk uygun boşluğa. Taha'nın sabitlediği bloklara hiç dokunulmaz.
 
 /** Bant ve yerleştirme aralığı: 08:00–24:00 (günün dakikası). */
@@ -14,7 +14,7 @@ export const BUFFER_MIN = 10
 /** Yerleştirme ve sürükleme 5 dakikalık adımlarla. */
 export const SNAP_MIN = 5
 
-export type BlockKind = 'task' | 'routine'
+export type BlockKind = 'task' | 'routine' | 'class' | 'study'
 
 export type Block = {
   /** Kayıtlı bloğun id'si; yeni yerleşenlerde yok. */
@@ -95,7 +95,7 @@ export const sumGaps = (gaps: readonly Interval[]) =>
 export type PlanInput = {
   today: DayKey
   nowMin: number
-  /** `routineIntervals` çıktısı. */
+  /** Sabit bloklar: `routineIntervals` çıktısı + dersler ve çalışma blokları (Aşama 6). */
   routines: readonly Block[]
   /** Açık görevler (bugüne alınmış olanlar yerleşir) + kayıtlı bloğu olan bitmiş görevler. */
   tasks: readonly SchedTask[]
@@ -118,11 +118,11 @@ export function planDay({ today, nowMin, routines, tasks, existing, mode }: Plan
   const byId = new Map(tasks.map((t) => [t.id, t]))
   const eligible = (t: SchedTask) => t.status === 'open' && isForToday(t, today)
 
-  // Rutinler: kayıtlı satır varsa id'si korunur (aynı rutin, yeni saat olabilir).
-  const routineIds = new Map(
-    existing.filter((b) => b.kind === 'routine').map((b) => [b.sourceId, b.id]),
+  // Sabit bloklar: kayıtlı satır varsa id'si korunur (aynı rutin/ders, yeni saat olabilir).
+  const fixedIds = new Map(
+    existing.filter((b) => b.kind !== 'task').map((b) => [`${b.kind}:${b.sourceId}`, b.id]),
   )
-  const fixed: Block[] = routines.map((r) => ({ ...r, id: routineIds.get(r.sourceId) }))
+  const fixed: Block[] = routines.map((r) => ({ ...r, id: fixedIds.get(`${r.kind}:${r.sourceId}`) }))
 
   // 1) Dokunulmayacak görev blokları: sabitlenenler, geçmişte kalanlar, bitmiş görevlerinki.
   const anchors: Block[] = []

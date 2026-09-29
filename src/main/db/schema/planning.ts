@@ -100,7 +100,7 @@ export const scheduleBlocks = sqliteTable(
     /** Günün dakikası (08:00 = 480). */
     startMin: integer('start_min').notNull(),
     endMin: integer('end_min').notNull(),
-    kind: text('kind', { enum: ['task', 'routine'] }).notNull(),
+    kind: text('kind', { enum: ['task', 'routine', 'class', 'study'] }).notNull(),
     sourceId: text('source_id').notNull(),
     /** Taha elle taşıdı: o gün sabit, yeniden yerleştirme dokunmaz. */
     pinned: integer('pinned', { mode: 'boolean' })

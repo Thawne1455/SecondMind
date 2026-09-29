@@ -28,10 +28,11 @@ export const checkinSetInputSchema = z
   .partial()
   .refine((c) => Object.keys(c).length > 0, 'Kayıt boş')
 
-/** Bu hafta (Pazartesi'den) ve bugün tamamlananlar. Commit Aşama 5'te, quiz Aşama 6'da eklenir. */
+/** Bu hafta (Pazartesi'den) ve bugün tamamlananlar; bu hafta teslim edilen ödevler (Aşama 6). */
 export const weekAchievementsSchema = z.object({
   tasksWeek: z.number(),
   tasksToday: z.number(),
+  submittedWeek: z.number(),
 })
 
 export type Checkin = z.infer<typeof checkinSchema>

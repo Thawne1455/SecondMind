@@ -367,7 +367,8 @@ function liveNote(db: Conn, id: string) {
  * sadece etiket filtresiyle girer (etiket, notları ve fikirleri kesen bir süzgeç).
  */
 export function listNotes(db: Db, filter: NoteListInput): NoteSummary[] {
-  const where = [isNull(notes.deletedAt)]
+  // Ders hafta notları (Okul) Bilgi listelerinde görünmez; kendi panelinde düzenlenir, aramada çıkar.
+  const where = [isNull(notes.deletedAt), isNull(notes.weekId)]
   if (!filter.tagId) where.push(notInArray(notes.id, db.select({ id: ideas.noteId }).from(ideas)))
   if (filter.collectionId === 'none') where.push(isNull(notes.collectionId))
   else if (filter.collectionId) where.push(eq(notes.collectionId, filter.collectionId))

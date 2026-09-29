@@ -58,7 +58,7 @@ Yerel model (Qwen) mi, Claude Code mu, ikisi birlikte mi kararı açık: `docs/Y
 - [ ] Ayarlar > AI: Claude Code yolu ve test butonu, model seçimi
 **Bitti sayılır:** 5 karışık döküm (metin + tahta fotoğrafı) işlenip doğru önerilere dönüşüyor, onaylananlar yerine yazılıyor, geri alınabiliyor.
 
-## Aşama 5 — Projeler · AKTİF
+## Aşama 5 — Projeler · BİTTİ
 İlke: SecondMind projede Taha'nın fark etmediğini fark eder; veri kendi toplanır ya da tek hareket ister, form yok.
 Tamamen algoritmik (AI'lı sürümler Aşama 4'ten sonra). Sıra Runika'nın çıkışına en çok yardım edene göre.
 Runika klasörü (`C:\ajanda\Runika`) tarayıcılarla sadece okunur, içine yazılmaz.
@@ -136,12 +136,28 @@ Runika'nın yayın platformu itch.io (Windows + WebGL), Steam iptal. Hızlı Dö
 3 gün sonra açılınca brifing nerede kalındığını söylüyor; Kokpit gerekçesiyle sıradaki 3 adımı veriyor; bir playtest
 yapıştırması kümelenip hataya dönüşüyor; Editor betiği günlük kare bırakıyor.
 
-## Aşama 6 — Okul
-- [ ] Dönem, ders, program, hoca kurulumu (Ayarlar + ilk kurulum sihirbazı)
-- [ ] Dönem panosu: üst bant, sınav şeridi, dikey haftalık program, not durumu tablosu, bu hafta teslim
-- [ ] Ders detayı: Hafta hafta defteri (PDF görüntüleme, anlamadım ve hoca vurguladı işaretleri), Sınavlar ve notlar (hesaplayıcı), Hoca, Ödevler, Devamsızlık
-- [ ] Sınav hazırlık ekranı ve `buildStudyPlan` / `redistribute`; GANO ekranı
-- [ ] `domain/school` testleri
+## Aşama 6 — Okul · AKTİF
+Kararlar (6): tablolar tek migration'da (`0011_school`, geri dönüş `down/0011_school.down.sql`). Hafta tarih aralığı
+saklanmaz, dönem başından hesaplanır (haftalar Pazartesi başlar). Not hesabı (`weightedScore`, `requiredScores`,
+`letterFor`, `gpa`) arayüzdeki kaydırıcı ve GANO simülasyonu da kullandığı için `src/shared/school/grades.ts`'te;
+diğer algoritmalar `src/main/domain/school/` (term, attendance, studyPlan). Bileşen başına tek not (`grade_components.score`),
+ayrı `grades` tablosu yok; sınav analizi `exams.review_md`. Sınav kapsamı hafta aralığı (`week_from/to`): o haftalara
+sonradan eklenen konu da sınava girer. Devam birimi "ders saati" (oturum süresi saate yuvarlanır); sınır % ya da saat,
+sınıra ≤ 2 kala amber. Çalışma planı `study_blocks`'ta; Bugün'ün `schedule_blocks`'una ders (`class`) ve çalışma
+(`study`) sabit blok olarak yansır. Plan: seviye süresi (4 sa / 2,5 sa / 1,5 sa / 30 dk, vurgu ×1,5), önce vurgulanan
+ve zor, son gün 2 sa tekrar, günlere eşit pay, önce 13:00 sonrası, 09–22 penceresi, 10 dk mola; günlük sınır
+Ayarlar > Okul (varsayılan 3 sa). Kaçırılan blok (günü geçmiş, işaretsiz) ertesi okumada `system` aktörüyle kalan
+günlere yayılır, sığmayan "sığmadı" uyarısı. Ödevde 48 saat kala hatırlatma otomatik (teslimde kalkar). Hafta notları
+`notes` (course_id + week_id), Bilgi listesinde görünmez, aramada çıkar. "Anlamadım" = imlecin paragrafı → `note_flags`.
+Arşiv dönemin dersleri salt okunur; GANO'da arşiv harfi seçmek kaydeder, aktif dönemde simülasyondur. PDF: pdfjs-dist,
+baytlar IPC ile (`material:bytes`). AI ile izlenceden müfredat çıkarma, `create_exam` / `add_instructor_note` Aşama 4'e bağlı.
+- [x] Dönem, ders, program, hoca kurulumu (Ayarlar > Okul + ilk kurulum sihirbazı, serbest yazım "Pzt 09:00-10:50 D-201")
+- [x] Dönem panosu: üst bant, sınav şeridi, dikey haftalık program (yoklama tek tık), not durumu tablosu, bu hafta teslim
+- [x] Ders detayı: Hafta hafta defteri (PDF görüntüleme, anlamadım ve hoca vurguladı işaretleri), Sınavlar ve notlar (hesaplayıcı), Hoca, Ödevler, Devamsızlık
+- [x] Sınav hazırlık ekranı ve `buildStudyPlan` / `redistribute`; GANO ekranı
+- [x] `domain/school` testleri (+ `shared/school/grades`, `db/school` entegrasyon testleri)
+  Bugün: ders ve çalışma blokları akış bandında, Şimdi'de "Çalıştım", "Derse katıldın mı?" karosu, başarılarda ödev;
+  komut paletinde Okul grubu; seed'e iki dönem, 9 ders, 2 sınav (biri planlı).
 **Bitti sayılır:** Gerçek dönem programı girilmiş, bir sınav için plan üretilip Bugün'e yerleşiyor, not hesaplayıcı doğru sonuç veriyor.
 
 ## Aşama 7 — Zihin

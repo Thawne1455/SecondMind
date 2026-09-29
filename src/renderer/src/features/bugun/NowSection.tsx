@@ -9,13 +9,15 @@ import { Button, useToast } from '../../ui'
 import { formatTimer } from '../projeler/labels'
 import { useActiveSession, useProjectMap } from '../projeler/useProjects'
 import { pickFocus } from './focus'
+import { useSchoolWrite } from '../okul/useSchool'
 import { useMoveBlock, useStartTask, useToggleDone } from './usePlanning'
 
 // Şimdi (EKRANLAR.md Bugün): şu anki blok → yoksa sıradaki blok ("13:00'TE") → yoksa en öndeki açık görev;
 // proje görevleri arasında sıradaki adım motoru seçer (oturum süren proje önce; seçim `focus.ts`).
 // Proje görevinde etiket proje adını ve rengini taşır; "Başla" projede oturum açar ve bloğu şimdiye çeker.
 // O projenin oturumu sürerken "Sonraya at" yerine "Oturumu kapat" gelir. Başka projede süren oturum
-// etiketin altında tek satır olarak görünür.
+// etiketin altında tek satır olarak görünür. Ders bloğunda etiket "Ders · derslik"; sınav çalışma bloğunda
+// başlık konuyu söyler ve "Çalıştım" bloğu yapıldı işaretler (Aşama 6).
 
 type Props = {
   day: ScheduleDay | undefined
@@ -31,6 +33,7 @@ export function NowSection({ day, nowMin, openTasks, aside }: Props) {
   const running = useActiveSession()
   const clock = useNow(15_000)
   const toggleDone = useToggleDone()
+  const study = useSchoolWrite('study:setStatus')
   const start = useStartTask()
   const move = useMoveBlock()
   const { toast } = useToast()
@@ -53,16 +56,27 @@ export function NowSection({ day, nowMin, openTasks, aside }: Props) {
     else pull()
   }
 
+  const kindLabel = (b: ScheduleBlock) =>
+    b.kind === 'routine'
+      ? ' · Rutin'
+      : b.kind === 'class'
+        ? ` · Ders${b.detail ? ` · ${b.detail}` : ''}`
+        : b.kind === 'study'
+          ? ` · ${b.title}`
+          : projectLabel
+  // Çalışma bloğunun başlığı konudur ("Ağaçlar", "Genel tekrar").
+  const blockTitle = (b: ScheduleBlock) => (b.kind === 'study' ? b.detail : b.title)
+
   let label: string
   let title: string
   if (focus.kind === 'current') {
     const rest = formatDuration(focus.block.end - nowMin)
-    label = `Şimdi${focus.block.kind === 'routine' ? ' · Rutin' : projectLabel} · ${rest} kaldı`
-    title = focus.block.title
+    label = `Şimdi${kindLabel(focus.block)} · ${rest} kaldı`
+    title = blockTitle(focus.block)
   } else if (focus.kind === 'next') {
     const dur = formatDuration(focus.block.end - focus.block.start)
-    label = `${formatAtClock(focus.block.start)}${focus.block.kind === 'routine' ? ' · Rutin' : projectLabel} · ${dur}`
-    title = focus.block.title
+    label = `${formatAtClock(focus.block.start)}${kindLabel(focus.block)} · ${dur}`
+    title = blockTitle(focus.block)
   } else if (focus.kind === 'task') {
     label = `Sıradaki adım${projectLabel}`
     title = focus.task.title
@@ -142,6 +156,19 @@ export function NowSection({ day, nowMin, openTasks, aside }: Props) {
         {complete}
       </>
     )
+  } else if (focus.kind === 'current' && focus.block.kind === 'study') {
+    const id = focus.block.sourceId
+    actions = (
+      <Button
+        size="lg"
+        variant="action"
+        icon={Check}
+        loading={study.isPending}
+        onClick={() => study.mutate({ id, status: 'done' }, { onError })}
+      >
+        Çalıştım
+      </Button>
+    )
   } else if (focus.kind === 'empty') {
     actions = (
       <Button size="lg" variant="action" icon={Plus} onClick={() => openTask()}>
@@ -156,7 +183,13 @@ export function NowSection({ day, nowMin, openTasks, aside }: Props) {
         <span className="cx flex items-center gap-2.5 text-ink2">
           <span
             className="size-3 rounded-full bg-ink3"
-            style={project ? { backgroundColor: project.color } : undefined}
+            style={
+              project
+                ? { backgroundColor: project.color }
+                : focus.kind !== 'task' && focus.kind !== 'empty' && focus.block.tone
+                  ? { backgroundColor: focus.block.tone }
+                  : undefined
+            }
           />
           {label}
         </span>

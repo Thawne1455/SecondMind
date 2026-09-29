@@ -154,9 +154,17 @@ tarama verisi gider). Çöp kutusundaki projenin klasörü yeni projeye geçerse
   (satır başına log yok); yapıştırma, yıldız, silme, klasör bağlama ve varlık yazımları loglanır. Yaratıcı projede
   klasör dosyaları `sm-file://f/<klasör id>/<yol>` ile gösterilir (sadece bağlı klasörün içi, görsel/ses/PDF).
 
-**Okul** (ayrıntı `docs/OKUL.md`)
-- `terms`, `courses`, `course_slots`, `instructors`, `course_weeks`, `topics`, `grade_components`, `grades`,
-  `exams`, `exam_topics`, `assignments`, `attendance`, `course_materials`.
+**Okul** (ayrıntı `docs/OKUL.md`, `0011_school`)
+- `terms` (tek `active`), `courses` (ton, kredi, `attendance_limit_json`, `letter_table_json` null = varsayılan,
+  elle `letter`, `target_letter`, `sort`), `course_slots` (hafta günü + dakika; soft delete yok, log'lu silinir),
+  `instructors`, `instructor_notes` (hocanın bütün derslerinde görünür), `course_weeks` (dönem hafta sayısı kadar satır;
+  tarih hesaplanır), `topics` (`week_no`, `emphasized`), `grade_components` (ağırlık + tek `score`; ayrı `grades` yok),
+  `exams` (`component_id`, `week_from/to` kapsam, `review_md`, `unfit_min`), `exam_topics` (PK sınav+konu, `level` 0–3,
+  `estimate_min`), `study_blocks` (onaylı plan: `planned`/`done`/`missed`), `assignments` (`reminder_id`: 48 sa önce),
+  `attendance` (slot + gün unique, süre saklanır), `course_materials` (media), `note_flags` ("anlamadım").
+- Çöpe atılabilenler tek kanalla: `school:delete` / `school:restore` (dönem dersleriyle aynı anlı döner).
+- `schedule_blocks.kind` ekleri `class` / `study` (sadece TS enum; SQL değişmedi): `schedule:today` her okumada önce
+  `sweepMissedStudy`, sonra aktif dönemin o günkü dersleri (iptal hariç) ve çalışma blokları sabit blok olarak girer.
 
 **Zihin**
 - `checkins` (Aşama 3c): `day` (`YYYY-MM-DD`, benzersiz; günde tek kayıt), `mood` / `energy` (1–5, null = girilmedi),

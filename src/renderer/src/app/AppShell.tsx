@@ -16,6 +16,7 @@ import { errorText } from '../lib/errors'
 import { DialogFrame, useToast } from '../ui'
 import { useSetSetting, useSetting } from '../lib/settings'
 import { CommandPalette, type PaletteItem } from './CommandPalette'
+import { useBoard } from '../features/okul/useSchool'
 import { PANELS } from './panels'
 import { QuickDump } from './QuickDump'
 import { ShellContext } from './shell-context'
@@ -131,6 +132,7 @@ export function AppShell() {
   const noteTitles = useNoteTitles().data
   const openTasks = useTasks('open').data
   const reminders = useReminders().data
+  const board = useBoard().data
   const items = useMemo<PaletteItem[]>(
     () => [
       ...(projects ?? [])
@@ -143,6 +145,31 @@ export function AppShell() {
           dot: p.color,
           run: () => navigate(`/projeler/${p.id}`),
         })),
+      ...(board?.courses ?? []).map((c) => ({
+        id: `course-${c.id}`,
+        group: 'Okul' as const,
+        label: `${c.name} — dersi aç`,
+        dot: c.tone,
+        run: () => navigate(`/okul/ders/${c.id}`),
+      })),
+      ...(board?.exams ?? []).map((e) => ({
+        id: `exam-${e.id}`,
+        group: 'Okul' as const,
+        label: `${e.courseName} ${e.title} — sınav hazırlığı`,
+        meta: e.daysLeft === 0 ? 'bugün' : `${e.daysLeft} gün`,
+        dot: e.tone,
+        run: () => navigate(`/okul/sinav/${e.id}`),
+      })),
+      ...(board?.term
+        ? [
+            {
+              id: 'gpa',
+              group: 'Okul' as const,
+              label: 'Ortalama (GANO)',
+              run: () => navigate('/okul/gano'),
+            },
+          ]
+        : []),
       ...(running
         ? [
             {
@@ -246,7 +273,7 @@ export function AppShell() {
         run: () => navigate(`/bilgi/${n.id}`),
       })),
     ],
-    [navigate, dark, saveTheme, noteTitles, openTasks, reminders, shell, projects, running],
+    [navigate, dark, saveTheme, noteTitles, openTasks, reminders, shell, projects, running, board],
   )
 
   return (

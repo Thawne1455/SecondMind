@@ -40,6 +40,8 @@ type FlowBandProps = {
   onReschedule: () => void
   rescheduling: boolean
   onShowUnplaced: () => void
+  /** Ders bloğu dersi açar; çalışma bloğu yapıldı / yapılmadı arasında geçer. */
+  onSchool: (block: ScheduleBlock) => void
 }
 
 /** Günün akışı, 08–24 tek satır: üst şerit hatırlatma pinleri, alt şerit bloklar, mercan "şimdi" çizgisi. */
@@ -53,6 +55,7 @@ export function FlowBand({
   onReschedule,
   rescheduling,
   onShowUnplaced,
+  onSchool,
 }: FlowBandProps) {
   const trackRef = useRef<HTMLDivElement>(null)
   const nowPct = timeToPercent(nowMin)
@@ -113,6 +116,8 @@ export function FlowBand({
         {day?.blocks.map((block) =>
           block.kind === 'routine' ? (
             <RoutineBlock key={block.id} block={block} timing={timingOf(block, nowMin)} />
+          ) : block.kind === 'class' || block.kind === 'study' ? (
+            <SchoolBlock key={block.id} block={block} timing={timingOf(block, nowMin)} onClick={onSchool} />
           ) : (
             <TaskBlock
               key={block.id}
@@ -217,6 +222,58 @@ function RoutineBlock({ block, timing }: { block: ScheduleBlock; timing: BlockTi
         {block.title}
       </div>
     </>
+  )
+}
+
+/**
+ * Ders (dersin gök tonunda, sabit) ve sınav çalışma bloğu (gök çapraz çizgili). Sürüklenmez.
+ * Ders: tıklayınca dersi açar; çalışma: tıklayınca yapıldı işaretlenir (tekrar tıklamak geri alır).
+ */
+function SchoolBlock({
+  block,
+  timing,
+  onClick,
+}: {
+  block: ScheduleBlock
+  timing: BlockTiming
+  onClick: (block: ScheduleBlock) => void
+}) {
+  const tone = block.tone ?? '#7CC4FF'
+  const range = `${formatClock(block.start)}–${formatClock(block.end)}`
+  const study = block.kind === 'study'
+  const label = study ? `${block.detail} · ${block.title}` : `${block.title}${block.detail ? ` · ${block.detail}` : ''}`
+  const mark = block.attendance === 'present' ? ' · katıldın' : block.attendance === 'absent' ? ' · katılmadın' : ''
+  return (
+    <button
+      type="button"
+      title={`${label} · ${range}${mark}${study ? (block.done ? ' · yapıldı' : ' · tıkla: yapıldı') : ''}`}
+      aria-label={`${label}, ${range}${block.done ? ', yapıldı' : ''}`}
+      onClick={() => onClick(block)}
+      className={cn(
+        BASE,
+        'cursor-pointer text-left focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-indigo',
+        timing === 'past' && 'opacity-72',
+      )}
+      style={{
+        ...position(block.start, block.end),
+        ...(study
+          ? {
+              backgroundImage: `repeating-linear-gradient(135deg, ${tone} 0 7px, color-mix(in srgb, ${tone} 45%, #FFFFFF) 7px 14px)`,
+            }
+          : { background: tone }),
+        boxShadow: timing === 'current' ? '0 0 0 3px #FFFFFF' : undefined,
+      }}
+    >
+      <span className="flex min-w-0 items-center gap-1 text-[13px] font-extrabold">
+        {block.done && <Check size={14} strokeWidth={2.5} aria-hidden className="shrink-0" />}
+        <span className={cn('truncate', study && 'rounded bg-white/70 px-1', block.done && 'line-through')}>
+          {study ? block.detail : block.title}
+        </span>
+      </span>
+      <span className={cn('x truncate text-[13px]', study && 'self-start rounded bg-white/70 px-1')}>
+        {study ? range : block.detail || range}
+      </span>
+    </button>
   )
 }
 

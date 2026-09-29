@@ -110,8 +110,8 @@ const dayMinuteSchema = z
 
 export const scheduleBlockSchema = z.object({
   id: z.string(),
-  kind: z.enum(['task', 'routine']),
-  /** Görev ya da rutin id'si. */
+  kind: z.enum(['task', 'routine', 'class', 'study']),
+  /** Görev, rutin, ders saati (course_slots) ya da çalışma bloğu (study_blocks) id'si. */
   sourceId: z.string(),
   start: dayMinuteSchema,
   end: dayMinuteSchema,
@@ -120,9 +120,16 @@ export const scheduleBlockSchema = z.object({
   title: z.string(),
   /** Görevin projesi (rutinde ve genel görevde null): bantta proje rengi. */
   projectId: z.string().nullable(),
-  /** Görev bitti (rutinde hep false). */
+  /** Görev bitti / çalışma yapıldı (rutinde ve derste hep false). */
   done: z.boolean(),
   postponeCount: z.number(),
+  /** Ders ve çalışma bloğu: dersin gök tonu; diğerlerinde null. */
+  tone: z.string().nullable(),
+  /** Ders: derslik; çalışma: konu ("Genel tekrar"). */
+  detail: z.string(),
+  courseId: z.string().nullable(),
+  /** Ders: yoklama (present/absent/null). */
+  attendance: z.enum(['present', 'absent', 'cancelled']).nullable(),
 })
 
 const intervalSchema = z.object({ start: dayMinuteSchema, end: dayMinuteSchema })
