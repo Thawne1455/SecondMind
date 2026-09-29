@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react'
-import type { EditorView } from '@tiptap/pm/view'
 import { Markdown } from '@tiptap/markdown'
 import { Placeholder } from '@tiptap/extensions'
 import {
@@ -23,6 +22,7 @@ import { errorText } from '../../lib/errors'
 import { Button, Chip, cn, DOMAIN_FILL, IconButton, Menu, Tag, useToast } from '../../ui'
 import { noteSchemaExtensions } from './editorExtensions'
 import { ideaStageLabel, UNTITLED_IDEA, useIdeaDecision } from './ideas'
+import { imageFiles, insertImages, STATUS_TEXT } from './editorMedia'
 import { useAutosave, type SaveStatus } from './useAutosave'
 import {
   useCollections,
@@ -126,40 +126,6 @@ export function NoteEditor({ note, basePath = '/bilgi' }: { note: Note; basePath
   )
 }
 
-function imageFiles(list: FileList | null | undefined): File[] {
-  return Array.from(list ?? []).filter((f) => f.type.startsWith('image/'))
-}
-
-/** Resmi `media/`'ya yazar ve `sm-media://` adresiyle editöre ekler (markdown'da `![](…)`). */
-async function insertImages(
-  view: EditorView,
-  files: File[],
-  pos: number | undefined,
-  onError: (e: unknown) => void,
-): Promise<void> {
-  for (const file of files) {
-    try {
-      const bytes = new Uint8Array(await file.arrayBuffer())
-      const { url } = await window.api.invoke('media:store', {
-        name: file.name || 'resim.png',
-        mime: file.type,
-        bytes,
-      })
-      if (view.isDestroyed) return
-      const node = view.state.schema.nodes['image']?.create({ src: url, alt: '' })
-      if (!node) return
-      const tr =
-        pos === undefined
-          ? view.state.tr.replaceSelectionWith(node)
-          : view.state.tr.insert(pos, node)
-      view.dispatch(tr.scrollIntoView())
-      if (pos !== undefined) pos += node.nodeSize
-    } catch (e) {
-      onError(e)
-    }
-  }
-}
-
 // ---------------------------------------------------------------- araç çubuğu
 
 type ToolId = 'heading' | 'bold' | 'bulletList' | 'taskList' | 'blockquote' | 'codeBlock'
@@ -203,7 +169,7 @@ const TOOLS: { id: ToolId; label: string; icon: LucideIcon; run: (e: Editor) => 
   },
 ]
 
-function Toolbar({ editor }: { editor: Editor }) {
+export function Toolbar({ editor, children }: { editor: Editor; children?: ReactNode }) {
   const active = useEditorState({
     editor,
     selector: ({ editor: e }) => Object.fromEntries(TOOLS.map((t) => [t.id, e.isActive(t.id)])),
@@ -229,17 +195,12 @@ function Toolbar({ editor }: { editor: Editor }) {
           <t.icon size={17} strokeWidth={1.75} aria-hidden />
         </button>
       ))}
+      {children}
     </div>
   )
 }
 
 // ---------------------------------------------------------------- şerit
-
-const STATUS_TEXT: Record<SaveStatus, string> = {
-  saved: 'Kaydedildi',
-  pending: 'Kaydediliyor…',
-  error: 'Kaydedilemedi',
-}
 
 type NoteStripProps = {
   note: Note

@@ -2,13 +2,14 @@ import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { tr } from 'date-fns/locale'
-import { ListPlus, Pencil, Play, Square, X } from 'lucide-react'
+import { ClipboardPaste, ListPlus, Pencil, Play, Square, X } from 'lucide-react'
 import {
   NEXT_STEP_MAX,
   type Milestone,
   type MilestoneScope,
   type NextStep,
   type ParkingItem,
+  type PlaytestOverview,
   type ProjectScanInfo,
   type ProjectSummary,
   type Session,
@@ -25,7 +26,11 @@ import { TaskRow } from '../bugun/TaskList'
 import { useCreateTask, useTasks } from '../bugun/usePlanning'
 import { formatTimer, minutesBetween } from './labels'
 import { Rhythm } from './Rhythm'
+import { GddTile } from './GddCompare'
+import { PLAYTEST_EMPTY } from './PlaytestView'
 import { activeMilestone, formatShortDay, lateLabel, trendText } from './roadmapText'
+import { useGddCompare } from './useDocs'
+import { usePlaytest } from './usePlaytest'
 import {
   useMilestones,
   useMilestoneScopes,
@@ -40,10 +45,12 @@ import {
 
 // Kokpit (PROJELER.md): projeyi açınca ilk görülen yer, her karo tek soru. Üstte vurgulu "Şimdi bunu yap"
 // (ekrandaki tek poster başlık) ve "Son oturum"; altta içeriği olan karolar dengeli yayılır:
-// Kilometre taşı (5c), Sonra (park alanı), Görevler, Ritim, Bu hafta ve Koddaki notlar (tarama, 5b). Vurgulu karo sıradaki adım
+// Kilometre taşı (5c), Playtest (5c-4, boşken de görünür: giriş noktası), GDD ile gerçeklik (5d, fark varsa),
+// Sonra (park alanı), Görevler, Ritim,
+// Bu hafta ve Koddaki notlar (tarama, 5b). Vurgulu karo sıradaki adım
 // motorunun (5c) ilk 3 adımını gerekçesiyle gösterir; oturum kapanışında yazılan adım motora +35 ile girer.
 
-export function Cockpit({ project }: { project: ProjectSummary }) {
+export function Cockpit({ project, onPaste }: { project: ProjectSummary; onPaste: () => void }) {
   const openTasks = (useTasks('open').data ?? []).filter((t) => t.projectId === project.id)
   const parking = useParking(project.id).data ?? []
   const sessions = useSessions(project.id, 5).data ?? []
@@ -53,6 +60,8 @@ export function Cockpit({ project }: { project: ProjectSummary }) {
   const steps = useNextSteps(project).data ?? []
   const milestone = activeMilestone(useMilestones(project.id).data ?? [])
   const scope = useMilestoneScopes(project.id).data?.find((s) => s.milestoneId === milestone?.id)
+  const playtest = usePlaytest(project.id).data
+  const gdd = useGddCompare(project.id).data
 
   const lower: { key: string; node: ReactNode }[] = []
   if (milestone)
@@ -60,6 +69,13 @@ export function Cockpit({ project }: { project: ProjectSummary }) {
       key: 'milestone',
       node: <MilestoneTile project={project} milestone={milestone} scope={scope} />,
     })
+  if (playtest)
+    lower.push({
+      key: 'playtest',
+      node: <PlaytestTile project={project} data={playtest} onPaste={onPaste} />,
+    })
+  if (gdd?.rows.some((r) => r.state === 'missing' || r.state === 'extra'))
+    lower.push({ key: 'gdd', node: <GddTile project={project} data={gdd} /> })
   if (parking.length) lower.push({ key: 'park', node: <ParkingTile items={parking} /> })
   lower.push({
     key: 'tasks',
@@ -497,6 +513,70 @@ function MilestoneTile({
             ? trendText(scope.trend)
             : 'Taşa bağlı görev yok.'}
       </span>
+    </Tile>
+  )
+}
+
+// ---------------------------------------------------------------- Playtest
+
+/** En çok bildirilen 3 küme ("5 kişiden 3'ü: ölüm panelinde takılma"); boşken boş durum cümlesi. */
+function PlaytestTile({
+  project,
+  data,
+  onPaste,
+}: {
+  project: ProjectSummary
+  data: PlaytestOverview
+  onPaste: () => void
+}) {
+  const navigate = useNavigate()
+  const top = data.clusters.slice(0, 3)
+  return (
+    <Tile
+      variant="standard"
+      className="grow"
+      eyebrow={
+        data.testers.length ? `Playtest · son 30 günde ${data.testers.length} kişi` : 'Playtest'
+      }
+      actions={[
+        <Button key="paste" size="sm" icon={ClipboardPaste} onClick={onPaste} title="Ctrl Shift V">
+          Yapıştır
+        </Button>,
+        data.clusters.length > 0 ? (
+          <Button
+            key="all"
+            size="sm"
+            variant="secondary"
+            className="[--btn-soft:var(--bg)]"
+            onClick={() => void navigate(`/projeler/${project.id}/gorevler/playtest`)}
+          >
+            Tümü · {data.clusters.length}
+          </Button>
+        ) : undefined,
+      ]}
+    >
+      {top.length === 0 ? (
+        <span className="text-ink2">{PLAYTEST_EMPTY}</span>
+      ) : (
+        <ol className="m-0 flex list-none flex-col gap-2 p-0">
+          {top.map((c) => (
+            <li key={c.id} className="flex flex-col rounded-[18px] bg-bg px-4 py-2.5">
+              <span className="cx flex items-center gap-2 text-ink2">
+                {c.countLabel}
+                {c.task && (
+                  <span
+                    className="rounded-full px-2 py-px text-fill-ink"
+                    style={{ backgroundColor: project.color }}
+                  >
+                    {c.task.kind === 'bug' ? 'Hata' : 'Görev'}
+                  </span>
+                )}
+              </span>
+              <span className="line-clamp-2 text-[15px] leading-[1.35] font-bold">{c.title}</span>
+            </li>
+          ))}
+        </ol>
+      )}
     </Tile>
   )
 }

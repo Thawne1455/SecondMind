@@ -18,9 +18,37 @@ import {
   noteUpdateInputSchema,
   tagSummarySchema,
 } from './schemas/knowledge'
+import {
+  ASSET_TITLE_MAX,
+  assetAddInputSchema,
+  assetSchema,
+  shotAddInputSchema,
+  timeMachineSchema,
+} from './schemas/shots'
+import { devlogDraftSchema, LOG_NOTE_MAX, logPageSchema } from './schemas/log'
+import {
+  countRuleSchema,
+  gddComparisonSchema,
+  docCreateInputSchema,
+  docFileSuggestionSchema,
+  docMoveInputSchema,
+  docSchema,
+  docSearchResultSchema,
+  docSummarySchema,
+  docUpdateInputSchema,
+} from './schemas/docs'
+import {
+  playtestOverviewSchema,
+  playtestPasteInputSchema,
+  playtestPreviewSchema,
+  playtestWriteSchema,
+  PLAYTEST_TEXT_MAX,
+} from './schemas/playtest'
 import { checkinSchema, checkinSetInputSchema, weekAchievementsSchema } from './schemas/mind'
 import {
   folderInspectionSchema,
+  bridgeInstallInputSchema,
+  bridgeStatusSchema,
   parkingAddInputSchema,
   parkingItemSchema,
   parkingResolveInputSchema,
@@ -65,6 +93,10 @@ export * from './schemas/dump'
 export * from './schemas/knowledge'
 export * from './schemas/mind'
 export * from './schemas/planning'
+export * from './schemas/playtest'
+export * from './schemas/docs'
+export * from './schemas/log'
+export * from './schemas/shots'
 export * from './schemas/projects'
 
 // IPC sözleşmesinin tek kaynağı. Kanal adları `alan:eylem` biçiminde.
@@ -410,6 +442,217 @@ export const ipcContract = {
   'project:calendar': {
     input: z.object({ projectId: z.string(), from: dayKeySchema, to: dayKeySchema }),
     output: z.array(calendarEntrySchema),
+  },
+  /** Playtest kutusu: kümeler (boşlar gizli) ve son 30 günün test edenleri. */
+  'playtest:overview': {
+    input: z.object({ projectId: z.string() }),
+    output: playtestOverviewSchema,
+  },
+  /** "Kim" otomatik tamamlaması: bütün projelerdeki adlar, en yeni önce. */
+  'playtest:testers': {
+    input: z.void(),
+    output: z.array(z.string()),
+  },
+  /** Yapıştırma önizlemesi (DB'ye dokunmaz): tanınan kişiler ve nokta sayısı. */
+  'playtest:preview': {
+    input: z.object({ text: z.string().max(PLAYTEST_TEXT_MAX), receivedOn: dayKeySchema }),
+    output: playtestPreviewSchema,
+  },
+  /** Yapıştırmayı kaydeder: bölme ve kümeleme ana süreçte. Tek grupla loglanır. */
+  'playtest:paste': {
+    input: playtestPasteInputSchema,
+    output: playtestWriteSchema.extend({ points: z.number(), newClusters: z.number() }),
+  },
+  /** Noktayı başka kümeye taşır; elle yerleşim kilitlenir. */
+  'playtest:move': {
+    input: z.object({ pointId: z.string(), clusterId: z.string() }),
+    output: playtestWriteSchema,
+  },
+  /** Noktayı ayırır: kendi kümesi olur ve kilitlenir. */
+  'playtest:split': {
+    input: z.object({ pointId: z.string() }),
+    output: playtestWriteSchema,
+  },
+  /** Kümeyi hataya ya da göreve çevirir (başlık en kısa nokta, açıklamada alıntılar ve kişiler). */
+  'playtest:convert': {
+    input: z.object({ clusterId: z.string(), kind: z.enum(['bug', 'task']).default('bug') }),
+    output: playtestWriteSchema.extend({ taskId: z.string() }),
+  },
+  /** Bir playtest yazımını (grubunu) geri alır. */
+  'playtest:undo': {
+    input: playtestWriteSchema,
+    output: z.void(),
+  },
+  /** Projenin doküman sayfaları (ağaç renderer'da kurulur), kardeş sırasıyla. */
+  'doc:list': {
+    input: z.object({ projectId: z.string() }),
+    output: z.array(docSummarySchema),
+  },
+  /** Sayfa; bağlı dosyada gövde diskten, salt okunur. */
+  'doc:get': {
+    input: z.object({ id: z.string() }),
+    output: docSchema,
+  },
+  /** Kardeşlerin sonuna eklenir. ADR üstsüzse "Kararlar" sayfasının altına (yoksa açılır), gövde şablonla. */
+  'doc:create': {
+    input: docCreateInputSchema,
+    output: docSummarySchema,
+  },
+  /** Başlık/gövde otomatik kaydı; `kind: 'gdd'` öncekinin işaretini kaldırır. Bağlı dosyada gövde reddedilir. */
+  'doc:update': {
+    input: docUpdateInputSchema,
+    output: docSummarySchema,
+  },
+  /** Ağaçta taşı; kendi alt ağacına taşınamaz. */
+  'doc:move': {
+    input: docMoveInputSchema,
+    output: z.void(),
+  },
+  /** Sayfa ve alt sayfaları çöp kutusuna (tek grup). */
+  'doc:delete': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** Silmeyi geri alır; alt sayfalar da döner. */
+  'doc:restore': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** Türün şablon ağacı (GDD / Teknik / Yaratıcı); projede sayfa varken hata. */
+  'doc:applyTemplate': {
+    input: z.object({ projectId: z.string() }),
+    output: z.array(docSummarySchema),
+  },
+  /** Klasörlerdeki bağlanmamış markdown dosyaları (GDD'ye benzeyen önce). Klasöre yazmaz. */
+  'doc:suggestFiles': {
+    input: z.object({ projectId: z.string() }),
+    output: z.array(docFileSuggestionSchema),
+  },
+  /** Markdown dosyasını salt okunur sayfa olarak bağlar (kopyalamaz). */
+  'doc:linkFile': {
+    input: z.object({ projectId: z.string(), path: z.string().min(1) }),
+    output: docSummarySchema,
+  },
+  /** Bağlı dosyayı varsayılan uygulamada açar ("Klasörde düzenle"). */
+  'doc:openFile': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** Doküman araması (FTS); proje verilirse sadece o proje. */
+  'doc:search': {
+    input: z.object({ query: z.string().max(200), projectId: z.string().optional() }),
+    output: z.array(docSearchResultSchema),
+  },
+  /** GDD ile gerçeklik: GDD sayfasının sayıları ↔ klasör sayımları. GDD yoksa null. Klasörü sadece okur. */
+  'gdd:compare': {
+    input: z.object({ projectId: z.string() }),
+    output: gddComparisonSchema.nullable(),
+  },
+  /** Sayım kuralı (GDD etiketi ↔ glob); glob null kuralı kaldırır. */
+  'gdd:setRule': {
+    input: z.object({
+      projectId: z.string(),
+      label: countRuleSchema.shape.label,
+      glob: countRuleSchema.shape.glob.nullable(),
+    }),
+    output: z.array(countRuleSchema),
+  },
+  /** Günlük: `until` gününden (varsayılan bugün) geriye 30 günün öğeleri, gün gün en yeni önce. */
+  'log:list': {
+    input: z.object({ projectId: z.string(), until: dayKeySchema.nullish() }),
+    output: logPageSchema,
+  },
+  /** Günlüğe serbest not ya da kaydedilmiş devlog taslağı (bugüne). */
+  'log:addNote': {
+    input: z.object({
+      projectId: z.string(),
+      bodyMd: z.string().trim().min(1, 'Not boş').max(LOG_NOTE_MAX),
+      kind: z.enum(['note', 'devlog']).default('note'),
+    }),
+    output: z.object({ id: z.string() }),
+  },
+  'log:deleteNote': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  'log:restoreNote': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** Haftanın devlog taslağı (Markdown + BBCode); hafta verilmezse bu hafta. */
+  'devlog:draft': {
+    input: z.object({ projectId: z.string(), weekOf: dayKeySchema.nullish() }),
+    output: devlogDraftSchema,
+  },
+  /** Taslağın görsellerini seçilen klasöre kopyalar; vazgeçilirse null. */
+  'devlog:exportImages': {
+    input: z.object({ projectId: z.string(), weekOf: dayKeySchema.nullish() }),
+    output: z.object({ dir: z.string(), count: z.number() }).nullable(),
+  },
+  /** Zaman makinesi: kareler (en yeni önce), bağlı görüntü klasörleri ve öneriler. Klasörleri sadece okur. */
+  'shot:machine': {
+    input: z.object({ projectId: z.string() }),
+    output: timeMachineSchema,
+  },
+  /** Yapıştırılan kare (oturum kapanışı ya da galeri); `media/`'ya kopyalanır. */
+  'shot:add': {
+    input: shotAddInputSchema,
+    output: z.object({ id: z.string() }),
+  },
+  /** Yıldız ya da çöp kutusu (geri almak için `deleted: false`). */
+  'shot:update': {
+    input: z.object({
+      id: z.string(),
+      starred: z.boolean().optional(),
+      deleted: z.boolean().optional(),
+    }),
+    output: z.void(),
+  },
+  /** Görüntü klasörü bağla / kaldır; bağlanınca yeni kareler hemen alınır. */
+  'shot:bindDir': {
+    input: z.object({ folderId: z.string(), path: z.string().min(1).max(500), bound: z.boolean() }),
+    output: z.object({ added: z.number() }),
+  },
+  /** Varlıklar (en yeni önce); yaratıcı projede klasör envanterindeki ses/görsel dosyaları da. */
+  'asset:list': {
+    input: z.object({ projectId: z.string() }),
+    output: z.array(assetSchema),
+  },
+  /** Dosyayı `media/`'ya kopyalayıp varlık olarak ekler. */
+  'asset:add': {
+    input: assetAddInputSchema,
+    output: z.object({ id: z.string() }),
+  },
+  /** Ad, sayfa/görev bağı ya da çöp kutusu. */
+  'asset:update': {
+    input: z.object({
+      id: z.string(),
+      title: z.string().max(ASSET_TITLE_MAX).optional(),
+      docId: z.string().nullable().optional(),
+      taskId: z.string().nullable().optional(),
+      deleted: z.boolean().optional(),
+    }),
+    output: z.void(),
+  },
+  /** Varlığı varsayılan uygulamada açar. */
+  'asset:open': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** Claude Code köprüsü: klasör başına kurulum durumu, eklenecek CLAUDE.md bölümü ve Editor betiği. */
+  'bridge:status': {
+    input: z.object({ projectId: z.string() }),
+    output: bridgeStatusSchema,
+  },
+  /** Köprüyü kurar: `.secondmind/`, seçilirse CLAUDE.md bölümü, Editor betiği, .gitignore satırı; BAGLAM.md yazılır. */
+  'bridge:install': {
+    input: bridgeInstallInputSchema,
+    output: z.void(),
+  },
+  /** Köprünün eklediklerini geri alır; oturum raporları ve kareler kalır. */
+  'bridge:uninstall': {
+    input: z.object({ folderId: z.string() }),
+    output: z.void(),
   },
   /** Çöp kutusuna; süren oturum varsa şimdi kapanır. */
   'project:delete': {

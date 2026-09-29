@@ -11,7 +11,7 @@ import {
   TASK_DRAG_TYPE,
 } from './board'
 
-// Kanban kartı: başlık, tür ikonu, taş etiketi, süre, hata önemi, kaynak ve erteleme rozeti.
+// Kanban kartı: başlık, tür ikonu, taş etiketi, süre, hata önemi, kaynak, playtest kişi sayısı ve erteleme rozeti.
 // Sürüklenir (yerel HTML5); odaktayken ← / → kolon değiştirir, ↑ / ↓ kolonda gezer, Enter paneli açar.
 
 const SMALL_PILL = 'inline-flex h-6 items-center rounded-full px-2.5 text-[13px] font-bold'
@@ -19,6 +19,8 @@ const SMALL_PILL = 'inline-flex h-6 items-center rounded-full px-2.5 text-[13px]
 type TaskCardProps = {
   task: Task
   milestone: string | null
+  /** Göreve bağlı playtest kümesini bildiren farklı kişi. */
+  playtestPeople?: number
   selected: boolean
   dragging: boolean
   onOpen: () => void
@@ -30,6 +32,7 @@ type TaskCardProps = {
 export function TaskCard({
   task: t,
   milestone,
+  playtestPeople = 0,
   selected,
   dragging,
   onOpen,
@@ -117,6 +120,11 @@ export function TaskCard({
         {postponed && (
           <span className={cn(SMALL_PILL, 'bg-coral text-white')} title="Böl · Sil · Bugün yap">
             {t.postponeCount}× ertelendi
+          </span>
+        )}
+        {playtestPeople > 0 && !done && (
+          <span className={cn(SMALL_PILL, 'bg-s3')} title="Playtest'te bildiren kişi">
+            {playtestPeople} kişi
           </span>
         )}
         {milestone && (

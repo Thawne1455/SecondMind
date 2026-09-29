@@ -20,6 +20,9 @@ import {
 import { isGitRepo, isUnityProject, readInventory, readTodos, readUnity } from './files'
 import { readClaudeSpans } from './claude'
 import { readCommits, readUncommitted } from './git'
+import { importShots } from './shots'
+import { processReports, refreshContext } from './bridge'
+import { projectImageDirs } from '../db/shots'
 
 // Güncelle (Aşama 5b): bağlı klasörleri sırayla tarar. Arka plan yok; sadece Taha bastığında çalışır.
 // Klasörler sadece okunur. Bir klasörün hatası diğerlerini durdurmaz.
@@ -92,6 +95,8 @@ async function scanFolder(
 export type ScanOptions = {
   /** Claude Code kayıt klasörü; testlerde değiştirilir. */
   claudeRoot?: string
+  /** Verilirse zaman makinesi kareleri (5d-4) `media/`'ya alınır. */
+  mediaDir?: string
 }
 
 export async function runScan(
@@ -124,6 +129,16 @@ export async function runScan(
       entry.todosResolved += r.todosResolved
       entry.filesChanged += r.filesChanged
       entry.claudeSessions += r.claudeSessions
+      if (target.bridgeEnabled) {
+        entry.claudeSessions += processReports(db, target.projectId, target.path)
+        refreshContext(db, target.projectId)
+      }
+      if (options.mediaDir) {
+        const folders = projectImageDirs(db, target.projectId).filter(
+          (f) => f.folderId === target.folderId,
+        )
+        await importShots(db, options.mediaDir, target.projectId, folders)
+      }
     } catch (e) {
       entry.errors.push(e instanceof Error ? e.message : String(e))
     }

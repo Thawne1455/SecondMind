@@ -22,6 +22,8 @@ export const projects = sqliteTable(
     description: text('description').notNull().default(''),
     /** Yayın platformu (5c şablonu); null = seçilmedi. */
     releasePlatform: text('release_platform', { enum: ['steam', 'itch'] }),
+    /** GDD sayım kuralları (5d): `[{label, glob}]`; null = hiç kural yok. */
+    countRulesJson: text('count_rules_json'),
     /** Detay sayfası açıldı; sıralama ve geri dönüş brifingi için. Log'a yazılmaz. */
     lastOpenedAt: integer('last_opened_at', { mode: 'timestamp_ms' }),
     archivedAt: integer('archived_at', { mode: 'timestamp_ms' }),
@@ -50,6 +52,8 @@ export const projectFolders = sqliteTable(
       .notNull()
       .default(sql`0`),
     lastScanAt: integer('last_scan_at', { mode: 'timestamp_ms' }),
+    /** Zaman makinesi görüntü klasörleri (5d): klasöre göre göreli yollar JSON dizisi; null = bağlı yok. */
+    imageDirsJson: text('image_dirs_json'),
     ...timestamps(),
   },
   (t) => [
@@ -79,6 +83,8 @@ export const sessions = sqliteTable(
     externalId: text('external_id'),
     /** Değişen dosyalar + alan (5b). */
     filesJson: text('files_json'),
+    /** Kapanışta yapıştırılan görüntü (5d, zaman makinesi). */
+    shotMediaId: text('shot_media_id'),
     ...timestamps(),
     deletedAt: deletedAt(),
   },

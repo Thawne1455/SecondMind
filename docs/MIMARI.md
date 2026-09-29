@@ -146,10 +146,13 @@ tarama verisi gider). Çöp kutusundaki projenin klasörü yeni projeye geçerse
 - `playtest_clusters` (5c): `project_id`, `label`, `task_id`, soft delete.
 - `project_docs` (5d): `project_id`, `parent_id`, `sort`, `title`, `body_md` ya da `source_path` (bağlı dosya, salt okunur),
   `kind` (`page`/`adr`/`gdd`), `ai_open` (Claude Code'a açık), soft delete. FTS: `notes_fts` benzeri `project_docs_fts`.
-- `project_shots` (5d): `project_id`, `media_id` (projede unique), `taken_on`, `source` (`editor`/`folder`/`session`),
+- `project_shots` (5d): `project_id`, `media_id` (projede unique), `taken_on`, `taken_at` (gün içi sıra), `source` (`editor`/`folder`/`session`),
   `source_path`, `starred`, soft delete.
 - `project_log_notes` (5d): `project_id`, `day`, `kind` (`note`/`devlog`), `body_md`, soft delete.
-- `assets` (5d): `project_id`, `media_id` ya da `external_path`, `kind`, `doc_id`, `task_id`, soft delete.
+- `assets` (5d): `project_id`, `media_id` ya da `external_path`, `kind`, `title`, `doc_id`, `task_id`, soft delete.
+  5d'nin hepsi `0010_docs` (geri dönüş `down/0010_docs.down.sql`). Klasörden alınan kareler tarama verisidir
+  (satır başına log yok); yapıştırma, yıldız, silme, klasör bağlama ve varlık yazımları loglanır. Yaratıcı projede
+  klasör dosyaları `sm-file://f/<klasör id>/<yol>` ile gösterilir (sadece bağlı klasörün içi, görsel/ses/PDF).
 
 **Okul** (ayrıntı `docs/OKUL.md`)
 - `terms`, `courses`, `course_slots`, `instructors`, `course_weeks`, `topics`, `grade_components`, `grades`,

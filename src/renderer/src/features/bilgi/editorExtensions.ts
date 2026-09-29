@@ -1,6 +1,7 @@
 import type { AnyExtension } from '@tiptap/core'
 import { Image } from '@tiptap/extension-image'
 import { TaskItem, TaskList } from '@tiptap/extension-list'
+import { TableKit } from '@tiptap/extension-table'
 import { StarterKit } from '@tiptap/starter-kit'
 
 /**
@@ -16,4 +17,10 @@ export const noteSchemaExtensions: AnyExtension[] = [
   Image.configure({ inline: false }),
   TaskList,
   TaskItem.configure({ nested: true }),
+]
+
+/** Proje dokümanları (5d): not şeması + tablo (GDD ses listesi, içerik özeti). Markdown'da GFM tablosu. */
+export const docSchemaExtensions: AnyExtension[] = [
+  ...noteSchemaExtensions,
+  TableKit.configure({ table: { resizable: false } }),
 ]

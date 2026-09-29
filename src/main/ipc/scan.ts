@@ -1,5 +1,6 @@
 import { getDb } from '../db/client'
 import { runScan } from '../scan'
+import type { DataPaths } from '../paths'
 import { handle } from './handle'
 import { broadcast } from './projects'
 
@@ -7,10 +8,10 @@ import { broadcast } from './projects'
 
 let running: ReturnType<typeof runScan> | null = null
 
-export function registerScanIpc(): void {
+export function registerScanIpc(paths: DataPaths): void {
   handle('scan:run', async ({ projectId }) => {
     // Üst üste basılırsa ikinci tarama başlamaz, süren taramanın sonucunu bekler.
-    running ??= runScan(getDb(), projectId).finally(() => {
+    running ??= runScan(getDb(), projectId, { mediaDir: paths.media }).finally(() => {
       running = null
     })
     const report = await running

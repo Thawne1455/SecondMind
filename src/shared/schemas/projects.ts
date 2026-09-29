@@ -352,3 +352,36 @@ export const calendarEntrySchema = z.object({
   done: z.boolean(),
 })
 export type CalendarEntry = z.infer<typeof calendarEntrySchema>
+
+// ---------------------------------------------------------------- Claude Code köprüsü (5e)
+
+export const bridgeStatusSchema = z.object({
+  unity: z.boolean(),
+  /** Projenin CLAUDE.md'sine eklenecek bölüm (gösterilir, onayla eklenir). */
+  addendum: z.string(),
+  /** Unity Editor betiği (gösterilir, onayla kopyalanır). */
+  script: z.string(),
+  folders: z.array(
+    z.object({
+      folderId: z.string(),
+      path: z.string(),
+      exists: z.boolean(),
+      enabled: z.boolean(),
+      claudeMd: z.boolean(),
+      scriptInstalled: z.boolean(),
+      gitignore: z.boolean(),
+      git: z.boolean(),
+      pendingReports: z.number(),
+    }),
+  ),
+})
+
+export const bridgeInstallInputSchema = z.object({
+  folderId: z.string(),
+  claudeMd: z.boolean(),
+  script: z.boolean(),
+  gitignore: z.boolean(),
+})
+
+export type BridgeStatus = z.infer<typeof bridgeStatusSchema>
+export type BridgeInstallInput = z.infer<typeof bridgeInstallInputSchema>

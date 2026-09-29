@@ -3,6 +3,34 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import type { Briefing, FolderInspection, IpcEvent } from '@shared/ipc'
 import { getDb } from '../db/client'
+import {
+  applyDocTemplate,
+  countRules,
+  gddMarkdown,
+  setCountRule,
+  createDoc,
+  deleteDoc,
+  getDoc,
+  linkDocFile,
+  linkedFilePath,
+  linkedPaths,
+  listDocs,
+  moveDoc,
+  projectFolderPaths,
+  restoreDoc,
+  searchDocs,
+  updateDoc,
+} from '../db/docs'
+import {
+  convertCluster,
+  knownTesters,
+  movePoint,
+  pastePlaytest,
+  playtestOverview,
+  previewPaste,
+  splitPoint,
+  undoPlaytest,
+} from '../db/playtest'
 import { projectBriefing, projectScanInfo } from '../db/projectInfo'
 import {
   applyMilestoneTemplate,
@@ -40,6 +68,9 @@ import {
   pickProjectColor,
   projectNameFromPath,
 } from '../domain/projects'
+import { suggestDocFiles } from '../scan/docs'
+import { refreshContext } from '../scan/bridge'
+import { compareGdd } from '../scan/gdd'
 import { handle } from './handle'
 
 // Projeler, oturumlar, park alanı (Aşama 5a). Klasörler sadece okunur; SecondMind proje klasörüne yazmaz.
@@ -116,6 +147,49 @@ export function registerProjectsIpc(hidePark: () => void): void {
   handle('project:calendar', ({ projectId, from, to }) =>
     projectCalendar(getDb(), projectId, from, to),
   )
+  handle('playtest:overview', ({ projectId }) => playtestOverview(getDb(), projectId))
+  handle('playtest:testers', () => knownTesters(getDb()))
+  handle('playtest:preview', ({ text, receivedOn }) => previewPaste(text, receivedOn))
+  handle('playtest:paste', (input) => pastePlaytest(getDb(), input))
+  handle('playtest:move', ({ pointId, clusterId }) => movePoint(getDb(), pointId, clusterId))
+  handle('playtest:split', ({ pointId }) => splitPoint(getDb(), pointId))
+  handle('playtest:convert', ({ clusterId, kind }) => convertCluster(getDb(), clusterId, kind))
+  handle('playtest:undo', ({ groupId }) => undoPlaytest(getDb(), groupId))
+  handle('doc:list', ({ projectId }) => listDocs(getDb(), projectId))
+  handle('doc:get', ({ id }) => getDoc(getDb(), id))
+  handle('doc:create', (input) => createDoc(getDb(), input))
+  handle('doc:update', (input) => updateDoc(getDb(), input))
+  handle('doc:move', (input) => moveDoc(getDb(), input))
+  handle('doc:delete', ({ id }) => deleteDoc(getDb(), id))
+  handle('doc:restore', ({ id }) => restoreDoc(getDb(), id))
+  handle('doc:applyTemplate', ({ projectId }) => applyDocTemplate(getDb(), projectId))
+  handle('doc:suggestFiles', ({ projectId }) =>
+    suggestDocFiles(projectFolderPaths(getDb(), projectId), linkedPaths(getDb(), projectId)),
+  )
+  handle('doc:linkFile', ({ projectId, path }) => linkDocFile(getDb(), projectId, path))
+  handle('doc:openFile', async ({ id }) => {
+    const path = linkedFilePath(getDb(), id)
+    if (!path) throw new Error('Bağlı dosya bulunamadı')
+    const err = await shell.openPath(path)
+    if (err) throw new Error(`Dosya açılamadı: ${path}`)
+  })
+  handle('doc:search', ({ query, projectId }) => searchDocs(getDb(), query, projectId))
+  handle('gdd:compare', async ({ projectId }) => {
+    const db = getDb()
+    const gdd = gddMarkdown(db, projectId)
+    if (!gdd) return null
+    const project = listProjects(db).find((p) => p.id === projectId)
+    return compareGdd({
+      docId: gdd.docId,
+      markdown: gdd.markdown,
+      folders: projectFolderPaths(db, projectId),
+      unity: project?.kind === 'unity',
+      rules: countRules(db, projectId),
+    })
+  })
+  handle('gdd:setRule', ({ projectId, label, glob }) =>
+    setCountRule(getDb(), projectId, label, glob),
+  )
   handle('project:delete', ({ id }) => deleteProject(getDb(), id))
   handle('project:restore', ({ id }) => restoreProject(getDb(), id))
   handle('project:pickFolder', async () => {
@@ -136,6 +210,12 @@ export function registerProjectsIpc(hidePark: () => void): void {
 
   handle('session:start', (input) => {
     const s = startSession(getDb(), input)
+    // Köprü kuruluysa Claude Code taze bağlamla başlasın (5e).
+    try {
+      refreshContext(getDb(), s.projectId)
+    } catch {
+      // Bağlam yazılamazsa oturum yine başlar.
+    }
     broadcast('projects:changed')
     return s
   })

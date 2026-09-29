@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import {
   ArrowLeft,
+  ClipboardPaste,
   Copy,
   FolderOpen,
   MoreHorizontal,
@@ -10,7 +11,12 @@ import {
   RefreshCw,
   Square,
 } from 'lucide-react'
-import { PROJECT_COLORS, PROJECT_NAME_MAX, type ProjectSummary } from '@shared/ipc'
+import {
+  PLAYTEST_TEXT_MAX,
+  PROJECT_COLORS,
+  PROJECT_NAME_MAX,
+  type ProjectSummary,
+} from '@shared/ipc'
 import { TopBar } from '../../app/TopBar'
 import { useShell } from '../../app/shell-context'
 import { errorText } from '../../lib/errors'
@@ -19,8 +25,14 @@ import { useNow } from '../../lib/useNow'
 import { formatAgo } from '../../lib/format'
 import { Button, Chip, cn, EmptyState, IconButton, Kbd, Menu, Skeleton, useToast } from '../../ui'
 import { useNotes } from '../bilgi/useKnowledge'
+import { BridgeDialog } from './BridgeDialog'
 import { BriefingBand } from './BriefingBand'
 import { Cockpit } from './Cockpit'
+import { PlaytestPasteDialog } from './PlaytestPasteDialog'
+import { PlaytestView } from './PlaytestView'
+import { ProjectAssets } from './ProjectAssets'
+import { ProjectDocs } from './ProjectDocs'
+import { ProjectLog } from './ProjectLog'
 import { ProjectNotes } from './ProjectNotes'
 import { Roadmap } from './Roadmap'
 import { TaskBoard } from './TaskBoard'
@@ -36,7 +48,8 @@ import {
 } from './useProjects'
 
 // Proje detayı: proje renginde başlık bandı + sekmeler (Kokpit, Görevler, Yol haritası, Notlar; yapılmamış
-// sekmeler görünmez). Klavye: B başla/kapat, P park (yazı alanında değilken), Ctrl 1…4 sekme.
+// sekmeler görünmez; 5d: Dokümanlar Ctrl 5, Günlük Ctrl 6, Varlıklar Ctrl 7). Klavye: B başla/kapat, P park (yazı alanında değilken), Ctrl 1…4 sekme,
+// Ctrl Shift V playtest yapıştır (panodaki metinle açılır). Görevler'de "Pano · Playtest" geçişi (5c-4).
 
 export function ProjectPage() {
   const { projectId } = useParams()
@@ -65,7 +78,7 @@ export function ProjectPage() {
   )
 }
 
-type Tab = 'cockpit' | 'tasks' | 'roadmap' | 'notes'
+type Tab = 'cockpit' | 'tasks' | 'roadmap' | 'notes' | 'docs' | 'log' | 'assets'
 
 /** Sekmelerin yolu ve kısayolu (Ctrl + sıra). */
 const TAB_PATH: Record<Tab, string> = {
@@ -73,24 +86,57 @@ const TAB_PATH: Record<Tab, string> = {
   tasks: '/gorevler',
   roadmap: '/yol-haritasi',
   notes: '/notlar',
+  docs: '/dokumanlar',
+  log: '/gunluk',
+  assets: '/varliklar',
 }
-const TAB_ORDER: Tab[] = ['cockpit', 'tasks', 'roadmap', 'notes']
+// Notlar Ctrl 4'te kalır (alışkanlık); 5d sekmeleri sona eklenir.
+const TAB_ORDER: Tab[] = ['cockpit', 'tasks', 'roadmap', 'notes', 'docs', 'log', 'assets']
 
 function ProjectView({ project }: { project: ProjectSummary }) {
   const { startSession, closeSession, openPark } = useShell()
   const session = project.activeSession
-  const { noteId } = useParams()
+  const { noteId, docId } = useParams()
   const navigate = useNavigate()
   const path = useLocation().pathname
   const tab: Tab = path.includes('/notlar')
     ? 'notes'
-    : path.includes('/gorevler')
-      ? 'tasks'
-      : path.includes('/yol-haritasi')
-        ? 'roadmap'
-        : 'cockpit'
+    : path.includes('/dokumanlar')
+      ? 'docs'
+      : path.includes('/gunluk')
+        ? 'log'
+        : path.includes('/varliklar')
+          ? 'assets'
+          : path.includes('/gorevler')
+            ? 'tasks'
+            : path.includes('/yol-haritasi')
+              ? 'roadmap'
+              : 'cockpit'
+  const playtestView = tab === 'tasks' && path.endsWith('/playtest')
   const { briefing, dismiss } = useProjectOpened(project.id)
   const now = useNow(60_000)
+  const [paste, setPaste] = useState<{ open: boolean; text: string }>({ open: false, text: '' })
+
+  const openPaste = useCallback((fromClipboard: boolean) => {
+    if (!fromClipboard) return setPaste({ open: true, text: '' })
+    // Pano okunamazsa (izin, boş) alan boş açılır.
+    navigator.clipboard.readText().then(
+      (text) => setPaste({ open: true, text: text.slice(0, PLAYTEST_TEXT_MAX) }),
+      () => setPaste({ open: true, text: '' }),
+    )
+  }, [])
+
+  useEffect(() => {
+    function onPasteKey(e: KeyboardEvent) {
+      if (!e.ctrlKey || !e.shiftKey || e.altKey || e.key.toLowerCase() !== 'v') return
+      // Yazı alanında Ctrl Shift V biçimsiz yapıştırmadır; ona dokunma.
+      if (typingOrDialog(e)) return
+      e.preventDefault()
+      openPaste(true)
+    }
+    window.addEventListener('keydown', onPasteKey)
+    return () => window.removeEventListener('keydown', onPasteKey)
+  }, [openPaste])
 
   useEffect(() => {
     function onTabKey(e: KeyboardEvent) {
@@ -128,8 +174,25 @@ function ProjectView({ project }: { project: ProjectSummary }) {
       <Tabs project={project} tab={tab} />
       {tab === 'notes' ? (
         <ProjectNotes project={project} noteId={noteId} />
+      ) : tab === 'docs' ? (
+        <ProjectDocs project={project} docId={docId} />
+      ) : tab === 'log' ? (
+        <ProjectLog project={project} />
+      ) : tab === 'assets' ? (
+        <ProjectAssets project={project} />
       ) : tab === 'tasks' ? (
-        <TaskBoard project={project} />
+        <>
+          <TasksViewSwitch
+            project={project}
+            playtest={playtestView}
+            onPaste={() => openPaste(false)}
+          />
+          {playtestView ? (
+            <PlaytestView project={project} onPaste={() => openPaste(false)} />
+          ) : (
+            <TaskBoard project={project} />
+          )}
+        </>
       ) : tab === 'roadmap' ? (
         <Roadmap project={project} />
       ) : (
@@ -146,10 +209,46 @@ function ProjectView({ project }: { project: ProjectSummary }) {
               }}
             />
           )}
-          <Cockpit project={project} />
+          <Cockpit project={project} onPaste={() => openPaste(false)} />
         </>
       )}
+      <PlaytestPasteDialog
+        project={project}
+        open={paste.open}
+        initialText={paste.text}
+        onClose={() => setPaste({ open: false, text: '' })}
+      />
     </>
+  )
+}
+
+/** Görevler sekmesinin iki görünümü: kanban ve Playtest kutusu (kanbanın yanında, PROJELER.md). */
+function TasksViewSwitch({
+  project,
+  playtest,
+  onPaste,
+}: {
+  project: ProjectSummary
+  playtest: boolean
+  onPaste: () => void
+}) {
+  const navigate = useNavigate()
+  const base = `/projeler/${project.id}/gorevler`
+  return (
+    <div className="flex items-center gap-2">
+      <Chip selected={!playtest} onClick={() => void navigate(base)}>
+        Pano
+      </Chip>
+      <Chip selected={playtest} onClick={() => void navigate(`${base}/playtest`)}>
+        Playtest
+      </Chip>
+      <span className="grow" />
+      {playtest && (
+        <Button icon={ClipboardPaste} onClick={onPaste} title="Ctrl Shift V">
+          Yapıştır
+        </Button>
+      )}
+    </div>
   )
 }
 
@@ -162,6 +261,9 @@ function Tabs({ project, tab }: { project: ProjectSummary; tab: Tab }) {
     tasks: open ? `Görevler · ${open}` : 'Görevler',
     roadmap: 'Yol haritası',
     notes: notes ? `Notlar · ${notes}` : 'Notlar',
+    docs: 'Dokümanlar',
+    log: 'Günlük',
+    assets: 'Varlıklar',
   }
   const items = TAB_ORDER.map((id, i) => ({
     id,
@@ -201,6 +303,7 @@ function HeaderBand({ project: p }: { project: ProjectSummary }) {
   const { toast } = useToast()
   const scan = useScan()
   const [mode, setMode] = useState<'rename' | 'color' | null>(null)
+  const [bridgeOpen, setBridgeOpen] = useState(false)
   const [name, setName] = useState(p.name)
   const session = p.activeSession
   const onError = (e: unknown) => toast({ message: errorText(e), domain: 'warning' })
@@ -213,6 +316,9 @@ function HeaderBand({ project: p }: { project: ProjectSummary }) {
     p.status === 'archived'
       ? { id: 'unarchive', label: 'Arşivden çıkar' }
       : { id: 'archive', label: 'Arşivle' },
+    ...(p.folderPath
+      ? [{ id: 'bridge', label: 'Claude Code köprüsü', description: 'BAGLAM.md, oturum raporları' }]
+      : []),
     { id: 'delete', label: 'Çöp kutusuna at' },
   ]
 
@@ -221,6 +327,7 @@ function HeaderBand({ project: p }: { project: ProjectSummary }) {
       setName(p.name)
       setMode('rename')
     } else if (id === 'color') setMode('color')
+    else if (id === 'bridge') setBridgeOpen(true)
     else if (id === 'pause') update.mutate({ id: p.id, status: 'paused' }, { onError })
     else if (id === 'activate' || id === 'unarchive')
       update.mutate({ id: p.id, status: 'active' }, { onError })
@@ -416,6 +523,7 @@ function HeaderBand({ project: p }: { project: ProjectSummary }) {
           )}
         </div>
       </div>
+      <BridgeDialog project={p} open={bridgeOpen} onClose={() => setBridgeOpen(false)} />
     </header>
   )
 }

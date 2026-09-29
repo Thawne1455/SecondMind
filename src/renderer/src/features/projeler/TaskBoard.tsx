@@ -8,6 +8,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react'
+import { useSearchParams } from 'react-router'
 import { ChevronDown, ChevronRight, ListPlus, X } from 'lucide-react'
 import type { KanbanStatus, Milestone, ParkingItem, ProjectSummary, Task } from '@shared/ipc'
 import { errorText } from '../../lib/errors'
@@ -29,6 +30,7 @@ import {
 } from './board'
 import { TaskCard } from './TaskCard'
 import { TaskPanel } from './TaskPanel'
+import { usePlaytest } from './usePlaytest'
 import {
   useMilestones,
   useMoveTask,
@@ -50,8 +52,17 @@ export function TaskBoard({ project }: { project: ProjectSummary }) {
   const move = useMoveTask(project.id)
   const { toast } = useToast()
   const [filter, setFilter] = useState<BoardFilter>({ milestoneId: null, kind: null })
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Playtest'teki "Karta git": ?kart=<görev> paneli açık getirir.
+  const [params] = useSearchParams()
+  const [selectedId, setSelectedId] = useState<string | null>(() => params.get('kart'))
   const [dragId, setDragId] = useState<string | null>(null)
+  const playtestData = usePlaytest(project.id).data
+  const playtestPeople = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const c of playtestData?.clusters ?? [])
+      if (c.task) m.set(c.task.id, (m.get(c.task.id) ?? 0) + c.people)
+    return m
+  }, [playtestData])
 
   const list = useMemo(() => tasks.data ?? [], [tasks.data])
   const columns = useMemo(() => groupTasks(list, filter), [list, filter])
@@ -144,6 +155,7 @@ export function TaskBoard({ project }: { project: ProjectSummary }) {
                         milestone={
                           t.milestoneId ? (milestoneTitle.get(t.milestoneId) ?? null) : null
                         }
+                        playtestPeople={playtestPeople.get(t.id)}
                         selected={t.id === selectedId}
                         dragging={t.id === dragId}
                         onOpen={() => setSelectedId(t.id)}

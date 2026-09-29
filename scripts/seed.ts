@@ -28,6 +28,8 @@ import {
   sweepDueReminders,
 } from '../src/main/db/planning'
 import { addParking, closeSession, createProject, startSession } from '../src/main/db/projects'
+import { applyDocTemplate, createDoc, updateDoc } from '../src/main/db/docs'
+import { convertCluster, pastePlaytest, playtestOverview } from '../src/main/db/playtest'
 import * as schema from '../src/main/db/schema'
 import { defaultDataDir } from '../src/main/domain/dataDir'
 import { storeMedia } from '../src/main/media'
@@ -437,6 +439,38 @@ type TaskSeed = {
 
 type ProjectKey = 'runika' | 'secondmind' | 'album'
 
+/** Playtest yapıştırmaları: [kaç gün önce, metin, sohbet kalıbı yoksa kişi]. */
+const PLAYTEST: [number, string, string][] = [
+  [
+    9,
+    [
+      '[20:14] Ali: ölüm panelinde takıldım, tuşlar hiç çalışmıyor',
+      '[20:15] Ali: bir de müzik çok yüksek geliyor, efektleri bastırıyor',
+      '[20:31] Deniz: ölüm panelinde takılıp kaldım, yeniden başlat tuşu çalışmadı',
+      '[20:40] Deniz: ikinci bölümdeki zıplama çok zor, üç kere düştüm',
+    ].join('\n'),
+    '',
+  ],
+  [
+    4,
+    [
+      '- Ölüm panelinde tuşlar çalışmıyor, fareyle tıklamak gerekti.',
+      '- Envanter açılınca oyun duraklamıyor, düşman vurdu.',
+      '- Menü müziği uzun, döngüye girince sıkıyor.',
+    ].join('\n'),
+    'Ece',
+  ],
+  [
+    1,
+    [
+      '[22:03] Mert: envanter açıkken düşman vuruyor, oyun durmuyor',
+      '[22:05] Mert: ölüm panelinde takıldım yine tuşlar çalışmadı',
+      '[22:09] Mert: karakter duvara yapışıyor köşede kalınca',
+    ].join('\n'),
+    '',
+  ],
+]
+
 /** Runika'nın gerçek klasörü varsa bağlanır (sadece okunur); yoksa klasörsüz. SecondMind bu repo. */
 const PROJECTS: {
   key: ProjectKey
@@ -694,6 +728,69 @@ function main(): void {
     db,
     { title: 'Annemin doğum günü', rule: { kind: 'yearly', month: 11, day: 14, time: '10:00' } },
     now,
+  )
+
+  // Playtest (5c-4): Runika'ya üç yapıştırma; en çok bildirilen küme hataya çevrilmiş.
+  for (const [days, text, tester] of PLAYTEST) {
+    pastePlaytest(
+      db,
+      { projectId: projectIds.runika, text, tester, receivedOn: format(ago(days), 'yyyy-MM-dd') },
+      ago(days, 21),
+    )
+  }
+  const topCluster = playtestOverview(db, projectIds.runika, now).clusters[0]
+  if (topCluster) convertCluster(db, topCluster.id, 'bug', ago(1, 22))
+
+  // Dokümanlar (5d): SecondMind'da teknik doküman şablonu, bir sayfa gövdesi ve bir karar (ADR).
+  const techDocs = applyDocTemplate(db, projectIds.secondmind, ago(12))
+  const architecture = techDocs.find((d) => d.title === 'Mimari')
+  if (architecture)
+    updateDoc(
+      db,
+      {
+        id: architecture.id,
+        bodyMd: [
+          'Electron ana süreci DB ve dosya sistemine dokunur; renderer sadece `window.api` ile konuşur.',
+          '',
+          '| Katman | Klasör | Test |',
+          '| --- | --- | --- |',
+          '| Algoritmalar | src/main/domain | Vitest |',
+          '| Veri | src/main/db | Vitest (bellek içi SQLite) |',
+          '| Arayüz | src/renderer | Elle |',
+        ].join('\n'),
+      },
+      ago(12),
+    )
+  const adr = createDoc(
+    db,
+    { projectId: projectIds.secondmind, title: 'AI veritabanına doğrudan yazmaz', kind: 'adr' },
+    ago(10),
+  )
+  updateDoc(
+    db,
+    {
+      id: adr.id,
+      bodyMd: [
+        '**Tarih:** 19 Eylül 2026',
+        '',
+        '## Bağlam',
+        '',
+        'AI önerileri yanlış olabilir.',
+        '',
+        '## Karar',
+        '',
+        'AI sadece changes.json önerir; Onay Kutusu uygular.',
+        '',
+        '## Alternatifler',
+        '',
+        'Doğrudan yazıp geri alma.',
+        '',
+        '## Sonuç',
+        '',
+        'Her değişiklik geri alınabilir.',
+      ].join('\n'),
+    },
+    ago(10),
   )
 
   // Örnek veri Taha'nın işlemi değil: geri alınacak bir geçmişi olmasın.

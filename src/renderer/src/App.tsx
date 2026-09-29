@@ -33,8 +33,12 @@ export function App() {
         <Route path="/projeler" element={<ProjelerPage />} />
         <Route path="/projeler/:projectId" element={<ProjectPage />} />
         <Route path="/projeler/:projectId/gorevler" element={<ProjectPage />} />
+        <Route path="/projeler/:projectId/gorevler/playtest" element={<ProjectPage />} />
         <Route path="/projeler/:projectId/yol-haritasi" element={<ProjectPage />} />
         <Route path="/projeler/:projectId/notlar/:noteId?" element={<ProjectPage />} />
+        <Route path="/projeler/:projectId/dokumanlar/:docId?" element={<ProjectPage />} />
+        <Route path="/projeler/:projectId/gunluk" element={<ProjectPage />} />
+        <Route path="/projeler/:projectId/varliklar" element={<ProjectPage />} />
         <Route path="/okul" element={<OkulPage />} />
         <Route path="/zihin" element={<ZihinPage />} />
         <Route path="/bilgi/:noteId?" element={<BilgiPage />} />

@@ -82,7 +82,7 @@ Runika'nın yayın platformu itch.io (Windows + WebGL), Steam iptal. Hızlı Dö
   `project_id` ile; Bilgi aramasında da çıkar). Brifing son açılışa göre, sessizlik takvim günüyle (ikisi aynı sayı).
   Şerit çubuğu: hafta başına commit × 30 dk + oturum dakikası, en yoğun haftaya göre. Radar: fikir ile proje
   arasında en uzun sessiz olan; eşitlikte proje; proje için Aç / Duraklat.
-- [ ] 5c Planlama: `domain/nextSteps` (sıradaki adım motoru) + test, kilometre taşları ve çıkış kriterleri, kanban
+- [x] 5c Planlama: `domain/nextSteps` (sıradaki adım motoru) + test, kilometre taşları ve çıkış kriterleri, kanban
   (türler, önem, erteleme), `domain/playtest` (bölme + benzerlik) + test ve playtest kutusu, kapsam ölçer ve gerçekçi
   bitiş tahmini (`domain/scope` + test), taş planlarken park sütunu, Yol haritası zaman çizelgesi, yayın platformu şablonu
   (Steam / itch.io; Runika itch.io), proje takvimi; Bugün'ün Şimdi'si motoru kullanır
@@ -95,16 +95,43 @@ Runika'nın yayın platformu itch.io (Windows + WebGL), Steam iptal. Hızlı Dö
     yayın platformu şablonu, proje takvimi; Kokpit'te Kilometre taşı karosu
     (Yol haritası Ctrl 3, Notlar Ctrl 4; "Çizelge / Takvim" geçişi; şablon Unity projesinde taş yokken, platform
     seçilince `release_platform` yazılır; tarihsiz taşlar bandın altında; taş silinince görevler bağını korur)
-  - [ ] 5c-4 Playtest: `+ Yapıştır`, kümeler, sürükle/ayır, hataya çevir; Kokpit'te Playtest karosu
+  - [x] 5c-4 Playtest: `+ Yapıştır`, kümeler, sürükle/ayır, hataya çevir; Kokpit'te Playtest karosu
+    (Görevler içinde "Pano · Playtest" görünümü, sekme değil; Ctrl Shift V projenin her yerinde panodaki metinle açar;
+    Kokpit karosu boşken de görünür; tek noktalı kümeler katlı "Tek bildirim"; her yazım tek grupla loglanır ve
+    toast'taki Geri al grubu geri alır; hata önemi boş gelir, Taha seçer)
   Kararlar (5c): playtest'te elle ayrılan nokta kendi kümesi olur ve kilitlenir. Kanban kolon içi sıra motor/`compareTasks`
   sırası (elle sıralama yok); erteleme eylemleri (Böl · Sil · Bugün yap) kart panelinde. Bugün'ün Şimdi'si blok yoksa
   süren oturumun projesinin 1. adımını, o yoksa en öndeki proje görevi yerine o projenin 1. adımını alır.
-- [ ] 5d Doküman ve hafıza: doküman ağacı + şablonlar + ADR, bağlı repo markdown'ları, GDD ile gerçeklik karşılaştırması
+- [x] 5d Doküman ve hafıza: doküman ağacı + şablonlar + ADR, bağlı repo markdown'ları, GDD ile gerçeklik karşılaştırması
   (`domain/gddCompare` + test), Günlük, devlog taslağı (`domain/devlog` + test), Varlıklar, zaman makinesi galerisi
   (görüntü klasörleri + kapanışta yapıştırma) ve karşılaştırma
-- [ ] 5e Claude Code köprüsü: `Köprüyü kur` / `Köprüyü kaldır`, `BAGLAM.md` üretimi (motorla), Editor betiği
+  - [x] 5d-1 Dokümanlar sekmesi (Ctrl 5): `project_docs` + FTS (0010, geri dönüşlü), sayfa ağacı (sürükle: üst/alt
+    çeyrek önüne/arkasına, orta içine), tür şablonları (GDD / Teknik / Yaratıcı; Genel tek sayfa), ADR ("Kararlar"
+    altına, şablon gövdeyle), bağlı markdown dosyaları (salt okunur, "Klasörde düzenle"), tek GDD işareti, tablo
+  - [x] 5d-2 GDD ile gerçeklik: `domain/gddCompare` + test, sayım kuralları (`count_rules_json`), GDD sayfasının
+    üstünde şerit (öneri tek tıkla kabul, tek satırda düzeltme), Kokpit'te fark karosu
+  - [x] 5d-3 Günlük sekmesi (Ctrl 6): commit grupları, oturumlar, biten görevler, taşlar, playtest yapıştırmaları,
+    kareler ve `+ Not` gün gün (30 günlük sayfalar, "Daha eski"), filtre; devlog taslağı (`domain/devlog` + test,
+    `Bu hafta` / Ctrl D, hafta gezinme, Markdown / Steam BBCode, Kopyala, Günlüğe kaydet, görselleri klasöre çıkar)
+  - [x] 5d-4 Varlıklar sekmesi (Ctrl 7): zaman makinesi (görüntü klasörü önerisi ve bağlama, Güncelle/Tara'da yeni
+    kareler `media/`'ya, `.secondmind/goruntuler/` her zaman okunur, kapanış modalında Ctrl V, yan yana / sürgülü
+    karşılaştırma, yıldız), varlık ızgarası (bırak → `media/`, resim önizleme, ses oynatıcı, PDF aç, sayfaya /
+    göreve bağla), yaratıcı projede klasördeki ses/görsel dosyaları (`sm-file://`, kopyalanmaz)
+  Kararlar (5d): yeni sekmeler sona eklenir (Notlar Ctrl 4'te kalır): Dokümanlar Ctrl 5, Günlük Ctrl 6, Varlıklar
+  Ctrl 7. 5d'nin bütün tabloları tek migration'da (0010). Dokümanlar Notlar'dan ayrı kalır (yapılandırılmış belge).
+  GDD sayfası alt sayfalarıyla birlikte okunur; bağlı GDD dosyası (adı "GDD" içeriyorsa) kendiliğinden işaretlenir.
+  Karşılaştırmanın klasör sayımı ekran açılınca yapılır (sadece okuma; arka plan yok). Tablo için
+  `@tiptap/extension-table` eklendi (mevcut TipTap sürümüyle aynı).
+- [x] 5e Claude Code köprüsü: `Köprüyü kur` / `Köprüyü kaldır`, `BAGLAM.md` üretimi (motorla), Editor betiği
   (`SecondMindSnapshot.cs`, zaman makinesine günlük kare), oturum raporu ayrıştırma → Günlük ve otomatik oturum.
   **Aşama 4'e bağlı:** rapordaki önerilerin Onay Kutusu'na düşmesi (o zamana kadar elle Göreve çevir / Park et)
+  Kararlar (5e): köprü proje menüsünden (⋯ → Claude Code köprüsü) kurulur; `.secondmind/` her zaman, CLAUDE.md bölümü
+  (işaretler arasında, kaldırınca sadece o silinir), Editor betiği ve .gitignore satırı tek tek seçilir. Kaldırma
+  BAGLAM.md'yi ve dokümanlar/ kopyasını siler; oturum raporları ve kareler kalır. BAGLAM.md her Güncelle/Tara'da ve
+  Başla'da yazılır. Rapor Günlük'e "Claude Code raporu" olarak düşer, aynı zaman aralığındaki Claude Code oturumunu
+  zenginleştirir, yoksa oturum açar; maddeler Aşama 4'e kadar Günlük'te elle alınır (Göreve çevir / Hata / Park /
+  Karar). Editor betiği `CaptureScreenshot` ile karenin sonunda yazar, sonra 1280 px'e küçültür (Unity'de henüz
+  denenmedi). Paketlemede `resources/proje-koprusu` extraResources'a eklenmeli (Aşama 8).
 **Bitti sayılır:** Runika klasörü bağlanıyor; tarama commit'leri, commit'lenmemişleri ve TODO'ları doğru gösteriyor;
 3 gün sonra açılınca brifing nerede kalındığını söylüyor; Kokpit gerekçesiyle sıradaki 3 adımı veriyor; bir playtest
 yapıştırması kümelenip hataya dönüşüyor; Editor betiği günlük kare bırakıyor.

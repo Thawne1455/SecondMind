@@ -27,6 +27,8 @@ export type ScanTarget = {
   path: string
   areaRules: AreaRule[] | null
   lastScanAt: Date | null
+  /** Claude Code köprüsü kurulu (5e): raporlar okunur, BAGLAM.md yazılır. */
+  bridgeEnabled: boolean
 }
 
 /** Kaç anlık görüntü tutulur (klasör başına). */
@@ -53,6 +55,7 @@ export function scanTargets(db: Db, projectId?: string): ScanTarget[] {
     path: folder.path,
     areaRules: folder.areaRulesJson ? (JSON.parse(folder.areaRulesJson) as AreaRule[]) : null,
     lastScanAt: folder.lastScanAt,
+    bridgeEnabled: folder.bridgeEnabled,
   }))
 }
 

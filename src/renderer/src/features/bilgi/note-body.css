@@ -135,3 +135,29 @@
   color: var(--ink3);
   pointer-events: none;
 }
+
+/* Tablolar (proje dokümanları, 5d): kenarlık yerine s2 başlık ve ince çizgi. */
+.note-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.note-body th,
+.note-body td {
+  border-bottom: 2px solid var(--line);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+  min-width: 60px;
+}
+.note-body th {
+  background: var(--s2);
+  font-weight: 800;
+}
+.note-body th > p,
+.note-body td > p {
+  margin: 0;
+}
+.note-body .selectedCell {
+  background: var(--hover);
+}

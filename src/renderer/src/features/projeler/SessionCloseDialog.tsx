@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react'
+import { useState, type ClipboardEvent, type KeyboardEvent } from 'react'
 import { Check, Trash2 } from 'lucide-react'
 import { NEXT_STEP_MAX, type ProjectSummary } from '@shared/ipc'
 import { errorText } from '../../lib/errors'
@@ -6,6 +6,7 @@ import { formatMinutes } from '../../lib/format'
 import { useNow } from '../../lib/useNow'
 import { Button, DialogFrame, Field, Input, Kbd, ModalPanel, Textarea, useToast } from '../../ui'
 import { LONG_SESSION_MIN, minutesBetween, parseActual } from './labels'
+import { fileInput, useAddShot, useUpdateShot } from './useAssets'
 import { useCloseSession, useDiscardSession, useParking } from './useProjects'
 
 // Oturum kapanışı (PROJELER.md "Oturumlar"): proje renginde modal. "Nerede bıraktın" isteğe bağlı,
@@ -52,6 +53,25 @@ function CloseForm({ project, onClose, onClosed }: FormProps) {
   const close = useCloseSession()
   const discard = useDiscardSession()
   const parked = (useParking(project.id).data ?? []).filter((p) => p.inActiveSession)
+  // Zaman makinesi (5d-4): Ctrl V ile isteğe bağlı kare; hemen kaydedilir, "Kaldır" çöp kutusuna atar.
+  const [shot, setShot] = useState<{ id: string; preview: string } | null>(null)
+  const addShot = useAddShot()
+  const updateShot = useUpdateShot()
+
+  function onPaste(e: ClipboardEvent) {
+    const file = Array.from(e.clipboardData.files).find((f) => f.type.startsWith('image/'))
+    if (!file) return
+    e.preventDefault()
+    void fileInput(file).then((input) =>
+      addShot.mutate(
+        { projectId: project.id, sessionId: session.id, ...input, mime: file.type },
+        {
+          onSuccess: ({ id }) => setShot({ id, preview: URL.createObjectURL(file) }),
+          onError: (err) => setError(errorText(err)),
+        },
+      ),
+    )
+  }
   const { toast } = useToast()
 
   function save() {
@@ -85,7 +105,7 @@ function CloseForm({ project, onClose, onClosed }: FormProps) {
   }
 
   return (
-    <div onKeyDown={onKeyDown}>
+    <div onKeyDown={onKeyDown} onPaste={onPaste}>
       <ModalPanel
         title={`${project.name} oturumunu kapat`}
         fill={project.color}
@@ -97,7 +117,7 @@ function CloseForm({ project, onClose, onClosed }: FormProps) {
         }
         hints={
           <span className="flex items-center gap-1.5 whitespace-nowrap">
-            <Kbd>Ctrl Enter</Kbd> kaydeder
+            <Kbd>Ctrl Enter</Kbd> kaydeder · <Kbd>Ctrl V</Kbd> kare
           </span>
         }
         actions={
@@ -175,6 +195,24 @@ function CloseForm({ project, onClose, onClosed }: FormProps) {
               className="w-40"
             />
           </Field>
+        )}
+        {shot && (
+          <div className="flex items-center gap-3">
+            <img src={shot.preview} alt="" className="h-16 w-auto rounded-[12px]" />
+            <span className="grow text-[14px] font-semibold text-ink2">
+              Kare zaman makinesine eklendi.
+            </span>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                updateShot.mutate({ id: shot.id, deleted: true })
+                setShot(null)
+              }}
+            >
+              Kaldır
+            </Button>
+          </div>
         )}
         {parked.length > 0 && (
           <div className="flex flex-col gap-1.5">
