@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
 import type {
   Briefing,
+  KanbanStatus,
   ParkingAddInput,
   ProjectCreateInput,
   ProjectSummary,
   ProjectUpdateInput,
   SessionCloseInput,
   SessionStartInput,
+  Task,
 } from '@shared/ipc'
 import { planningKeys } from '../bugun/usePlanning'
 
@@ -159,3 +161,46 @@ export const useNextSteps = (p: ProjectSummary) =>
     ],
     queryFn: () => window.api.invoke('project:nextSteps', { id: p.id }),
   })
+
+// ---------------------------------------------------------------- Görevler (kanban, 5c)
+
+/** Kanbanın görevleri. Anahtar 'task' altında: Bugün'deki ve paletteki her görev değişikliği de yeniler. */
+export const projectTasksKey = (projectId: string) =>
+  [...planningKeys.tasks, 'project', projectId] as const
+
+export const useProjectTasks = (projectId: string) =>
+  useQuery({
+    queryKey: projectTasksKey(projectId),
+    queryFn: () => window.api.invoke('task:listProject', { projectId }),
+  })
+
+/** Projenin kilometre taşları (filtre, kart etiketi, panel seçimi). */
+export const useMilestones = (projectId: string) =>
+  useQuery({
+    queryKey: [...projectKeys.all, 'milestones', projectId],
+    queryFn: () => window.api.invoke('milestone:list', { projectId }),
+  })
+
+/**
+ * Kartı başka kolona taşır (sürükle-bırak, ← / →). Kart bırakıldığı kolonda hemen görünür;
+ * Bitti'ye geçiş `status`'u ana süreçte senkronlar, sonra tüm görev sorguları yenilenir.
+ */
+export function useMoveTask(projectId: string) {
+  const client = useQueryClient()
+  const key = projectTasksKey(projectId)
+  return useMutation({
+    mutationFn: (input: { id: string; kanbanStatus: KanbanStatus }) =>
+      window.api.invoke('task:update', input),
+    onMutate: async ({ id, kanbanStatus }) => {
+      await client.cancelQueries({ queryKey: key })
+      client.setQueryData<Task[]>(key, (list) =>
+        list?.map((t) =>
+          t.id === id
+            ? { ...t, kanbanStatus, status: kanbanStatus === 'done' ? 'done' : 'open' }
+            : t,
+        ),
+      )
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: planningKeys.tasks }),
+  })
+}

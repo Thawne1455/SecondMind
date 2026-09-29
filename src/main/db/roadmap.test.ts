@@ -6,9 +6,9 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { ulid } from 'ulid'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from './client'
-import { createTask, setTaskDone } from './planning'
+import { createTask, listProjectTasks, setTaskDone, updateTask } from './planning'
 import { addParking, createProject, resolveParking, updateProject } from './projects'
-import { projectNextSteps } from './roadmap'
+import { listMilestones, projectNextSteps } from './roadmap'
 import * as schema from './schema'
 
 let db: Db
@@ -103,5 +103,70 @@ describe('projectNextSteps', () => {
         .run()
     }
     expect(projectNextSteps(db, id, at(5))[0]!.reason).toContain('2 test eden bildirdi')
+  })
+})
+
+describe('kanban güncellemesi', () => {
+  const row = (tid: string) => db.select().from(schema.tasks).where(eq(schema.tasks.id, tid)).get()!
+
+  it('Bitti kolonu görevi bitirir, geri alınca açılır', () => {
+    const t = createTask(db, { title: 'Ses', projectId: id }, at(2))
+    updateTask(db, { id: t.id, kanbanStatus: 'testing' }, at(3))
+    expect(row(t.id)).toMatchObject({ status: 'open', kanbanStatus: 'testing' })
+    updateTask(db, { id: t.id, kanbanStatus: 'done' }, at(4))
+    expect(row(t.id)).toMatchObject({ status: 'done', kanbanStatus: 'done' })
+    expect(row(t.id).completedAt).toEqual(at(4))
+    updateTask(db, { id: t.id, kanbanStatus: 'doing' }, at(5))
+    expect(row(t.id)).toMatchObject({ status: 'open', kanbanStatus: 'doing', completedAt: null })
+  })
+
+  it('proje dışı görev kolon almaz', () => {
+    const t = createTask(db, { title: 'Market' }, at(2))
+    updateTask(db, { id: t.id, kanbanStatus: 'done' }, at(3))
+    expect(row(t.id)).toMatchObject({ status: 'open', kanbanStatus: null })
+  })
+
+  it('taşa bağlanınca an yazılır; hata değilse önem silinir', () => {
+    const t = createTask(
+      db,
+      { title: 'Çökme', projectId: id, kind: 'bug', severity: 'critical' },
+      at(2),
+    )
+    expect(row(t.id).severity).toBe('critical')
+    updateTask(db, { id: t.id, milestoneId: 'm1' }, at(3))
+    expect(row(t.id).milestoneSetAt).toEqual(at(3))
+    updateTask(db, { id: t.id, title: 'Çökme!' }, at(4))
+    expect(row(t.id).milestoneSetAt).toEqual(at(3))
+    updateTask(db, { id: t.id, kind: 'task' }, at(5))
+    expect(row(t.id).severity).toBeNull()
+    updateTask(db, { id: t.id, milestoneId: null }, at(6))
+    expect(row(t.id).milestoneSetAt).toBeNull()
+  })
+
+  it('proje listesi: açıklar önce, bitenler sonra', () => {
+    const a = createTask(db, { title: 'A', projectId: id }, at(2))
+    const b = createTask(db, { title: 'B', projectId: id }, at(2))
+    createTask(db, { title: 'Başka' }, at(2))
+    setTaskDone(db, a.id, true, at(3))
+    expect(listProjectTasks(db, id, at(4)).map((t) => t.id)).toEqual([b.id, a.id])
+  })
+})
+
+describe('listMilestones', () => {
+  it('göreve bağlı kriter görev bitince işaretli', () => {
+    const t = createTask(db, { title: 'Menü', projectId: id }, at(2))
+    db.insert(schema.milestones)
+      .values({
+        id: 'm1',
+        projectId: id,
+        title: 'Demo',
+        criteriaJson: JSON.stringify([
+          { id: 'c1', text: 'Menü bitti', done: false, taskId: t.id },
+          { id: 'c2', text: 'Fragman', done: false, taskId: null },
+        ]),
+      })
+      .run()
+    setTaskDone(db, t.id, true, at(3))
+    expect(listMilestones(db, id)[0]!.criteria.map((c) => c.done)).toEqual([true, false])
   })
 })

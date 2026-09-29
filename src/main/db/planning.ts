@@ -103,6 +103,12 @@ function toTask(r: TaskRow): Task {
     completedAt: r.completedAt?.getTime() ?? null,
     createdAt: r.createdAt.getTime(),
     projectId: r.projectId,
+    kind: r.kind,
+    kanbanStatus: r.kanbanStatus,
+    severity: r.kind === 'bug' ? r.severity : null,
+    reproSteps: r.reproSteps,
+    milestoneId: r.milestoneId,
+    source: r.source,
   }
 }
 
@@ -128,6 +134,28 @@ export function listTasks(db: Db, status: TaskStatus, now = new Date()): Task[] 
     .map(toTask)
 }
 
+const PROJECT_DONE_MAX = 50
+
+/** Projenin görevleri (kanban): açıklar `compareTasks` sırasıyla, sonra bitenler en yeni önce (en fazla 50). */
+export function listProjectTasks(db: Db, projectId: string, now = new Date()): Task[] {
+  const live = and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt))
+  const open = db
+    .select()
+    .from(tasks)
+    .where(and(live, eq(tasks.status, 'open')))
+    .all()
+    .map((r) => ({ ...r, priority: r.priority as TaskPriority }))
+    .sort(compareTasks(dayKey(now)))
+  const done = db
+    .select()
+    .from(tasks)
+    .where(and(live, eq(tasks.status, 'done')))
+    .orderBy(desc(tasks.completedAt), desc(tasks.id))
+    .limit(PROJECT_DONE_MAX)
+    .all()
+  return [...open, ...done].map(toTask)
+}
+
 export function createTask(db: Db, input: TaskCreateInput, now = new Date()): Task {
   return db.transaction((tx) => {
     const row = tx
@@ -142,6 +170,11 @@ export function createTask(db: Db, input: TaskCreateInput, now = new Date()): Ta
         plannedDate: input.plannedDate ?? null,
         projectId: input.projectId ?? null,
         kanbanStatus: input.projectId ? 'todo' : null,
+        kind: input.kind ?? 'task',
+        severity: input.kind === 'bug' ? (input.severity ?? null) : null,
+        reproSteps: input.reproSteps ?? '',
+        milestoneId: input.milestoneId ?? null,
+        milestoneSetAt: input.milestoneId ? now : null,
         createdAt: now,
         updatedAt: now,
       })
@@ -173,12 +206,21 @@ export function updateTask(db: Db, input: TaskUpdateInput, now = new Date()): Ta
   const { id, ...patch } = input
   return db.transaction((tx) => {
     const before = liveTask(tx, id)
-    const after = tx
-      .update(tasks)
-      .set({ ...patch, ...(patch.title && { title: patch.title.trim() }), updatedAt: now })
-      .where(eq(tasks.id, id))
-      .returning()
-      .get()
+    const set: Partial<typeof tasks.$inferInsert> = { ...patch, updatedAt: now }
+    if (patch.title) set.title = patch.title.trim()
+    // Kanban kolonu ↔ durum (MIMARI: aynı yazımda senkron). Proje dışı görev kolon almaz.
+    if (patch.kanbanStatus !== undefined) {
+      if (before.projectId === null) delete set.kanbanStatus
+      else if ((patch.kanbanStatus === 'done') !== (before.status === 'done')) {
+        set.status = patch.kanbanStatus === 'done' ? 'done' : 'open'
+        set.completedAt = patch.kanbanStatus === 'done' ? now : null
+      }
+    }
+    // Kapsam ölçer: taşa bağlandığı an.
+    if (patch.milestoneId !== undefined && patch.milestoneId !== before.milestoneId)
+      set.milestoneSetAt = patch.milestoneId ? now : null
+    if ((patch.kind ?? before.kind) !== 'bug') set.severity = null
+    const after = tx.update(tasks).set(set).where(eq(tasks.id, id)).returning().get()
     logUpdate(tx, 'tasks', before, after)
     return toTask(after)
   })

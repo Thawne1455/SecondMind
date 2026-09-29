@@ -17,6 +17,12 @@ const isoDaysSchema = z
 export const TASK_TITLE_MAX = 300
 export const taskPrioritySchema = z.union([z.literal(1), z.literal(2), z.literal(3)])
 export const taskStatusSchema = z.enum(['open', 'done'])
+export const taskKindSchema = z.enum(['task', 'bug', 'research'])
+/** Proje görevinin kanban kolonu (5c); null = proje dışı görev. */
+export const kanbanStatusSchema = z.enum(['todo', 'doing', 'testing', 'done'])
+export const taskSeveritySchema = z.enum(['critical', 'major', 'minor'])
+export const taskSourceSchema = z.enum(['taha', 'park', 'playtest', 'todo', 'claude_code'])
+export const REPRO_MAX = 5_000
 const estimateSchema = z
   .number()
   .int()
@@ -38,6 +44,13 @@ export const taskSchema = z.object({
   createdAt: z.number(),
   /** Bağlı proje; null = genel görev. */
   projectId: z.string().nullable(),
+  kind: taskKindSchema,
+  kanbanStatus: kanbanStatusSchema.nullable(),
+  /** Sadece hata türünde dolu. */
+  severity: taskSeveritySchema.nullable(),
+  reproSteps: z.string(),
+  milestoneId: z.string().nullable(),
+  source: taskSourceSchema,
 })
 
 const taskFields = {
@@ -47,6 +60,10 @@ const taskFields = {
   estimateMin: estimateSchema.nullable(),
   dueDate: dayKeySchema.nullable(),
   plannedDate: dayKeySchema.nullable(),
+  kind: taskKindSchema,
+  severity: taskSeveritySchema.nullable(),
+  reproSteps: z.string().max(REPRO_MAX),
+  milestoneId: z.string().nullable(),
 }
 
 export const taskCreateInputSchema = z.object({
@@ -57,11 +74,22 @@ export const taskCreateInputSchema = z.object({
   dueDate: taskFields.dueDate.optional(),
   plannedDate: taskFields.plannedDate.optional(),
   projectId: z.string().nullish(),
+  kind: taskFields.kind.optional(),
+  severity: taskFields.severity.optional(),
+  reproSteps: taskFields.reproSteps.optional(),
+  milestoneId: taskFields.milestoneId.optional(),
 })
 
+/**
+ * Kısmi güncelleme. `kanbanStatus` değişince `status` senkron (Bitti ↔ done); taş değişince
+ * `milestone_set_at` şimdi olur; tür hata değilse önem silinir.
+ */
 export const taskUpdateInputSchema = z
-  .object({ id: z.string() })
+  .object({ id: z.string(), kanbanStatus: kanbanStatusSchema.optional() })
   .extend(z.object(taskFields).partial().shape)
+
+/** Projenin görevleri (kanban): açıklar `compareTasks` sırasıyla, bitenler en yeni önce en fazla 50. */
+export const taskListProjectInputSchema = z.object({ projectId: z.string() })
 
 export const taskListInputSchema = z.object({ status: taskStatusSchema })
 
@@ -193,6 +221,9 @@ export const routineUpdateInputSchema = z
 export type DayKey = z.infer<typeof dayKeySchema>
 export type TaskPriority = z.infer<typeof taskPrioritySchema>
 export type TaskStatus = z.infer<typeof taskStatusSchema>
+export type TaskKind = z.infer<typeof taskKindSchema>
+export type KanbanStatus = z.infer<typeof kanbanStatusSchema>
+export type TaskSeverity = z.infer<typeof taskSeveritySchema>
 export type Task = z.infer<typeof taskSchema>
 export type TaskCreateInput = z.input<typeof taskCreateInputSchema>
 export type TaskUpdateInput = z.input<typeof taskUpdateInputSchema>

@@ -8,29 +8,14 @@ import { useNow } from '../../lib/useNow'
 import { Button, useToast } from '../../ui'
 import { formatTimer } from '../projeler/labels'
 import { useActiveSession, useProjectMap } from '../projeler/useProjects'
+import { pickFocus } from './focus'
 import { useMoveBlock, useStartTask, useToggleDone } from './usePlanning'
 
-// Şimdi (EKRANLAR.md Bugün): şu anki blok → yoksa sıradaki blok ("13:00'TE") → yoksa en öndeki açık görev.
+// Şimdi (EKRANLAR.md Bugün): şu anki blok → yoksa sıradaki blok ("13:00'TE") → yoksa en öndeki açık görev;
+// proje görevleri arasında sıradaki adım motoru seçer (oturum süren proje önce; seçim `focus.ts`).
 // Proje görevinde etiket proje adını ve rengini taşır; "Başla" projede oturum açar ve bloğu şimdiye çeker.
 // O projenin oturumu sürerken "Sonraya at" yerine "Oturumu kapat" gelir. Başka projede süren oturum
 // etiketin altında tek satır olarak görünür.
-
-type Focus =
-  | { kind: 'current'; block: ScheduleBlock }
-  | { kind: 'next'; block: ScheduleBlock }
-  | { kind: 'task'; task: Task }
-  | { kind: 'empty' }
-
-function pickFocus(day: ScheduleDay | undefined, nowMin: number, open: Task[]): Focus {
-  const blocks = (day?.blocks ?? []).filter((b) => !b.done)
-  const current = blocks.filter((b) => b.start <= nowMin && nowMin < b.end)
-  const cur = current.find((b) => b.kind === 'task') ?? current[0]
-  if (cur) return { kind: 'current', block: cur }
-  const next = blocks.find((b) => b.start > nowMin)
-  if (next) return { kind: 'next', block: next }
-  const task = open[0]
-  return task ? { kind: 'task', task } : { kind: 'empty' }
-}
 
 type Props = {
   day: ScheduleDay | undefined
@@ -51,7 +36,7 @@ export function NowSection({ day, nowMin, openTasks, aside }: Props) {
   const { toast } = useToast()
   const onError = (e: unknown) => toast({ message: errorText(e), domain: 'warning' })
 
-  const focus = pickFocus(day, nowMin, openTasks)
+  const focus = pickFocus(day, nowMin, openTasks, projects, running?.project.id ?? null)
   const taskId =
     focus.kind === 'task'
       ? focus.task.id

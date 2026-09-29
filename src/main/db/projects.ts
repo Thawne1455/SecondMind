@@ -24,6 +24,7 @@ import { logActivity } from './activity'
 import type { Db, DbTx } from './client'
 import { scanActivity } from './scan'
 import { codeTodos, commits, parking, projectFolders, projects, sessions, tasks } from './schema'
+import { projectNextSteps } from './roadmap'
 
 // Projeler, oturumlar ve park alanı (Aşama 5a). Taha'nın her değişikliği activity_log'a yazılır;
 // `last_opened_at` bir okuma sinyalidir, log'a yazılmaz.
@@ -85,6 +86,12 @@ function openSessionRow(db: Db | DbTx): SessionRow | undefined {
 }
 
 // ---------------------------------------------------------------- projeler
+
+/** Şeritteki sıradaki adım: motorun 1. adımı (arşivde de hesaplanır; ucuz). */
+function topStepOf(db: Db, projectId: string, now: Date): ProjectSummary['topStep'] {
+  const first = projectNextSteps(db, projectId, now)[0]
+  return first ? { title: first.title, reason: first.reason, taskId: first.taskId ?? null } : null
+}
 
 export function listProjects(db: Db, now = new Date()): ProjectSummary[] {
   const rows = db.select().from(projects).where(isNull(projects.deletedAt)).all()
@@ -195,6 +202,7 @@ export function listProjects(db: Db, now = new Date()): ProjectSummary[] {
       weekSessions: thisWeek.length,
       lastScanAt: scan?.lastScanAt ?? null,
       weeks: weeklyActivity(commitTimes.get(p.id) ?? [], spans, now, ACTIVITY_WEEKS),
+      topStep: topStepOf(db, p.id, now),
       sessionOpen: active !== null,
     }
   })

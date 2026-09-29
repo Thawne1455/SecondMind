@@ -89,10 +89,14 @@ Runika'nın yayın platformu itch.io (Windows + WebGL), Steam iptal. Hızlı Dö
   - [x] 5c-1 Veri ve motorlar: `milestones`, `tasks` ekleri, `playtest_*` (0009 + geri dönüş; mevcut proje görevleri
     kanbana), `domain/nextSteps` + `domain/playtest` + `domain/scope` (+ testler), Kokpit "Şimdi bunu yap" motordan
     (ilk 3 adım, gerekçe)
-  - [ ] 5c-2 Görevler sekmesi: kanban (türler, önem, erteleme, hızlı satır), Bugün'ün Şimdi'si motoru kullanır
+  - [x] 5c-2 Görevler sekmesi: kanban (türler, önem, erteleme, hızlı satır), Bugün'ün Şimdi'si motoru kullanır
+    (şerit ve brifingdeki sıradaki adım da motordan)
   - [ ] 5c-3 Yol haritası sekmesi: taşlar + çıkış kriterleri, zaman çizelgesi, kapsam ölçer ve tahmin, park sütunu,
     yayın platformu şablonu, proje takvimi; Kokpit'te Kilometre taşı karosu
   - [ ] 5c-4 Playtest: `+ Yapıştır`, kümeler, sürükle/ayır, hataya çevir; Kokpit'te Playtest karosu
+  Kararlar (5c): playtest'te elle ayrılan nokta kendi kümesi olur ve kilitlenir. Kanban kolon içi sıra motor/`compareTasks`
+  sırası (elle sıralama yok); erteleme eylemleri (Böl · Sil · Bugün yap) kart panelinde. Bugün'ün Şimdi'si blok yoksa
+  süren oturumun projesinin 1. adımını, o yoksa en öndeki proje görevi yerine o projenin 1. adımını alır.
 - [ ] 5d Doküman ve hafıza: doküman ağacı + şablonlar + ADR, bağlı repo markdown'ları, GDD ile gerçeklik karşılaştırması
   (`domain/gddCompare` + test), Günlük, devlog taslağı (`domain/devlog` + test), Varlıklar, zaman makinesi galerisi
   (görüntü klasörleri + kapanışta yapıştırma) ve karşılaştırma

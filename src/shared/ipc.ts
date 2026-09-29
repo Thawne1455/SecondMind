@@ -30,6 +30,7 @@ import {
   scanReportSchema,
   briefingSchema,
   nextStepSchema,
+  milestoneSchema,
   projectScanInfoSchema,
   sessionCloseInputSchema,
   sessionSchema,
@@ -47,6 +48,7 @@ import {
   scheduleMoveInputSchema,
   taskCreateInputSchema,
   taskListInputSchema,
+  taskListProjectInputSchema,
   taskSchema,
   taskSplitInputSchema,
   taskUpdateInputSchema,
@@ -214,11 +216,15 @@ export const ipcContract = {
     input: taskListInputSchema,
     output: z.array(taskSchema),
   },
+  'task:listProject': {
+    input: taskListProjectInputSchema,
+    output: z.array(taskSchema),
+  },
   'task:create': {
     input: taskCreateInputSchema,
     output: taskSchema,
   },
-  /** Kısmi güncelleme; `plannedDate` elle değişince erteleme sayılmaz. */
+  /** Kısmi güncelleme; `plannedDate` elle değişince erteleme sayılmaz; kanban kolonu durumu senkronlar. */
   'task:update': {
     input: taskUpdateInputSchema,
     output: taskSchema,
@@ -357,6 +363,11 @@ export const ipcContract = {
   'project:nextSteps': {
     input: z.object({ id: z.string() }),
     output: z.array(nextStepSchema),
+  },
+  /** Projenin kilometre taşları, sıraya göre. */
+  'milestone:list': {
+    input: z.object({ projectId: z.string() }),
+    output: z.array(milestoneSchema),
   },
   /** Çöp kutusuna; süren oturum varsa şimdi kapanır. */
   'project:delete': {

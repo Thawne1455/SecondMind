@@ -22,18 +22,20 @@ import { useNotes } from '../bilgi/useKnowledge'
 import { BriefingBand } from './BriefingBand'
 import { Cockpit } from './Cockpit'
 import { ProjectNotes } from './ProjectNotes'
+import { TaskBoard } from './TaskBoard'
 import { formatTimer, KIND_LABEL, STATUS_LABEL } from './labels'
 import {
   useDeleteProject,
   useProjectOpened,
   useProjects,
   useRestoreProject,
+  useProjectTasks,
   useScan,
   useUpdateProject,
 } from './useProjects'
 
-// Proje detayı: proje renginde başlık bandı + sekmeler (Kokpit, Notlar; yapılmamış sekmeler görünmez).
-// Klavye: B başla/kapat, P park (yazı alanında değilken), Ctrl 1 / Ctrl 2 sekme.
+// Proje detayı: proje renginde başlık bandı + sekmeler (Kokpit, Görevler, Notlar; yapılmamış sekmeler görünmez).
+// Klavye: B başla/kapat, P park (yazı alanında değilken), Ctrl 1 / 2 / 3 sekme.
 
 export function ProjectPage() {
   const { projectId } = useParams()
@@ -62,23 +64,33 @@ export function ProjectPage() {
   )
 }
 
-type Tab = 'cockpit' | 'notes'
+type Tab = 'cockpit' | 'tasks' | 'notes'
+
+/** Sekmelerin yolu ve kısayolu (Ctrl + sıra). */
+const TAB_PATH: Record<Tab, string> = { cockpit: '', tasks: '/gorevler', notes: '/notlar' }
+const TAB_ORDER: Tab[] = ['cockpit', 'tasks', 'notes']
 
 function ProjectView({ project }: { project: ProjectSummary }) {
   const { startSession, closeSession, openPark } = useShell()
   const session = project.activeSession
   const { noteId } = useParams()
   const navigate = useNavigate()
-  const tab: Tab = useLocation().pathname.includes('/notlar') ? 'notes' : 'cockpit'
+  const path = useLocation().pathname
+  const tab: Tab = path.includes('/notlar')
+    ? 'notes'
+    : path.includes('/gorevler')
+      ? 'tasks'
+      : 'cockpit'
   const { briefing, dismiss } = useProjectOpened(project.id)
   const now = useNow(60_000)
 
   useEffect(() => {
     function onTabKey(e: KeyboardEvent) {
       if (!e.ctrlKey || e.altKey || e.shiftKey) return
-      if (e.key === '1' || e.key === '2') {
+      const next = TAB_ORDER[Number(e.key) - 1]
+      if (next) {
         e.preventDefault()
-        void navigate(e.key === '1' ? `/projeler/${project.id}` : `/projeler/${project.id}/notlar`)
+        void navigate(`/projeler/${project.id}${TAB_PATH[next]}`)
       }
     }
     window.addEventListener('keydown', onTabKey)
@@ -108,6 +120,8 @@ function ProjectView({ project }: { project: ProjectSummary }) {
       <Tabs project={project} tab={tab} />
       {tab === 'notes' ? (
         <ProjectNotes project={project} noteId={noteId} />
+      ) : tab === 'tasks' ? (
+        <TaskBoard project={project} />
       ) : (
         <>
           {briefing && (
@@ -132,15 +146,18 @@ function ProjectView({ project }: { project: ProjectSummary }) {
 function Tabs({ project, tab }: { project: ProjectSummary; tab: Tab }) {
   const navigate = useNavigate()
   const notes = useNotes({ projectId: project.id }).data?.length ?? 0
-  const items: { id: Tab; label: string; to: string; key: string }[] = [
-    { id: 'cockpit', label: 'Kokpit', to: `/projeler/${project.id}`, key: 'Ctrl 1' },
-    {
-      id: 'notes',
-      label: notes ? `Notlar · ${notes}` : 'Notlar',
-      to: `/projeler/${project.id}/notlar`,
-      key: 'Ctrl 2',
-    },
-  ]
+  const open = (useProjectTasks(project.id).data ?? []).filter((t) => t.status === 'open').length
+  const labels: Record<Tab, string> = {
+    cockpit: 'Kokpit',
+    tasks: open ? `Görevler · ${open}` : 'Görevler',
+    notes: notes ? `Notlar · ${notes}` : 'Notlar',
+  }
+  const items = TAB_ORDER.map((id, i) => ({
+    id,
+    label: labels[id],
+    to: `/projeler/${project.id}${TAB_PATH[id]}`,
+    key: `Ctrl ${i + 1}`,
+  }))
   return (
     <nav aria-label="Proje sekmeleri" className="flex items-center gap-2">
       {items.map((t) => (

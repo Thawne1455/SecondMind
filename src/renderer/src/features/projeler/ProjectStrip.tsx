@@ -9,7 +9,7 @@ import { formatTimer, KIND_LABEL, SILENT_AFTER_DAYS, STATUS_LABEL } from './labe
 import { WeekBars } from './WeekBars'
 
 // Proje şeridi (PROJELER.md "Liste ekranı"): tam genişlikte yatay şerit, kart ızgarası değil.
-// Soldan sağa: proje renginde ad bloğu · sıradaki adım + Başla · ritim, son oturum, sessizlik, Sonra.
+// Soldan sağa: proje renginde ad bloğu · sıradaki adım (motorun 1. sırası) + Başla · ritim, son oturum, sessizlik, Sonra.
 // Klavye: Enter açar, B başlatır / kapatır, P park eder (liste ↑ ↓ ile gezer).
 
 type Props = {
@@ -27,6 +27,8 @@ export function ProjectStrip({ project: p, now, ref, onKeyDown }: Props) {
   const silent = !session && p.status === 'active' && p.silentDays >= SILENT_AFTER_DAYS
   const dim = p.status !== 'active'
   const last = p.lastSession
+  // Sıradaki adım motorunun 1. sırası; motor aday bulamadıysa son oturumun serbest metni.
+  const step = p.topStep?.title ?? p.nextStep
 
   function keys(e: KeyboardEvent<HTMLElement>) {
     if (e.target !== e.currentTarget) return
@@ -92,8 +94,8 @@ export function ProjectStrip({ project: p, now, ref, onKeyDown }: Props) {
       {/* Sıradaki adım */}
       <div className="flex min-w-0 grow flex-col justify-center gap-2 px-7 py-5">
         <span className="cx text-ink3">Sıradaki adım</span>
-        {p.nextStep ? (
-          <p className="m-0 line-clamp-2 text-[22px] leading-[1.2] font-extrabold">{p.nextStep}</p>
+        {step ? (
+          <p className="m-0 line-clamp-2 text-[22px] leading-[1.2] font-extrabold">{step}</p>
         ) : (
           <p className="m-0 text-[18px] font-bold text-ink3">
             Yazılmadı. Oturumu kapatırken sıradaki adımı yaz.

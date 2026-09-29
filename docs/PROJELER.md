@@ -54,7 +54,7 @@ Kenar çubuğu aktif projelerin renkli karelerini (en fazla 5, aynı sıra) gös
 son tarama zamanı, sağda `Başla` ↔ `Oturumu kapat` (oturum sürerken canlı süreyle), `Tara`, `Klasörde aç`.
 
 Altında sekmeler (Ctrl 1…6). Her sekme projenin farklı bir hafızası. Henüz yapılmamış sekme görünmez.
-5b'de iki sekme var: **Kokpit** (Ctrl 1) ve **Notlar** (Ctrl 2). Notlar: projeye ait serbest notlar (metin + görsel,
+5c-2'den beri: **Kokpit** (Ctrl 1), **Görevler** (Ctrl 2), **Notlar** (Ctrl 3). Notlar: projeye ait serbest notlar (metin + görsel,
 markdown); solda liste (son düzenlenen üstte), sağda Bilgi'nin editörü. Aynı `notes` tablosu (`project_id` dolu),
 bu yüzden Bilgi'de ve aramada da görünürler. Dokümantasyon ağacı (5d) ayrı kalır: o yapılandırılmış belge, bu serbest not.
 

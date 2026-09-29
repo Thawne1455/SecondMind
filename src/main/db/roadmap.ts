@@ -1,5 +1,5 @@
-import { and, eq, inArray, isNull } from 'drizzle-orm'
-import type { NextStep } from '@shared/ipc'
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm'
+import type { Milestone, NextStep } from '@shared/ipc'
 import { type NextStepMilestone, type NextStepTask, rankNextSteps } from '../domain/nextSteps'
 import { dayKey } from '../domain/recurrence'
 import type { Db } from './client'
@@ -106,4 +106,35 @@ export function projectNextSteps(db: Db, projectId: string, now = new Date()): N
     },
     now,
   )
+}
+
+/** Projenin taşları, sıraya göre. Göreve bağlı kriter görev bitince işaretli sayılır. */
+export function listMilestones(db: Db, projectId: string): Milestone[] {
+  const rows = db
+    .select()
+    .from(milestones)
+    .where(and(eq(milestones.projectId, projectId), isNull(milestones.deletedAt)))
+    .orderBy(asc(milestones.sort), asc(milestones.id))
+    .all()
+  const done = new Set(
+    db
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(and(eq(tasks.projectId, projectId), eq(tasks.status, 'done'), isNull(tasks.deletedAt)))
+      .all()
+      .map((t) => t.id),
+  )
+  return rows.map((m) => ({
+    id: m.id,
+    projectId: m.projectId,
+    title: m.title,
+    description: m.description,
+    targetDate: m.targetDate,
+    sort: m.sort,
+    criteria: (JSON.parse(m.criteriaJson) as CriterionJson[]).map((c) => ({
+      ...c,
+      done: c.done || (c.taskId !== null && done.has(c.taskId)),
+    })),
+    doneAt: m.doneAt?.getTime() ?? null,
+  }))
 }

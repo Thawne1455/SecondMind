@@ -32,6 +32,7 @@ export function App() {
         <Route path="/onay" element={<OnayPage />} />
         <Route path="/projeler" element={<ProjelerPage />} />
         <Route path="/projeler/:projectId" element={<ProjectPage />} />
+        <Route path="/projeler/:projectId/gorevler" element={<ProjectPage />} />
         <Route path="/projeler/:projectId/notlar/:noteId?" element={<ProjectPage />} />
         <Route path="/okul" element={<OkulPage />} />
         <Route path="/zihin" element={<ZihinPage />} />

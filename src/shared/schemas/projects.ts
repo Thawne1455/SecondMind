@@ -71,6 +71,10 @@ export const projectSummarySchema = z.object({
   lastScanAt: z.number().nullable(),
   /** Son 8 haftanın commit sayısı ve oturum dakikası, en eski önce (şerit aktivite çubukları). */
   weeks: z.array(z.object({ commits: z.number(), minutes: z.number() })),
+  /** Sıradaki adım motorunun 1. adımı (şerit); yoksa null. */
+  topStep: z
+    .object({ title: z.string(), reason: z.string(), taskId: z.string().nullable() })
+    .nullable(),
 })
 
 const projectName = z.string().trim().min(1, 'Ad boş').max(PROJECT_NAME_MAX)
@@ -238,3 +242,23 @@ export const nextStepSchema = z.object({
   suggestSplit: z.boolean(),
 })
 export type NextStep = z.infer<typeof nextStepSchema>
+
+/** Kilometre taşı (5c). Kriter bir göreve bağlıysa görev bitince işaretli sayılır. */
+export const milestoneSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  title: z.string(),
+  description: z.string(),
+  targetDate: z.string().nullable(),
+  sort: z.number(),
+  criteria: z.array(
+    z.object({
+      id: z.string(),
+      text: z.string(),
+      done: z.boolean(),
+      taskId: z.string().nullable(),
+    }),
+  ),
+  doneAt: z.number().nullable(),
+})
+export type Milestone = z.infer<typeof milestoneSchema>

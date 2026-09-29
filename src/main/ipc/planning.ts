@@ -8,6 +8,7 @@ import {
   deleteTask,
   listReminders,
   listRoutines,
+  listProjectTasks,
   listTasks,
   resolveMissedReminders,
   restoreReminder,
@@ -23,6 +24,7 @@ import { handle } from './handle'
 
 export function registerPlanningIpc(): void {
   handle('task:list', ({ status }) => listTasks(getDb(), status))
+  handle('task:listProject', ({ projectId }) => listProjectTasks(getDb(), projectId))
   handle('task:create', (input) => createTask(getDb(), input))
   handle('task:update', (input) => updateTask(getDb(), input))
   handle('task:setDone', ({ id, done }) => setTaskDone(getDb(), id, done))

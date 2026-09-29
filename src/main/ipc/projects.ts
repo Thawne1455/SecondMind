@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import type { Briefing, FolderInspection, IpcEvent } from '@shared/ipc'
 import { getDb } from '../db/client'
 import { projectBriefing, projectScanInfo } from '../db/projectInfo'
-import { projectNextSteps } from '../db/roadmap'
+import { listMilestones, projectNextSteps } from '../db/roadmap'
 import {
   addParking,
   closeSession,
@@ -84,13 +84,17 @@ export function registerProjectsIpc(hidePark: () => void): void {
     // Aynı açılışın tekrarı (React StrictMode, hızlı geri-ileri) brifingi kaybetmesin: kısa süre aynı sonuç.
     const cached = recentOpens.get(id)
     if (cached && Date.now() - cached.at < REOPEN_MS) return cached.briefing
-    const briefing = projectBriefing(getDb(), id)
+    const found = projectBriefing(getDb(), id)
+    // Brifingin sıradaki adımı motorun 1. adımı (PROJELER.md > Geri dönüş brifingi).
+    const top = found && projectNextSteps(getDb(), id)[0]
+    const briefing = found && { ...found, nextStep: top?.title ?? found.nextStep }
     markProjectOpened(getDb(), id)
     recentOpens.set(id, { at: Date.now(), briefing })
     return briefing
   })
   handle('project:scanInfo', ({ id }) => projectScanInfo(getDb(), id))
   handle('project:nextSteps', ({ id }) => projectNextSteps(getDb(), id))
+  handle('milestone:list', ({ projectId }) => listMilestones(getDb(), projectId))
   handle('project:delete', ({ id }) => deleteProject(getDb(), id))
   handle('project:restore', ({ id }) => restoreProject(getDb(), id))
   handle('project:pickFolder', async () => {
