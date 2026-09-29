@@ -29,12 +29,25 @@ export const tasks = sqliteTable(
     projectId: text('project_id'),
     courseId: text('course_id'),
     milestoneId: text('milestone_id'),
+    // Proje görevleri (5c). `status = done` ↔ `kanban_status = done` aynı yazımda senkron.
+    /** null = proje dışı görev. */
+    kanbanStatus: text('kanban_status', { enum: ['todo', 'doing', 'testing', 'done'] }),
+    /** Sadece hata türünde. */
+    severity: text('severity', { enum: ['critical', 'major', 'minor'] }),
+    reproSteps: text('repro_steps').notNull().default(''),
+    /** Göreve taşın bağlandığı an (kapsam ölçer). */
+    milestoneSetAt: integer('milestone_set_at', { mode: 'timestamp_ms' }),
+    source: text('source', { enum: ['taha', 'park', 'playtest', 'todo', 'claude_code'] })
+      .notNull()
+      .default('taha'),
+    sourceId: text('source_id'),
     ...timestamps(),
     deletedAt: deletedAt(),
   },
   (t) => [
     index('tasks_status_idx').on(t.status, t.plannedDate),
     index('tasks_completed_idx').on(t.completedAt),
+    index('tasks_project_idx').on(t.projectId, t.kanbanStatus),
   ],
 )
 

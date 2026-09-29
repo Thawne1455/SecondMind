@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path'
 import type { Briefing, FolderInspection, IpcEvent } from '@shared/ipc'
 import { getDb } from '../db/client'
 import { projectBriefing, projectScanInfo } from '../db/projectInfo'
+import { projectNextSteps } from '../db/roadmap'
 import {
   addParking,
   closeSession,
@@ -89,6 +90,7 @@ export function registerProjectsIpc(hidePark: () => void): void {
     return briefing
   })
   handle('project:scanInfo', ({ id }) => projectScanInfo(getDb(), id))
+  handle('project:nextSteps', ({ id }) => projectNextSteps(getDb(), id))
   handle('project:delete', ({ id }) => deleteProject(getDb(), id))
   handle('project:restore', ({ id }) => restoreProject(getDb(), id))
   handle('project:pickFolder', async () => {

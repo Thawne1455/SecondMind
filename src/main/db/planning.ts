@@ -141,6 +141,7 @@ export function createTask(db: Db, input: TaskCreateInput, now = new Date()): Ta
         dueDate: input.dueDate ?? null,
         plannedDate: input.plannedDate ?? null,
         projectId: input.projectId ?? null,
+        kanbanStatus: input.projectId ? 'todo' : null,
         createdAt: now,
         updatedAt: now,
       })
@@ -189,7 +190,13 @@ export function setTaskDone(db: Db, id: string, done: boolean, now = new Date())
     if ((before.status === 'done') === done) return toTask(before)
     const after = tx
       .update(tasks)
-      .set({ status: done ? 'done' : 'open', completedAt: done ? now : null, updatedAt: now })
+      // Proje görevinde kanban kolonu da senkron (MIMARI: status ↔ kanban_status).
+      .set({
+        status: done ? 'done' : 'open',
+        completedAt: done ? now : null,
+        ...(before.kanbanStatus !== null && { kanbanStatus: done ? 'done' : 'todo' }),
+        updatedAt: now,
+      })
       .where(eq(tasks.id, id))
       .returning()
       .get()
@@ -222,8 +229,11 @@ export function splitTask(db: Db, id: string, titles: readonly string[], now = n
           plannedDate: dayKey(now),
           kind: before.kind,
           projectId: before.projectId,
+          kanbanStatus: before.kanbanStatus && 'todo',
+          severity: before.severity,
           courseId: before.courseId,
           milestoneId: before.milestoneId,
+          milestoneSetAt: before.milestoneSetAt,
           createdAt: now,
           updatedAt: now,
         })

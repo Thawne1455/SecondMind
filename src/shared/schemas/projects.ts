@@ -225,3 +225,16 @@ export const projectScanInfoSchema = z.object({
   uncommitted: z.object({ count: z.number(), oldestAt: z.number().nullable() }).nullable(),
 })
 export type ProjectScanInfo = z.infer<typeof projectScanInfoSchema>
+
+/** Sıradaki adım motorunun bir adımı (`domain/nextSteps`). Kokpit ilk 3'ü gösterir. */
+export const nextStepSchema = z.object({
+  kind: z.enum(['task', 'criterion', 'session', 'parking', 'commit']),
+  id: z.string(),
+  title: z.string(),
+  taskId: z.string().optional(),
+  score: z.number(),
+  reasons: z.array(z.string()),
+  reason: z.string(),
+  suggestSplit: z.boolean(),
+})
+export type NextStep = z.infer<typeof nextStepSchema>

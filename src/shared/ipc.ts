@@ -29,6 +29,7 @@ import {
   projectUpdateInputSchema,
   scanReportSchema,
   briefingSchema,
+  nextStepSchema,
   projectScanInfoSchema,
   sessionCloseInputSchema,
   sessionSchema,
@@ -342,7 +343,6 @@ export const ipcContract = {
     input: projectUpdateInputSchema,
     output: z.void(),
   },
-  /** Detay sayfası açıldı (`last_opened_at`); log'a yazılmaz. */
   /** Detay sayfası açıldı: önceki açılışa göre geri dönüş brifingini döner, sonra açılışı kaydeder. */
   'project:opened': {
     input: z.object({ id: z.string() }),
@@ -352,6 +352,11 @@ export const ipcContract = {
   'project:scanInfo': {
     input: z.object({ id: z.string() }),
     output: projectScanInfoSchema.nullable(),
+  },
+  /** Sıradaki adım motoru: gerekçeli, sıralı adımlar. */
+  'project:nextSteps': {
+    input: z.object({ id: z.string() }),
+    output: z.array(nextStepSchema),
   },
   /** Çöp kutusuna; süren oturum varsa şimdi kapanır. */
   'project:delete': {

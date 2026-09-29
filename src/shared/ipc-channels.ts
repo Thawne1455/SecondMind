@@ -62,6 +62,7 @@ export const ipcChannels = [
   'project:update',
   'project:opened',
   'project:scanInfo',
+  'project:nextSteps',
   'project:delete',
   'project:restore',
   'project:pickFolder',

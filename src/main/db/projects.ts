@@ -567,6 +567,9 @@ export function resolveParking(
           id: ulid(),
           title: before.text,
           projectId: before.projectId,
+          kanbanStatus: 'todo',
+          source: 'park',
+          sourceId: before.id,
           createdAt: now,
           updatedAt: now,
         })

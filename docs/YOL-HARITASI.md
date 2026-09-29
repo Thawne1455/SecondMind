@@ -86,6 +86,13 @@ Runika'nın yayın platformu itch.io (Windows + WebGL), Steam iptal. Hızlı Dö
   (türler, önem, erteleme), `domain/playtest` (bölme + benzerlik) + test ve playtest kutusu, kapsam ölçer ve gerçekçi
   bitiş tahmini (`domain/scope` + test), taş planlarken park sütunu, Yol haritası zaman çizelgesi, yayın platformu şablonu
   (Steam / itch.io; Runika itch.io), proje takvimi; Bugün'ün Şimdi'si motoru kullanır
+  - [x] 5c-1 Veri ve motorlar: `milestones`, `tasks` ekleri, `playtest_*` (0009 + geri dönüş; mevcut proje görevleri
+    kanbana), `domain/nextSteps` + `domain/playtest` + `domain/scope` (+ testler), Kokpit "Şimdi bunu yap" motordan
+    (ilk 3 adım, gerekçe)
+  - [ ] 5c-2 Görevler sekmesi: kanban (türler, önem, erteleme, hızlı satır), Bugün'ün Şimdi'si motoru kullanır
+  - [ ] 5c-3 Yol haritası sekmesi: taşlar + çıkış kriterleri, zaman çizelgesi, kapsam ölçer ve tahmin, park sütunu,
+    yayın platformu şablonu, proje takvimi; Kokpit'te Kilometre taşı karosu
+  - [ ] 5c-4 Playtest: `+ Yapıştır`, kümeler, sürükle/ayır, hataya çevir; Kokpit'te Playtest karosu
 - [ ] 5d Doküman ve hafıza: doküman ağacı + şablonlar + ADR, bağlı repo markdown'ları, GDD ile gerçeklik karşılaştırması
   (`domain/gddCompare` + test), Günlük, devlog taslağı (`domain/devlog` + test), Varlıklar, zaman makinesi galerisi
   (görüntü klasörleri + kapanışta yapıştırma) ve karşılaştırma

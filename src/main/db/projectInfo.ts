@@ -24,7 +24,7 @@ const paths = (json: string | null): string[] =>
   json ? (JSON.parse(json) as FileEntry[]).map((f) => f.path) : []
 
 /** Projenin klasörlerinin son anlık görüntüleri. */
-function latestSnapshots(
+export function latestSnapshots(
   db: Db,
   projectId: string,
 ): { summary: SnapshotSummary; scannedAt: Date }[] {
@@ -52,7 +52,7 @@ function latestSnapshots(
 }
 
 /** Klasörlerin commit'lenmemiş değişiklikleri toplamı; git'li klasör yoksa null. */
-function uncommittedOf(snaps: { summary: SnapshotSummary }[]): ProjectScanInfo['uncommitted'] {
+export function uncommittedOf(snaps: { summary: SnapshotSummary }[]): ProjectScanInfo['uncommitted'] {
   const withGit = snaps.map((s) => s.summary.uncommitted).filter((u) => u !== null)
   if (!withGit.length) return null
   const oldest = withGit.map((u) => u.oldestAt).filter((t): t is number => t !== null)

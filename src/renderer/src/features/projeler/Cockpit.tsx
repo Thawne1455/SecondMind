@@ -4,6 +4,7 @@ import { tr } from 'date-fns/locale'
 import { ListPlus, Pencil, Play, Square, X } from 'lucide-react'
 import {
   NEXT_STEP_MAX,
+  type NextStep,
   type ParkingItem,
   type ProjectScanInfo,
   type ProjectSummary,
@@ -25,6 +26,7 @@ import {
   useParking,
   useResolveParking,
   useRestoreParking,
+  useNextSteps,
   useScanInfo,
   useSessions,
   useUpdateProject,
@@ -32,8 +34,8 @@ import {
 
 // Kokpit (PROJELER.md): projeyi açınca ilk görülen yer, her karo tek soru. Üstte vurgulu "Şimdi bunu yap"
 // (ekrandaki tek poster başlık) ve "Son oturum"; altta içeriği olan karolar dengeli yayılır:
-// Sonra (park alanı), Görevler, Ritim, Bu hafta ve Koddaki notlar (tarama, 5b). Sıradaki adım motoru (5c) gelene kadar vurgulu karo oturum
-// kapanışında yazılan adımı, o yoksa projenin en öndeki görevini gösterir.
+// Sonra (park alanı), Görevler, Ritim, Bu hafta ve Koddaki notlar (tarama, 5b). Vurgulu karo sıradaki adım
+// motorunun (5c) ilk 3 adımını gerekçesiyle gösterir; oturum kapanışında yazılan adım motora +35 ile girer.
 
 export function Cockpit({ project }: { project: ProjectSummary }) {
   const openTasks = (useTasks('open').data ?? []).filter((t) => t.projectId === project.id)
@@ -42,6 +44,7 @@ export function Cockpit({ project }: { project: ProjectSummary }) {
   const closed = sessions.filter((s) => s.endedAt !== null)
   const scan = useScanInfo(project.id).data ?? null
   const now = useNow(60_000)
+  const steps = useNextSteps(project).data ?? []
 
   const lower: { key: string; node: ReactNode }[] = []
   if (parking.length) lower.push({ key: 'park', node: <ParkingTile items={parking} /> })
@@ -59,7 +62,7 @@ export function Cockpit({ project }: { project: ProjectSummary }) {
 
   return (
     <section aria-label="Kokpit" className="grid grid-cols-12 gap-4">
-      <NowTile project={project} topTask={openTasks[0]} className="col-span-8" />
+      <NowTile project={project} steps={steps} className="col-span-8" />
       <LastSessionTile
         project={project}
         last={project.lastSession}
@@ -83,11 +86,11 @@ export function Cockpit({ project }: { project: ProjectSummary }) {
 
 type NowTileProps = {
   project: ProjectSummary
-  topTask: { id: string; title: string } | undefined
+  steps: NextStep[]
   className?: string
 }
 
-function NowTile({ project: p, topTask, className }: NowTileProps) {
+function NowTile({ project: p, steps, className }: NowTileProps) {
   const now = useNow(15_000)
   const { startSession, closeSession, openPark } = useShell()
   const update = useUpdateProject()
@@ -96,25 +99,11 @@ function NowTile({ project: p, topTask, className }: NowTileProps) {
   const [draft, setDraft] = useState('')
   const session = p.activeSession
 
-  // Adımın kaynağı ve gerekçesi (5c'de sıradaki adım motoru bu satırı üretir).
-  let title: string
-  let reason: string
-  let taskId: string | null = null
-  if (p.nextStep) {
-    title = p.nextStep
-    const last = p.lastSession
-    reason =
-      last && last.nextStep === p.nextStep
-        ? `Neden: son oturumda (${formatAgo(last.endedAt!, now)}) buradan devam edecektin.`
-        : 'Neden: sıradaki adım olarak yazdın.'
-  } else if (topTask) {
-    title = topTask.title
-    taskId = topTask.id
-    reason = 'Neden: projenin en öndeki açık görevi. Oturumu kapatırken kendi adımını yaz.'
-  } else {
-    title = ''
-    reason = ''
-  }
+  // Sıradaki adım motoru (domain/nextSteps): 1. adım poster başlık, gerekçesiyle; 2. ve 3. küçük satır.
+  const first = steps[0]
+  const title = first?.title ?? ''
+  const reason = first ? `Neden: ${first.reason}` : ''
+  const taskId = first?.taskId ?? null
 
   function startEdit() {
     setDraft(p.nextStep || title)
@@ -195,7 +184,21 @@ function NowTile({ project: p, topTask, className }: NowTileProps) {
           </button>
         )}
         {reason && !editing && (
-          <span className="text-[15px] font-semibold text-ink2">{reason}</span>
+          <span className="text-[15px] font-semibold text-ink2">
+            {reason}
+            {first?.suggestSplit && ' · Böl'}
+          </span>
+        )}
+        {!editing && steps.length > 1 && (
+          <ol className="flex flex-col gap-1 pt-1" aria-label="Sonraki adımlar">
+            {steps.slice(1, 3).map((s, i) => (
+              <li key={s.kind + s.id} className="flex items-baseline gap-2 text-[15px]">
+                <span className="w-4 shrink-0 font-bold text-ink3">{i + 2}</span>
+                <span className="font-semibold">{s.title}</span>
+                <span className="truncate text-ink2">{s.reason}</span>
+              </li>
+            ))}
+          </ol>
         )}
       </div>
       <div className="flex items-center gap-2.5 pt-2">

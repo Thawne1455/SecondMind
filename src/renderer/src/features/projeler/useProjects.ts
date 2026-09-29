@@ -142,3 +142,20 @@ export const useScanInfo = (projectId: string) =>
     queryKey: projectKeys.scanInfo(projectId),
     queryFn: () => window.api.invoke('project:scanInfo', { id: projectId }),
   })
+
+/**
+ * Sıradaki adım motoru (Kokpit "Şimdi bunu yap"). Anahtar 'task' altında: her görev değişikliği yeniler;
+ * projeden gelen girdiler (yazılan adım, park, tarama) anahtarda, değişince yeniden okunur.
+ */
+export const useNextSteps = (p: ProjectSummary) =>
+  useQuery({
+    queryKey: [
+      ...planningKeys.tasks,
+      'nextSteps',
+      p.id,
+      p.nextStep,
+      p.parkingWaiting,
+      p.lastScanAt,
+    ],
+    queryFn: () => window.api.invoke('project:nextSteps', { id: p.id }),
+  })
