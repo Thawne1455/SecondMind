@@ -22,6 +22,7 @@ import { useNotes } from '../bilgi/useKnowledge'
 import { BriefingBand } from './BriefingBand'
 import { Cockpit } from './Cockpit'
 import { ProjectNotes } from './ProjectNotes'
+import { Roadmap } from './Roadmap'
 import { TaskBoard } from './TaskBoard'
 import { formatTimer, KIND_LABEL, STATUS_LABEL } from './labels'
 import {
@@ -34,8 +35,8 @@ import {
   useUpdateProject,
 } from './useProjects'
 
-// Proje detayı: proje renginde başlık bandı + sekmeler (Kokpit, Görevler, Notlar; yapılmamış sekmeler görünmez).
-// Klavye: B başla/kapat, P park (yazı alanında değilken), Ctrl 1 / 2 / 3 sekme.
+// Proje detayı: proje renginde başlık bandı + sekmeler (Kokpit, Görevler, Yol haritası, Notlar; yapılmamış
+// sekmeler görünmez). Klavye: B başla/kapat, P park (yazı alanında değilken), Ctrl 1…4 sekme.
 
 export function ProjectPage() {
   const { projectId } = useParams()
@@ -64,11 +65,16 @@ export function ProjectPage() {
   )
 }
 
-type Tab = 'cockpit' | 'tasks' | 'notes'
+type Tab = 'cockpit' | 'tasks' | 'roadmap' | 'notes'
 
 /** Sekmelerin yolu ve kısayolu (Ctrl + sıra). */
-const TAB_PATH: Record<Tab, string> = { cockpit: '', tasks: '/gorevler', notes: '/notlar' }
-const TAB_ORDER: Tab[] = ['cockpit', 'tasks', 'notes']
+const TAB_PATH: Record<Tab, string> = {
+  cockpit: '',
+  tasks: '/gorevler',
+  roadmap: '/yol-haritasi',
+  notes: '/notlar',
+}
+const TAB_ORDER: Tab[] = ['cockpit', 'tasks', 'roadmap', 'notes']
 
 function ProjectView({ project }: { project: ProjectSummary }) {
   const { startSession, closeSession, openPark } = useShell()
@@ -80,7 +86,9 @@ function ProjectView({ project }: { project: ProjectSummary }) {
     ? 'notes'
     : path.includes('/gorevler')
       ? 'tasks'
-      : 'cockpit'
+      : path.includes('/yol-haritasi')
+        ? 'roadmap'
+        : 'cockpit'
   const { briefing, dismiss } = useProjectOpened(project.id)
   const now = useNow(60_000)
 
@@ -122,6 +130,8 @@ function ProjectView({ project }: { project: ProjectSummary }) {
         <ProjectNotes project={project} noteId={noteId} />
       ) : tab === 'tasks' ? (
         <TaskBoard project={project} />
+      ) : tab === 'roadmap' ? (
+        <Roadmap project={project} />
       ) : (
         <>
           {briefing && (
@@ -150,6 +160,7 @@ function Tabs({ project, tab }: { project: ProjectSummary; tab: Tab }) {
   const labels: Record<Tab, string> = {
     cockpit: 'Kokpit',
     tasks: open ? `Görevler · ${open}` : 'Görevler',
+    roadmap: 'Yol haritası',
     notes: notes ? `Notlar · ${notes}` : 'Notlar',
   }
   const items = TAB_ORDER.map((id, i) => ({

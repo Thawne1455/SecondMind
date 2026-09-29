@@ -1,9 +1,12 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { format } from 'date-fns'
+import { useNavigate } from 'react-router'
+import { differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import { ListPlus, Pencil, Play, Square, X } from 'lucide-react'
 import {
   NEXT_STEP_MAX,
+  type Milestone,
+  type MilestoneScope,
   type NextStep,
   type ParkingItem,
   type ProjectScanInfo,
@@ -22,7 +25,10 @@ import { TaskRow } from '../bugun/TaskList'
 import { useCreateTask, useTasks } from '../bugun/usePlanning'
 import { formatTimer, minutesBetween } from './labels'
 import { Rhythm } from './Rhythm'
+import { activeMilestone, formatShortDay, lateLabel, trendText } from './roadmapText'
 import {
+  useMilestones,
+  useMilestoneScopes,
   useParking,
   useResolveParking,
   useRestoreParking,
@@ -34,7 +40,7 @@ import {
 
 // Kokpit (PROJELER.md): projeyi açınca ilk görülen yer, her karo tek soru. Üstte vurgulu "Şimdi bunu yap"
 // (ekrandaki tek poster başlık) ve "Son oturum"; altta içeriği olan karolar dengeli yayılır:
-// Sonra (park alanı), Görevler, Ritim, Bu hafta ve Koddaki notlar (tarama, 5b). Vurgulu karo sıradaki adım
+// Kilometre taşı (5c), Sonra (park alanı), Görevler, Ritim, Bu hafta ve Koddaki notlar (tarama, 5b). Vurgulu karo sıradaki adım
 // motorunun (5c) ilk 3 adımını gerekçesiyle gösterir; oturum kapanışında yazılan adım motora +35 ile girer.
 
 export function Cockpit({ project }: { project: ProjectSummary }) {
@@ -45,8 +51,15 @@ export function Cockpit({ project }: { project: ProjectSummary }) {
   const scan = useScanInfo(project.id).data ?? null
   const now = useNow(60_000)
   const steps = useNextSteps(project).data ?? []
+  const milestone = activeMilestone(useMilestones(project.id).data ?? [])
+  const scope = useMilestoneScopes(project.id).data?.find((s) => s.milestoneId === milestone?.id)
 
   const lower: { key: string; node: ReactNode }[] = []
+  if (milestone)
+    lower.push({
+      key: 'milestone',
+      node: <MilestoneTile project={project} milestone={milestone} scope={scope} />,
+    })
   if (parking.length) lower.push({ key: 'park', node: <ParkingTile items={parking} /> })
   lower.push({
     key: 'tasks',
@@ -395,6 +408,95 @@ function ParkingTile({ items }: { items: ParkingItem[] }) {
       {items.length > 8 && (
         <span className="text-[13px] font-semibold text-ink3">+{items.length - 8} daha</span>
       )}
+    </Tile>
+  )
+}
+
+// ---------------------------------------------------------------- Kilometre taşı
+
+/**
+ * Sonraki taş: kalan gün, görevlerden ilerleme, kapsam cümlesi. Hedef geçtiyse ya da gerçekçi tahmin hedefi
+ * geçiyorsa mercan (uyarı karosu).
+ */
+function MilestoneTile({
+  project,
+  milestone: m,
+  scope,
+}: {
+  project: ProjectSummary
+  milestone: Milestone
+  scope: MilestoneScope | undefined
+}) {
+  const navigate = useNavigate()
+  const today = format(useNow(60_000), 'yyyy-MM-dd')
+  const overdue = m.targetDate !== null && m.targetDate < today
+  const late = overdue || !!scope?.finish.late
+  const total = scope ? scope.openTasks + scope.doneTasks : 0
+  const days = m.targetDate
+    ? differenceInCalendarDays(parseISO(m.targetDate), parseISO(today))
+    : null
+  return (
+    <Tile
+      variant={late ? 'alert' : 'standard'}
+      className="grow"
+      eyebrow={
+        m.targetDate ? `Kilometre taşı · hedef ${formatShortDay(m.targetDate)}` : 'Kilometre taşı'
+      }
+      metric={
+        days === null
+          ? undefined
+          : days === 0
+            ? { value: 'BUGÜN', label: 'hedef' }
+            : { value: Math.abs(days), label: days > 0 ? 'gün kaldı' : 'gün geçti' }
+      }
+      title={m.title}
+      actions={[
+        <Button
+          key="open"
+          size="sm"
+          variant={late ? 'onTile' : 'secondary'}
+          className={late ? undefined : '[--btn-soft:var(--bg)]'}
+          onClick={() => void navigate(`/projeler/${project.id}/yol-haritasi`)}
+        >
+          Yol haritası
+        </Button>,
+      ]}
+    >
+      {total > 0 && scope && (
+        <div className="flex flex-col gap-1.5">
+          <div
+            role="progressbar"
+            aria-label="Taşın görevleri"
+            aria-valuemin={0}
+            aria-valuemax={total}
+            aria-valuenow={scope.doneTasks}
+            className={cn('h-2.5 overflow-hidden rounded-full', late ? 'bg-white/30' : 'bg-s3')}
+          >
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${(scope.doneTasks / total) * 100}%`,
+                background: late ? '#FFFFFF' : project.color,
+              }}
+            />
+          </div>
+          <span className="text-[13px] font-semibold opacity-80">
+            {scope.doneTasks}/{total} görev
+          </span>
+        </div>
+      )}
+      <span
+        className={cn(
+          'text-[14px] font-semibold',
+          !late && (scope?.trend.state === 'growing' ? 'text-t-coral' : 'text-ink2'),
+        )}
+      >
+        {scope?.finish.late && m.targetDate
+          ? lateLabel(m.targetDate, scope)
+          : scope && total > 0
+            ? trendText(scope.trend)
+            : 'Taşa bağlı görev yok.'}
+      </span>
     </Tile>
   )
 }

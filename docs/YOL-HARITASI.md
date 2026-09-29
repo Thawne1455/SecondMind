@@ -91,8 +91,10 @@ Runika'nın yayın platformu itch.io (Windows + WebGL), Steam iptal. Hızlı Dö
     (ilk 3 adım, gerekçe)
   - [x] 5c-2 Görevler sekmesi: kanban (türler, önem, erteleme, hızlı satır), Bugün'ün Şimdi'si motoru kullanır
     (şerit ve brifingdeki sıradaki adım da motordan)
-  - [ ] 5c-3 Yol haritası sekmesi: taşlar + çıkış kriterleri, zaman çizelgesi, kapsam ölçer ve tahmin, park sütunu,
+  - [x] 5c-3 Yol haritası sekmesi: taşlar + çıkış kriterleri, zaman çizelgesi, kapsam ölçer ve tahmin, park sütunu,
     yayın platformu şablonu, proje takvimi; Kokpit'te Kilometre taşı karosu
+    (Yol haritası Ctrl 3, Notlar Ctrl 4; "Çizelge / Takvim" geçişi; şablon Unity projesinde taş yokken, platform
+    seçilince `release_platform` yazılır; tarihsiz taşlar bandın altında; taş silinince görevler bağını korur)
   - [ ] 5c-4 Playtest: `+ Yapıştır`, kümeler, sürükle/ayır, hataya çevir; Kokpit'te Playtest karosu
   Kararlar (5c): playtest'te elle ayrılan nokta kendi kümesi olur ve kilitlenir. Kanban kolon içi sıra motor/`compareTasks`
   sırası (elle sıralama yok); erteleme eylemleri (Böl · Sil · Bugün yap) kart panelinde. Bugün'ün Şimdi'si blok yoksa

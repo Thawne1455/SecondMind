@@ -150,6 +150,8 @@ export const parkingAddInputSchema = z.object({
 export const parkingResolveInputSchema = z.object({
   id: z.string(),
   action: z.enum(['convert', 'dismiss']),
+  /** Göreve çevirirken taşa bağla (Yol haritasının park sütunu). */
+  milestoneId: z.string().nullish(),
 })
 
 export type ProjectKind = z.infer<typeof projectKindSchema>
@@ -243,6 +245,20 @@ export const nextStepSchema = z.object({
 })
 export type NextStep = z.infer<typeof nextStepSchema>
 
+export const MILESTONE_TITLE_MAX = 80
+export const MILESTONE_DESCRIPTION_MAX = 2000
+export const CRITERION_TEXT_MAX = 200
+export const CRITERIA_MAX = 40
+
+const dayKey = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Gün YYYY-MM-DD olmalı')
+
+export const criterionSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  done: z.boolean(),
+  taskId: z.string().nullable(),
+})
+
 /** Kilometre taşı (5c). Kriter bir göreve bağlıysa görev bitince işaretli sayılır. */
 export const milestoneSchema = z.object({
   id: z.string(),
@@ -251,14 +267,88 @@ export const milestoneSchema = z.object({
   description: z.string(),
   targetDate: z.string().nullable(),
   sort: z.number(),
-  criteria: z.array(
-    z.object({
-      id: z.string(),
-      text: z.string(),
-      done: z.boolean(),
-      taskId: z.string().nullable(),
-    }),
-  ),
+  criteria: z.array(criterionSchema),
   doneAt: z.number().nullable(),
+  /** Unix ms; zaman çizelgesinde tarihli ilk taşın başlangıcı. */
+  createdAt: z.number(),
 })
 export type Milestone = z.infer<typeof milestoneSchema>
+export type Criterion = z.infer<typeof criterionSchema>
+
+const milestoneTitle = z.string().trim().min(1, 'Ad boş').max(MILESTONE_TITLE_MAX)
+
+export const milestoneCreateInputSchema = z.object({
+  projectId: z.string(),
+  title: milestoneTitle,
+  targetDate: dayKey.nullish(),
+})
+
+/**
+ * Kısmi güncelleme. `criteria` verilirse listenin tamamının yerine geçer; id'siz kriter yeni sayılır.
+ * `done` taşı tamamlar ya da yeniden açar.
+ */
+export const milestoneUpdateInputSchema = z.object({
+  id: z.string(),
+  title: milestoneTitle.optional(),
+  description: z.string().max(MILESTONE_DESCRIPTION_MAX).optional(),
+  targetDate: dayKey.nullable().optional(),
+  done: z.boolean().optional(),
+  criteria: z
+    .array(
+      z.object({
+        id: z.string().optional(),
+        text: z.string().trim().min(1, 'Kriter boş').max(CRITERION_TEXT_MAX),
+        done: z.boolean(),
+        taskId: z.string().nullable(),
+      }),
+    )
+    .max(CRITERIA_MAX)
+    .optional(),
+})
+export type MilestoneCreateInput = z.input<typeof milestoneCreateInputSchema>
+export type MilestoneUpdateInput = z.input<typeof milestoneUpdateInputSchema>
+
+export const releasePlatformSchema = z.enum(['itch', 'steam'])
+export type ReleasePlatform = z.infer<typeof releasePlatformSchema>
+
+/** Taşın kapsam ölçeri ve gerçekçi bitiş tahmini (`domain/scope`). */
+export const milestoneScopeSchema = z.object({
+  milestoneId: z.string(),
+  /** Son 8 hafta, en eski önce. */
+  weeks: z.array(
+    z.object({
+      weekStart: z.string(),
+      added: z.number(),
+      done: z.number(),
+      remaining: z.number(),
+    }),
+  ),
+  trend: z.object({
+    added: z.number(),
+    done: z.number(),
+    state: z.enum(['growing', 'closing', 'balanced']),
+  }),
+  finish: z.object({
+    remainingMin: z.number(),
+    dailyPace: z.number(),
+    finishOn: z.string().nullable(),
+    notFinishing: z.boolean(),
+    late: z.boolean(),
+  }),
+  openTasks: z.number(),
+  doneTasks: z.number(),
+})
+export type MilestoneScope = z.infer<typeof milestoneScopeSchema>
+
+/** Proje takviminin bir öğesi: taş hedefi, son tarihli görev ya da planlanmış blok. */
+export const calendarEntrySchema = z.object({
+  day: z.string(),
+  kind: z.enum(['milestone', 'due', 'block']),
+  id: z.string(),
+  title: z.string(),
+  /** Blokta başlangıç dakikası; diğerlerinde null. */
+  startMin: z.number().nullable(),
+  /** Taş tamamlandı / görev bitti. */
+  done: z.boolean(),
+})
+export type CalendarEntry = z.infer<typeof calendarEntrySchema>

@@ -4,7 +4,17 @@ import { join, resolve } from 'node:path'
 import type { Briefing, FolderInspection, IpcEvent } from '@shared/ipc'
 import { getDb } from '../db/client'
 import { projectBriefing, projectScanInfo } from '../db/projectInfo'
-import { listMilestones, projectNextSteps } from '../db/roadmap'
+import {
+  applyMilestoneTemplate,
+  createMilestone,
+  deleteMilestone,
+  listMilestones,
+  milestoneScopes,
+  projectCalendar,
+  projectNextSteps,
+  restoreMilestone,
+  updateMilestone,
+} from '../db/roadmap'
 import {
   addParking,
   closeSession,
@@ -95,6 +105,17 @@ export function registerProjectsIpc(hidePark: () => void): void {
   handle('project:scanInfo', ({ id }) => projectScanInfo(getDb(), id))
   handle('project:nextSteps', ({ id }) => projectNextSteps(getDb(), id))
   handle('milestone:list', ({ projectId }) => listMilestones(getDb(), projectId))
+  handle('milestone:create', (input) => createMilestone(getDb(), input))
+  handle('milestone:update', (input) => updateMilestone(getDb(), input))
+  handle('milestone:delete', ({ id }) => deleteMilestone(getDb(), id))
+  handle('milestone:restore', ({ id }) => restoreMilestone(getDb(), id))
+  handle('milestone:applyTemplate', ({ projectId, platform }) =>
+    applyMilestoneTemplate(getDb(), projectId, platform),
+  )
+  handle('milestone:scope', ({ projectId }) => milestoneScopes(getDb(), projectId))
+  handle('project:calendar', ({ projectId, from, to }) =>
+    projectCalendar(getDb(), projectId, from, to),
+  )
   handle('project:delete', ({ id }) => deleteProject(getDb(), id))
   handle('project:restore', ({ id }) => restoreProject(getDb(), id))
   handle('project:pickFolder', async () => {
@@ -132,7 +153,9 @@ export function registerProjectsIpc(hidePark: () => void): void {
     broadcast('projects:changed')
     return item
   })
-  handle('parking:resolve', ({ id, action }) => resolveParking(getDb(), id, action))
+  handle('parking:resolve', ({ id, action, milestoneId }) =>
+    resolveParking(getDb(), id, action, new Date(), milestoneId ?? null),
+  )
   handle('parking:restore', ({ id }) => restoreParking(getDb(), id))
   handle('park:hide', () => hidePark())
 }

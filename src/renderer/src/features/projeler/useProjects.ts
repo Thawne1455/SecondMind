@@ -3,7 +3,10 @@ import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/
 import type {
   Briefing,
   KanbanStatus,
+  MilestoneCreateInput,
+  MilestoneUpdateInput,
   ParkingAddInput,
+  ReleasePlatform,
   ProjectCreateInput,
   ProjectSummary,
   ProjectUpdateInput,
@@ -99,8 +102,10 @@ export const useDiscardSession = () =>
 export const useAddParking = () =>
   useInvalidating(P, (input: ParkingAddInput) => window.api.invoke('parking:add', input))
 export const useResolveParking = () =>
-  useInvalidating(PT, (input: { id: string; action: 'convert' | 'dismiss' }) =>
-    window.api.invoke('parking:resolve', input),
+  useInvalidating(
+    PT,
+    (input: { id: string; action: 'convert' | 'dismiss'; milestoneId?: string | null }) =>
+      window.api.invoke('parking:resolve', input),
   )
 export const useRestoreParking = () =>
   useInvalidating(PT, (id: string) => window.api.invoke('parking:restore', { id }))
@@ -174,12 +179,52 @@ export const useProjectTasks = (projectId: string) =>
     queryFn: () => window.api.invoke('task:listProject', { projectId }),
   })
 
-/** Projenin kilometre taşları (filtre, kart etiketi, panel seçimi). */
+// ---------------------------------------------------------------- Yol haritası (5c-3)
+
+/**
+ * Taş sorguları 'task' anahtarı altında: bağlı kriterler ve kapsam görevlerden hesaplanır, her görev
+ * değişikliği yeniler. Taş yazımları da aynı anahtarı yeniler (sıradaki adım motoru taşları okur).
+ */
+const roadmapKey = (kind: string, projectId: string) =>
+  [...planningKeys.tasks, 'roadmap', kind, projectId] as const
+
+/** Projenin kilometre taşları (filtre, kart etiketi, panel seçimi, Yol haritası). */
 export const useMilestones = (projectId: string) =>
   useQuery({
-    queryKey: [...projectKeys.all, 'milestones', projectId],
+    queryKey: roadmapKey('milestones', projectId),
     queryFn: () => window.api.invoke('milestone:list', { projectId }),
   })
+
+/** Tamamlanmamış taşların kapsam ölçeri ve bitiş tahmini; oturumlar da girdi olduğu için dakikada bir. */
+export const useMilestoneScopes = (projectId: string) =>
+  useQuery({
+    queryKey: roadmapKey('scope', projectId),
+    queryFn: () => window.api.invoke('milestone:scope', { projectId }),
+    refetchInterval: 60_000,
+  })
+
+export const useProjectCalendar = (projectId: string, from: string, to: string) =>
+  useQuery({
+    queryKey: [...roadmapKey('calendar', projectId), from, to],
+    queryFn: () => window.api.invoke('project:calendar', { projectId, from, to }),
+  })
+
+const T = [planningKeys.tasks]
+// Şablon projenin yayın platformunu da yazar.
+const TP = [planningKeys.tasks, projectKeys.all]
+
+export const useCreateMilestone = () =>
+  useInvalidating(T, (input: MilestoneCreateInput) => window.api.invoke('milestone:create', input))
+export const useUpdateMilestone = () =>
+  useInvalidating(T, (input: MilestoneUpdateInput) => window.api.invoke('milestone:update', input))
+export const useDeleteMilestone = () =>
+  useInvalidating(T, (id: string) => window.api.invoke('milestone:delete', { id }))
+export const useRestoreMilestone = () =>
+  useInvalidating(T, (id: string) => window.api.invoke('milestone:restore', { id }))
+export const useApplyMilestoneTemplate = () =>
+  useInvalidating(TP, (input: { projectId: string; platform: ReleasePlatform }) =>
+    window.api.invoke('milestone:applyTemplate', input),
+  )
 
 /**
  * Kartı başka kolona taşır (sürükle-bırak, ← / →). Kart bırakıldığı kolonda hemen görünür;

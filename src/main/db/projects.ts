@@ -23,7 +23,16 @@ import { lastTouch } from '../domain/scan'
 import { logActivity } from './activity'
 import type { Db, DbTx } from './client'
 import { scanActivity } from './scan'
-import { codeTodos, commits, parking, projectFolders, projects, sessions, tasks } from './schema'
+import {
+  codeTodos,
+  commits,
+  milestones,
+  parking,
+  projectFolders,
+  projects,
+  sessions,
+  tasks,
+} from './schema'
 import { projectNextSteps } from './roadmap'
 
 // Projeler, oturumlar ve park alanı (Aşama 5a). Taha'nın her değişikliği activity_log'a yazılır;
@@ -552,12 +561,16 @@ export function addParking(
   })
 }
 
-/** Göreve çevir (projenin görevi, bugüne alınmaz) ya da at. Tek grupla loglanır. */
+/**
+ * Göreve çevir (projenin görevi, bugüne alınmaz; `milestoneId` verilirse o taşa bağlı) ya da at.
+ * Tek grupla loglanır.
+ */
 export function resolveParking(
   db: Db,
   id: string,
   action: 'convert' | 'dismiss',
   now = new Date(),
+  milestoneId: string | null = null,
 ): { taskId: string | null } {
   return db.transaction((tx) => {
     const before = tx
@@ -566,6 +579,14 @@ export function resolveParking(
       .where(and(eq(parking.id, id), isNull(parking.deletedAt)))
       .get()
     if (!before || before.status !== 'waiting') throw new Error('Park öğesi bulunamadı')
+    if (milestoneId) {
+      const m = tx
+        .select({ projectId: milestones.projectId })
+        .from(milestones)
+        .where(and(eq(milestones.id, milestoneId), isNull(milestones.deletedAt)))
+        .get()
+      if (m?.projectId !== before.projectId) throw new Error('Kilometre taşı bulunamadı')
+    }
     const groupId = ulid()
     let taskId: string | null = null
     if (action === 'convert') {
@@ -576,6 +597,8 @@ export function resolveParking(
           title: before.text,
           projectId: before.projectId,
           kanbanStatus: 'todo',
+          milestoneId,
+          milestoneSetAt: milestoneId ? now : null,
           source: 'park',
           sourceId: before.id,
           createdAt: now,

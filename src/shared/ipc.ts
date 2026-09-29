@@ -31,12 +31,18 @@ import {
   briefingSchema,
   nextStepSchema,
   milestoneSchema,
+  milestoneCreateInputSchema,
+  milestoneUpdateInputSchema,
+  milestoneScopeSchema,
+  releasePlatformSchema,
+  calendarEntrySchema,
   projectScanInfoSchema,
   sessionCloseInputSchema,
   sessionSchema,
   sessionStartInputSchema,
 } from './schemas/projects'
 import {
+  dayKeySchema,
   reminderCreateInputSchema,
   reminderResolveInputSchema,
   reminderSchema,
@@ -368,6 +374,42 @@ export const ipcContract = {
   'milestone:list': {
     input: z.object({ projectId: z.string() }),
     output: z.array(milestoneSchema),
+  },
+  /** Sona eklenir. */
+  'milestone:create': {
+    input: milestoneCreateInputSchema,
+    output: milestoneSchema,
+  },
+  'milestone:update': {
+    input: milestoneUpdateInputSchema,
+    output: milestoneSchema,
+  },
+  /** Çöp kutusuna; bağlı görevler bağını korur, geri alınca yerine döner. */
+  'milestone:delete': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  'milestone:restore': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /**
+   * Unity oyunu şablonu: 6 hazır taş (Mağaza sayfası kriterleri platforma göre) ve projenin yayın platformu.
+   * Projede canlı taş varsa hata. Tek grupla loglanır.
+   */
+  'milestone:applyTemplate': {
+    input: z.object({ projectId: z.string(), platform: releasePlatformSchema }),
+    output: z.array(milestoneSchema),
+  },
+  /** Projenin tamamlanmamış taşlarının kapsam ölçeri ve bitiş tahmini. */
+  'milestone:scope': {
+    input: z.object({ projectId: z.string() }),
+    output: z.array(milestoneScopeSchema),
+  },
+  /** Proje takvimi: verilen günler arası (dahil) taş hedefleri, son tarihli görevler, planlanmış bloklar. */
+  'project:calendar': {
+    input: z.object({ projectId: z.string(), from: dayKeySchema, to: dayKeySchema }),
+    output: z.array(calendarEntrySchema),
   },
   /** Çöp kutusuna; süren oturum varsa şimdi kapanır. */
   'project:delete': {

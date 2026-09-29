@@ -8,7 +8,17 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Db } from './client'
 import { createTask, listProjectTasks, setTaskDone, updateTask } from './planning'
 import { addParking, createProject, resolveParking, updateProject } from './projects'
-import { listMilestones, projectNextSteps } from './roadmap'
+import {
+  applyMilestoneTemplate,
+  createMilestone,
+  deleteMilestone,
+  listMilestones,
+  milestoneScopes,
+  projectCalendar,
+  projectNextSteps,
+  restoreMilestone,
+  updateMilestone,
+} from './roadmap'
 import * as schema from './schema'
 
 let db: Db
@@ -168,5 +178,102 @@ describe('listMilestones', () => {
       .run()
     setTaskDone(db, t.id, true, at(3))
     expect(listMilestones(db, id)[0]!.criteria.map((c) => c.done)).toEqual([true, false])
+  })
+})
+
+describe('taş yazımları', () => {
+  it('oluştur, sona eklenir; güncelle; tamamla ve yeniden aç', () => {
+    const a = createMilestone(db, { projectId: id, title: ' Demo ' }, at(2))
+    const b = createMilestone(db, { projectId: id, title: 'Beta', targetDate: '2026-11-01' }, at(2))
+    expect([a.sort, b.sort]).toEqual([0, 1])
+    expect(a.title).toBe('Demo')
+    const u = updateMilestone(db, { id: a.id, targetDate: '2026-10-20', done: true }, at(3))
+    expect(u).toMatchObject({ targetDate: '2026-10-20', doneAt: at(3).getTime() })
+    expect(updateMilestone(db, { id: a.id, done: true }, at(4)).doneAt).toBe(at(3).getTime())
+    expect(updateMilestone(db, { id: a.id, done: false }, at(5)).doneAt).toBeNull()
+  })
+
+  it('kriterler: yeni olana id verilir, bağlı kriterin done değeri görevden okunur', () => {
+    const t = createTask(db, { title: 'Fragman', projectId: id }, at(2))
+    const m = createMilestone(db, { projectId: id, title: 'Demo' }, at(2))
+    const u = updateMilestone(
+      db,
+      {
+        id: m.id,
+        criteria: [
+          { text: 'Fragman hazır', done: true, taskId: t.id },
+          { text: 'Sayfa', done: true, taskId: null },
+        ],
+      },
+      at(3),
+    )
+    expect(u.criteria.every((c) => c.id.length > 0)).toBe(true)
+    expect(u.criteria.map((c) => c.done)).toEqual([false, true])
+    setTaskDone(db, t.id, true, at(4))
+    expect(listMilestones(db, id)[0]!.criteria[0]!.done).toBe(true)
+    setTaskDone(db, t.id, false, at(5))
+    expect(listMilestones(db, id)[0]!.criteria[0]!.done).toBe(false)
+  })
+
+  it('sil ve geri al', () => {
+    const m = createMilestone(db, { projectId: id, title: 'Demo' }, at(2))
+    deleteMilestone(db, m.id, at(3))
+    expect(listMilestones(db, id)).toEqual([])
+    restoreMilestone(db, m.id, at(4))
+    expect(listMilestones(db, id).map((x) => x.id)).toEqual([m.id])
+  })
+
+  it('şablon: 6 taş, platform projeye yazılır, taş varken reddedilir', () => {
+    const list = applyMilestoneTemplate(db, id, 'itch', at(2))
+    expect(list.map((m) => m.title)[2]).toBe('Mağaza sayfası')
+    expect(list[2]!.criteria.map((c) => c.text)).toContain('WebGL yapısı yüklendi')
+    expect(db.select().from(schema.projects).get()!.releasePlatform).toBe('itch')
+    expect(() => applyMilestoneTemplate(db, id, 'steam', at(3))).toThrow()
+  })
+
+  it('park öğesi taşa görev olur', () => {
+    const m = createMilestone(db, { projectId: id, title: 'Demo' }, at(2))
+    const item = addParking(db, { projectId: id, text: 'Ses', source: 'app' }, at(2))
+    resolveParking(db, item.id, 'convert', at(3), m.id)
+    expect(db.select().from(schema.tasks).get()).toMatchObject({
+      milestoneId: m.id,
+      milestoneSetAt: at(3),
+    })
+  })
+})
+
+describe('milestoneScopes', () => {
+  it('eklenen, biten ve tahmin; tamamlanmış taş yok', () => {
+    const m = createMilestone(db, { projectId: id, title: 'Demo', targetDate: '2026-09-20' }, at(1))
+    const done = createMilestone(db, { projectId: id, title: 'Eski' }, at(1))
+    updateMilestone(db, { id: done.id, done: true }, at(1))
+    for (const title of ['A', 'B', 'C'])
+      createTask(db, { title, projectId: id, milestoneId: m.id, estimateMin: 60 }, at(10))
+    const first = db.select().from(schema.tasks).get()!
+    setTaskDone(db, first.id, true, at(12))
+    const [s, ...rest] = milestoneScopes(db, id, at(14))
+    expect(rest).toEqual([])
+    expect(s).toMatchObject({
+      milestoneId: m.id,
+      openTasks: 2,
+      doneTasks: 1,
+      trend: { added: 3, done: 1, state: 'balanced' },
+    })
+    // Oturum yok: hız 0, tarih yok; net akış negatif → bu hızla bitmiyor, hedef var → geç.
+    expect(s!.finish).toMatchObject({ remainingMin: 180, finishOn: null, late: true })
+  })
+})
+
+describe('projectCalendar', () => {
+  it('aralıktaki taş hedefleri ve son tarihli görevler, güne göre', () => {
+    createMilestone(db, { projectId: id, title: 'Demo', targetDate: '2026-10-05' }, at(2))
+    createMilestone(db, { projectId: id, title: 'Uzak', targetDate: '2026-12-05' }, at(2))
+    createTask(db, { title: 'Fragman', projectId: id, dueDate: '2026-10-05' }, at(2))
+    createTask(db, { title: 'Başka', dueDate: '2026-10-05' }, at(2))
+    const list = projectCalendar(db, id, '2026-10-01', '2026-10-31')
+    expect(list.map((e) => [e.kind, e.title])).toEqual([
+      ['milestone', 'Demo'],
+      ['due', 'Fragman'],
+    ])
   })
 })
