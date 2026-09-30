@@ -11,12 +11,31 @@ type Entry = Omit<typeof activityLog.$inferInsert, 'id' | 'beforeJson' | 'afterJ
   after?: unknown
 }
 
+type Actor = Entry['actor']
+let context: { actor: Actor; groupId: string } | null = null
+
+/**
+ * `fn` içindeki bütün kayıtlar bu aktör ve grupla yazılır (AI önerisi uygulanırken: mevcut yazma fonksiyonları
+ * `taha` ve kendi gruplarıyla loglar; öneri tek grupta toplanmalı ki tek hamlede geri alınsın).
+ * better-sqlite3 senkron olduğu için modül düzeyindeki bağlam güvenli.
+ */
+export function withActivityContext<T>(actor: Actor, groupId: string, fn: () => T): T {
+  const prev = context
+  context = { actor, groupId }
+  try {
+    return fn()
+  } finally {
+    context = prev
+  }
+}
+
 /** Değişikliği `activity_log`'a yazar; değiştiren işlemle aynı transaction içinde çağrılır. */
 export function logActivity(db: Db | DbTx, { before, after, ...entry }: Entry): void {
   db.insert(activityLog)
     .values({
       id: ulid(),
       ...entry,
+      ...(context && { actor: context.actor, groupId: context.groupId }),
       beforeJson: before === undefined ? null : JSON.stringify(before),
       afterJson: after === undefined ? null : JSON.stringify(after),
     })
@@ -43,7 +62,9 @@ export function logUpdateMerged(
     // ulid zaman sıralı (ms); created_at varsayılanı saniye hassasiyetinde.
     .orderBy(desc(activityLog.id))
     .get()
+  // Bağlam altında (AI önerisi) birleştirme yok: kayıt kendi grubunda kalmalı ki geri alınabilsin.
   if (
+    !context &&
     last &&
     last.action === 'update' &&
     last.actor === entry.actor &&

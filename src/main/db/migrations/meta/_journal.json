@@ -85,6 +85,13 @@
       "when": 1790721845675,
       "tag": "0011_school",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1790791865127,
+      "tag": "0012_ai",
+      "breakpoints": true
     }
   ]
 }

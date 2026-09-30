@@ -49,13 +49,19 @@ kenar çubuğu projeleri Aşama 5'e kadar sahte, Onay Kutusu rozeti Aşama 4'e k
   karar karosu ve sahte karolar kaldırıldı, `lib/fake.ts`'te sadece kenar çubuğu projeleri kaldı)
 **Bitti sayılır:** Bugün ekranı sahte veri olmadan tasarımdaki gibi doluyor.
 
-## Aşama 4 — AI akışı ve Onay Kutusu · BEKLİYOR
-Yerel model (Qwen) mi, Claude Code mu, ikisi birlikte mi kararı açık: `docs/YEREL-LLM.md`. Karar verilmeden başlanmaz.
-- [ ] `resources/ai-agent/CLAUDE.md` gözden geçirilir, veri klasörüne kopyalanır
-- [ ] İş paketi hazırlama (bağlam kırpma dahil), `claude` sürecini başlatma, zaman aşımı, iptal, ilerleme
-- [ ] `changesSchema` (zod) + her işlem türü için uygulayıcı + önizleme bileşeni
-- [ ] Onay Kutusu: gruplar, fark karosu, onayla / reddet / düzenle, tümünü onayla, işlem günlüğü ve geri al
-- [ ] Ayarlar > AI: Claude Code yolu ve test butonu, model seçimi
+## Aşama 4 — AI akışı ve Onay Kutusu · AKTİF
+Karar (`docs/YEREL-LLM.md`): HIZLI = yerel Qwen3.5-9B (`node-llama-cpp`, grammar ile JSON), DERİN = Claude Code.
+Görüntü/PDF içeren işler DERİN'e gider.
+- [x] 4a Öneri altyapısı: `ai_jobs`, `proposals` (migration + geri dönüş), `changesSchema` (zod), her işlem türü için
+  uygulayıcı (tek transaction, `activity_log` grubu) ve geri al; testler
+- [ ] 4b Çalıştırıcılar: `AiRunner` arayüzü, iş paketi hazırlama (bağlam kırpma, "AI'a kapalı" hariç), yerel Qwen
+  (model indirme + ilerleme, yükleme, grammar), Claude Code (`claude -p`, zaman aşımı, iptal); `resources/ai-agent/CLAUDE.md`
+  gözden geçirilir, iki çalıştırıcı da aynı kuralları kullanır
+- [ ] 4c Döküm: `AI ile İşle` + HIZLI/DERİN, ilerleme ve iptal, İşlenenler / Atlananlar sekmeleri
+- [ ] 4d Onay Kutusu (çizilmemiş ekran: önce düzen planı + onay): gruplar, öneri karosu, onayla / reddet / düzenle,
+  tümünü onayla, işlem günlüğü ve geri al
+- [ ] 4e Ayarlar > AI: model indir / sil, Claude Code yolu ve test, HIZLI/DERİN seçimi, "AI'a kapalı" koleksiyonlar;
+  okul işlemleri (ders programı görselinden dönem/ders/saat/hoca önerisi, DERİN)
 **Bitti sayılır:** 5 karışık döküm (metin + tahta fotoğrafı) işlenip doğru önerilere dönüşüyor, onaylananlar yerine yazılıyor, geri alınabiliyor.
 
 ## Aşama 5 — Projeler · BİTTİ

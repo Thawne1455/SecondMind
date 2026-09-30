@@ -12,8 +12,10 @@ export const dumpItems = sqliteTable(
     status: text('status', { enum: ['pending', 'processing', 'processed', 'skipped'] })
       .notNull()
       .default('pending'),
-    // ai_jobs Aşama 4'te; foreign key o zaman eklenir.
+    // Son işlendiği `ai_jobs` satırı. FK eklenmez (SQLite tabloyu yeniden kurmak ister); bütünlük sorgu katmanında.
     jobId: text('job_id'),
+    /** AI'ın `unprocessed` gerekçesi (Atlananlar sekmesi). */
+    skipReason: text('skip_reason'),
     ...timestamps(),
     deletedAt: deletedAt(),
   },

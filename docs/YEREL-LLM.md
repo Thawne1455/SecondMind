@@ -1,8 +1,19 @@
-# Açık karar: Yerel LLM (Qwen) ile Claude Code
+# Karar: Yerel LLM (Qwen) ile Claude Code
 
-**Durum:** Taha düşünüyor (28 Eylül 2026). Karar verilene kadar Aşama 4 (AI akışı ve Onay Kutusu) bekliyor.
-Karar verilince bu dosya "Karar" bölümüyle kapatılır; MIMARI.md (AI akışı), EKRANLAR.md (Döküm, Ayarlar > AI)
-ve YOL-HARITASI.md (Aşama 4) güncellenir.
+**Durum:** Karar verildi (30 Eylül 2026). Aşağıdaki "Karar" bölümü geçerlidir; altındaki değerlendirme tarihçe olarak durur.
+
+## Karar
+
+- **HIZLI (varsayılan) = yerel Qwen3.5-9B**, **DERİN = Claude Code** (`claude -p`). İkisi `AiRunner` arayüzünün arkasında;
+  iş paketi, `changesSchema` doğrulaması ve Onay Kutusu ortak.
+- Model: `unsloth/Qwen3.5-9B-GGUF`, `Q4_K_M` (5,7 GB, Apache 2.0), 8 GB VRAM'e sığar. `node-llama-cpp` 3.22 (CUDA'lı hazır
+  Windows derlemesi, yeniden derleme yok) ana süreçte yükler; ilk kullanımda Ayarlar > AI'dan `<veri>/models/`'a bir kez
+  indirilir, kurulum dosyasına girmez. Uygulama kapanınca model de kapanır (kural 3).
+- Çıktı `changesSchema`'dan türetilen JSON şemasına grammar ile zorlanır; yine de zod ile doğrulanır.
+- **Görüntü ve PDF yerelde yok:** `node-llama-cpp` görüntü girişini (mmproj) desteklemiyor. Eki olan döküm, tahta fotoğrafı,
+  PDF, ders programı görseli ve haftalık değerlendirme DERİN'e gider. HIZLI seçiliyken ekli dökümler için
+  "Bu öğelerde resim var, DERİN ile işlenir" uyarısı gösterilir.
+- Deneme aşaması yapılmadı; doğrudan Aşama 4. Örnek girdi seed'deki 9 döküm.
 
 ## Soru
 

@@ -74,6 +74,8 @@ export const taskCreateInputSchema = z.object({
   dueDate: taskFields.dueDate.optional(),
   plannedDate: taskFields.plannedDate.optional(),
   projectId: z.string().nullish(),
+  /** Ders görevi (AI önerisi "Lineer Cebir: 3. bölümü çalış"). */
+  courseId: z.string().nullish(),
   kind: taskFields.kind.optional(),
   severity: taskFields.severity.optional(),
   reproSteps: taskFields.reproSteps.optional(),

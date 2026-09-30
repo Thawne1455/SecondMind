@@ -210,7 +210,13 @@ AI = Taha'nın bilgisayarındaki **Claude Code**, aboneliğiyle, `-p` (tek sefer
 3. **Doğrulama (algoritma):** Çıktıdaki JSON `changesSchema` (zod) ile doğrulanır. Geçersiz işlemler tek tek reddedilir ve
    işe not düşülür; geçerliler `proposals`'a yazılır. Hiç geçerli işlem yoksa iş "başarısız" olur ve dökümler bekliyor'a döner.
 4. **Onay (Taha):** Onay Kutusu'nda gösterilir. Onaylanan her öneri tek bir DB transaction'ında uygulanır ve `activity_log`'a yazılır.
-5. **Geri alma:** `activity_log`'daki önceki değerle ters işlem.
+5. **Geri alma:** `activity_log`'daki önceki değerle ters işlem. Uygulayıcı (`main/ai/apply.ts`) mevcut yazma fonksiyonlarını
+   `withActivityContext('ai', groupId)` altında çağırır: bütün kayıtlar `actor = ai` ve önerinin tek grubuyla düşer.
+   `undoGroup` (`db/undo.ts`) grubu tersten işler: oluşanlar çöp kutusuna, değişen kolonlar eski değerine; arada Taha aynı
+   kolonu değiştirdiyse geri alma reddedilir.
+
+Şema: `src/shared/schemas/ai.ts` (`operationSchema`, dış kabuk `changesEnvelopeSchema`); doğrulama `domain/changes.ts`
+(işlemler tek tek, girdide olmayan id reddedilir, kapsanmayan döküm "atlandı"); iş ve öneriler `db/ai.ts`.
 
 `changes.json` biçimi (başlangıç seti; yeni işlem türü eklemek = şema + uygulayıcı + önizleme bileşeni):
 
@@ -223,7 +229,7 @@ AI = Taha'nın bilgisayarındaki **Claude Code**, aboneliğiyle, `-p` (tek sefer
     { "op": "append_to_note", "sourceDumpIds": ["..."], "noteId": "...", "appendMd": "..." },
     { "op": "create_reminder", "sourceDumpIds": ["..."], "title": "...", "at": "2026-09-28T09:00" },
     { "op": "create_idea", "sourceDumpIds": ["..."], "title": "...", "note": "..." },
-    { "op": "create_exam", "sourceDumpIds": ["..."], "courseId": "...", "date": "...", "topics": ["..."] },
+    { "op": "create_exam", "sourceDumpIds": ["..."], "courseId": "...", "title": "Vize", "date": "2026-11-02", "time": "10:30", "weekFrom": 1, "weekTo": 7 },
     { "op": "set_project_next_step", "sourceDumpIds": ["..."], "projectId": "...", "text": "..." },
     { "op": "add_instructor_note", "sourceDumpIds": ["..."], "courseId": "...", "text": "..." }
   ],

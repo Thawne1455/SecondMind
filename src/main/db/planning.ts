@@ -169,6 +169,7 @@ export function createTask(db: Db, input: TaskCreateInput, now = new Date()): Ta
         dueDate: input.dueDate ?? null,
         plannedDate: input.plannedDate ?? null,
         projectId: input.projectId ?? null,
+        courseId: input.courseId ?? null,
         kanbanStatus: input.projectId ? 'todo' : null,
         kind: input.kind ?? 'task',
         severity: input.kind === 'bug' ? (input.severity ?? null) : null,

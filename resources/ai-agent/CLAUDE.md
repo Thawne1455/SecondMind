@@ -24,11 +24,11 @@ Yanıtın **yalnızca** JSON olur. Açıklama, markdown kod bloğu, ön söz yok
 | op | Zorunlu alanlar | Opsiyonel |
 | --- | --- | --- |
 | `create_task` | sourceDumpIds, title | context {projectId \| courseId}, dueDate (YYYY-MM-DD), estimateMin, kind (task/bug/research, sadece proje görevinde) |
-| `create_note` | sourceDumpIds, title, bodyMd | context {projectId \| courseId}, collection |
+| `create_note` | sourceDumpIds, title, bodyMd | context {projectId \| courseId}, collection (koleksiyon adı) |
 | `append_to_note` | sourceDumpIds, noteId, appendMd | |
 | `create_reminder` | sourceDumpIds, title, at (YYYY-MM-DDTHH:mm) | |
 | `create_idea` | sourceDumpIds, title | note |
-| `create_exam` | sourceDumpIds, courseId, date | topics (string dizisi), kind |
+| `create_exam` | sourceDumpIds, courseId, title ("Vize", "Final", "Quiz 2"), date (YYYY-MM-DD) | time (HH:mm), weekFrom, weekTo (kapsanan hafta aralığı) |
 | `set_project_next_step` | sourceDumpIds, projectId, text | |
 | `add_instructor_note` | sourceDumpIds, courseId, text | |
 
