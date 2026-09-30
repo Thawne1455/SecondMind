@@ -12,6 +12,7 @@ import {
 import {
   COURSE_TONES,
   defaultEndDate,
+  nextOccurrence,
   nextTone,
   slotOccurrences,
   termProgress,
@@ -54,6 +55,27 @@ describe('term', () => {
     expect(occ).toHaveLength(28)
     expect(occ[0]).toEqual({ slotId: 'a', day: '2026-09-21', startMin: 540, endMin: 650 })
     expect(slotOccurrences(term, [{ id: 'a', weekday: 1, startMin: 540, endMin: 650 }], '2026-09-28')).toHaveLength(2)
+  })
+  it('sıradaki oturum', () => {
+    const slots = [
+      { id: 'a', weekday: 1, startMin: 540, endMin: 650 },
+      { id: 'b', weekday: 3, startMin: 600, endMin: 720 },
+    ]
+    // Pazartesi 10:00: ders sürüyor, o gösterilir
+    expect(nextOccurrence(term, slots, '2026-09-28', 600)).toEqual({
+      slotId: 'a',
+      day: '2026-09-28',
+      startMin: 540,
+      endMin: 650,
+    })
+    // Pazartesi 11:00: bitti, sıradaki Çarşamba
+    expect(nextOccurrence(term, slots, '2026-09-28', 660)?.day).toBe('2026-09-30')
+    // Perşembe: haftaya Pazartesi
+    expect(nextOccurrence(term, slots, '2026-10-01', 0)?.day).toBe('2026-10-05')
+    // Dönem öncesi: ilk oturum; dönem sonrası ve slotsuz: yok
+    expect(nextOccurrence(term, slots, '2026-09-10', 0)?.day).toBe('2026-09-21')
+    expect(nextOccurrence(term, slots, '2026-12-25', 0)).toBeNull()
+    expect(nextOccurrence(term, [], '2026-09-28', 0)).toBeNull()
   })
 })
 

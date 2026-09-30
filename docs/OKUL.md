@@ -14,19 +14,31 @@ Bir dönem "aktif"tir; geçmiş dönemler salt okunur arşivdir ama ortalama hes
 
 ## Ana ekran: dönem panosu
 
-Ders kartlarından oluşan bir ızgara **değildir**. Dönemin tamamını tek bakışta gösteren bir panodur:
+Ders kartlarından oluşan bir ızgara **değildir**. Taha paneli iki iş için açar: **bugün/yarın ne var** ve **bir dersin
+içeriğine gitmek**. Pano bu ikisine göre dizilir (2026-09-30 yeniden düzen; eski düzende haftalık program ekranın yarısını
+kaplıyordu, not girilmemişken tablo ve sınav şeridi boş duruyordu):
 
-1. **Üst bant (gök mavisi dolgu, köşe 28):** dönem adı (2026-2027 GÜZ), "HAFTA 5 / 14" büyük sayı, dönem ilerleme çubuğu,
-   sağda **dönem ortalaması (tahmini)** ve **genel ortalama** büyük sayılarla.
-2. **Sınav şeridi:** yaklaşan sınavlar soldan sağa tarih sırasıyla, her biri bir geri sayım karosu:
-   "12 GÜN · VERİ YAPILARI VİZE", hazırlık yüzdesi (konu hazırlık puanlarından), planlanan / yapılan çalışma saati.
-   7 günden az kaldıysa ve hazırlık %50'nin altındaysa mercan.
-3. **Haftalık program (sol, geniş):** Pzt–Cum kolonları, 08–20 satırları. Akış bandı bloklarının **dikey** hali.
-   Ders blokları gök tonlarında (ders adı, derslik), sınav çalışma blokları çizgili, sınav günleri mercan pin.
-   Bu haftanın geçmiş dersleri üzerinde küçük **yoklama** işareti: katıldım / katılmadım (tek tık).
-4. **Not durumu tablosu (sağ):** her ders bir satır: ders, kredi (AKTS), şu anki ağırlıklı puan, harf tahmini,
-   **"Finalde en az X almalısın"** (hedef harf için), devamsızlık `3 / 8` (sınıra 2 kala amber, aşınca mercan).
-5. **Bu hafta teslim:** ödevler, son tarih sırasıyla, ders renk noktasıyla.
+1. **İnce üst bant (gök mavisi dolgu, köşe 28):** dönem adı ve tarihleri, "HAFTA 5 / 14" ve ilerleme çubuğu,
+   `Haftalık program` butonu, sağda dönem ve genel ortalama (küçük). Hiç harf yoksa ortalamalar gizlenir.
+   Ortalamaya tıklamak **Notlar ve ortalama** ekranını açar.
+2. **Bugün / Yarın / Yaklaşan şeridi (üç kolon):**
+   - Bugün ve Yarın: o günün dersleri saat sırasıyla (ton çizgisi, ad, saat, derslik), sınav çalışma blokları (çizgili,
+     bugün tek tıkla "çalıştım"), o güne düşen sınav mercan etiketle. Bugün biten derste yoklama: katıldım / katılmadım.
+   - Yaklaşan: 2–7 gün içindeki sınavlar (geri sayım, hazırlık yüzdesi; 7 günden az ve hazırlık %50 altı mercan) ve
+     48 saat içindeki (ya da gecikmiş) açık teslimler, tek tıkla "teslim ettim".
+   - Boş kolon tek satırdır ("Ders yok."), büyük boş kutu çizilmez.
+3. **Ders defterleri:** her ders tam genişlikte bir satır. Solda ders tonunda sırt, ders adı, kodu, sıradaki sınav
+   ("Vize · 12 gün") ve devamsızlık uyarısı (sadece amber/mercan durumda). Ortada **14 hafta karesi**: içerik (başlık, konu,
+   dolu not ya da materyal) varsa ders tonunda, açık "anlamadım" varsa mercan ve sayısıyla, içinde bulunulan hafta
+   halkalı, gelecek boş haftalar soluk. Kareye tıklamak dersin o haftasını açar (`?hafta=N`), ada tıklamak dersi.
+   Sağda sıradaki ders: "Şimdi · D-201", "Yarın 09:00 · D-201", "Pzt 09:00".
+4. **Haftalık program modalı:** Pzt–Cum kolonları, 08–20 satırları; akış bandı bloklarının **dikey** hali. Ders blokları gök
+   tonlarında, çalışma blokları çizgili, sınav günleri mercan pin, bu haftanın geçmiş derslerinde yoklama.
+5. **Notlar ve ortalama ekranı** (`/okul/gano`): önce bu dönemin not durumu tablosu (ders, Kredi, puan, harf,
+   "hedef için en az X", devamsızlık), altında GANO (aşağıda).
+
+Sınav şeridi ayrı bölüm değildir: sınavlar Bugün/Yarın/Yaklaşan şeridine ve ders satırlarına dağılır; tümü ders
+detayındaki Sınavlar sekmesindedir. `+ Sınav` ve `Dönem ayarları` ders defterleri başlığının sağında.
 
 Boş durum (dönem yok): "Dönem tanımlanmadı. Derslerini ve programını gir, SecondMind haftanı kursun." + `+ Dönem oluştur`.
 
@@ -84,7 +96,7 @@ Sınav kartından açılır. Okul'un en değerli ekranı.
 
 ## Ortalama ekranı (GANO)
 
-Dönem panosundaki ortalama sayısına tıklayınca açılır. Tüm dönemler ve dersleri: kredi, harf, katsayı.
+Dönem panosundaki ortalama sayısına tıklayınca açılır (Notlar ve ortalama ekranının alt bölümü). Tüm dönemler ve dersleri: kredi, harf, katsayı.
 Aktif dönem için tahmini harflerle **dönem ve genel ortalama simülasyonu**: bir dersin harfini değiştirince ortalamalar anında güncellenir.
 Formül: Σ(kredi × katsayı) / Σ kredi. Tekrar alınan derste son not geçerli.
 

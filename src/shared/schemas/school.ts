@@ -178,6 +178,21 @@ export const examCardSchema = z.object({
   doneMin: z.number(),
 })
 
+/** Panodaki ders satırının hafta karesi: içerik (not, materyal, konu, başlık) var mı, açık "anlamadım" sayısı. */
+export const boardWeekSchema = z.object({
+  weekNo: z.number(),
+  title: z.string(),
+  filled: z.boolean(),
+  openFlags: z.number(),
+})
+
+export const nextClassSchema = z.object({
+  day: dayKeySchema,
+  startMin: z.number(),
+  endMin: z.number(),
+  room: z.string(),
+})
+
 export const boardCourseSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -187,6 +202,8 @@ export const boardCourseSchema = z.object({
   targetLetter: z.string(),
   score: courseScoreSchema,
   attendance: attendanceStatusSchema,
+  weeks: z.array(boardWeekSchema),
+  nextClass: nextClassSchema.nullable(),
 })
 
 export const attendanceMarkSchema = z.enum(['present', 'absent', 'cancelled'])
@@ -248,6 +265,11 @@ export const schoolBoardSchema = z.object({
   classes: z.array(weekClassSchema),
   study: z.array(weekStudySchema),
   dueThisWeek: z.array(boardAssignmentSchema),
+  /** Bugün / Yarın şeridi: iki günün dersleri ve çalışma blokları, 48 saat içindeki (ve gecikmiş) açık teslimler. */
+  tomorrow: dayKeySchema,
+  soonClasses: z.array(weekClassSchema),
+  soonStudy: z.array(weekStudySchema),
+  dueSoon: z.array(boardAssignmentSchema),
 })
 
 export const topicSchema = z.object({
@@ -519,6 +541,8 @@ export type AttendanceStatusOut = z.infer<typeof attendanceStatusSchema>
 export type CourseScore = z.infer<typeof courseScoreSchema>
 export type ExamCard = z.infer<typeof examCardSchema>
 export type BoardCourse = z.infer<typeof boardCourseSchema>
+export type BoardWeek = z.infer<typeof boardWeekSchema>
+export type NextClass = z.infer<typeof nextClassSchema>
 export type AttendanceMark = z.infer<typeof attendanceMarkSchema>
 export type WeekClass = z.infer<typeof weekClassSchema>
 export type WeekStudy = z.infer<typeof weekStudySchema>

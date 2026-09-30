@@ -84,6 +84,30 @@ export function slotOccurrences(
   return out.sort((a, b) => a.day.localeCompare(b.day) || a.startMin - b.startMin)
 }
 
+/**
+ * Dersin sıradaki oturumu: bugün henüz bitmemiş (sürmekte olan dahil) ya da sonraki günlerdeki ilk oturum.
+ * Dönem dışı günler atlanır; dönem bittiyse null.
+ */
+export function nextOccurrence(
+  term: Pick<TermDates, 'startDate' | 'endDate'>,
+  slots: readonly SlotDef[],
+  today: DayKey,
+  nowMin: number,
+): SlotOccurrence | null {
+  if (!slots.length) return null
+  let d = parseDayKey(today < term.startDate ? term.startDate : today)
+  for (let i = 0; i < 8; i++, d = addDays(d, 1)) {
+    const key = dayKey(d)
+    if (key > term.endDate) return null
+    const iso = getISODay(d)
+    const hit = slots
+      .filter((s) => s.weekday === iso && (key > today || s.endMin > nowMin))
+      .sort((a, b) => a.startMin - b.startMin)[0]
+    if (hit) return { slotId: hit.id, day: key, startMin: hit.startMin, endMin: hit.endMin }
+  }
+  return null
+}
+
 /** Gün dönem içinde mi (iki uç dahil). */
 export const inTerm = (term: Pick<TermDates, 'startDate' | 'endDate'>, day: DayKey) =>
   day >= term.startDate && day <= term.endDate

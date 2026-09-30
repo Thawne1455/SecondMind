@@ -161,8 +161,10 @@ baytlar IPC ile (`material:bytes`). AI ile izlenceden müfredat çıkarma, `crea
   Taha geri bildirimi (6 sonrası düzeltme): "anlamadım" işareti silinebilir (geri alınır); arayüzde AKTS yerine
   "Kredi"; değerlendirme şeması hazır seçenek yerine elle (Quiz · Vize · Final, boş ağırlık, satır eklenip silinir);
   harf tahmini kaldırıldı: harf ya elle girilir ya da bütün notlar girilince çıkar (dönem ortalaması da buna göre).
-  **Açık konular:** (1) Okul panosunun tasarımı işlevsiz bulundu; Taha ile ayrıca konuşulacak, o zamana kadar düzen
-  değişmez. (2) Ders ekleme yorucu: Aşama 4'te LLM ders programı görselinden/PDF'inden (jpeg dahil) dönem, ders,
+  Pano yeniden düzeni (Taha ile konuşuldu, 2026-09-30): ince üst bant + Haftalık program modalı, Bugün / Yarın /
+  Yaklaşan şeridi, ders defterleri (14 hafta karesi → dersin o haftası); sınav şeridi dağıtıldı, not tablosu
+  Notlar ve ortalama ekranına taşındı (OKUL.md "Ana ekran").
+  **Açık konu:** Ders ekleme yorucu: Aşama 4'te LLM ders programı görselinden/PDF'inden (jpeg dahil) dönem, ders,
   saat, derslik ve hocayı çıkarıp öneri olarak Onay Kutusu'na koymalı (`changes.json`'a okul işlemleri).
 **Bitti sayılır:** Gerçek dönem programı girilmiş, bir sınav için plan üretilip Bugün'e yerleşiyor, not hesaplayıcı doğru sonuç veriyor.
 

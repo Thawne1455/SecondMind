@@ -124,6 +124,32 @@ describe('not ve pano', () => {
     expect(db.select().from(schema.attendance).all()).toHaveLength(2)
   })
 
+  it('Bugün / Yarın şeridi, sıradaki ders ve hafta kareleri', () => {
+    const { ds, la } = setup()
+    // Pazar 4 Ekim: yarın Pazartesi (gelecek hafta) Veri Yapıları
+    let board = getBoard(db, 180, at(10, 4))
+    expect(board.tomorrow).toBe('2026-10-05')
+    expect(board.soonClasses.map((c) => [c.day, c.name])).toEqual([['2026-10-05', 'Veri Yapıları']])
+    // Pazartesi 10:00: ders sürüyor; Lineer Cebir Çarşamba
+    board = getBoard(db, 180, at(10, 5, 10))
+    const row = (id: string) => board.courses.find((c) => c.id === id)!
+    expect(row(ds.id).nextClass).toEqual({ day: '2026-10-05', startMin: 540, endMin: 650, room: 'D-201' })
+    expect(row(la.id).nextClass?.day).toBe('2026-10-07')
+
+    saveTopic(db, { courseId: ds.id, weekNo: 1, name: 'Diziler' })
+    const { noteId } = weekNote(db, ds.id, 2)
+    addFlag(db, noteId, 'Neden O(log n)?')
+    saveAssignment(db, { courseId: ds.id, title: 'Yarın teslim', dueAt: at(10, 6, 9).getTime() }, at(10, 5))
+    saveAssignment(db, { courseId: ds.id, title: 'Haftaya', dueAt: at(10, 12).getTime() }, at(10, 5))
+    board = getBoard(db, 180, at(10, 5, 10))
+    const weeks = row(ds.id).weeks
+    expect(weeks).toHaveLength(14)
+    expect(weeks[0]).toMatchObject({ weekNo: 1, filled: true, openFlags: 0 })
+    expect(weeks[1]).toMatchObject({ weekNo: 2, openFlags: 1 })
+    expect(weeks[2]).toMatchObject({ weekNo: 3, filled: false })
+    expect(board.dueSoon.map((a) => a.title)).toEqual(['Yarın teslim'])
+  })
+
   it('bitmiş ders "katıldın mı?" sorusu olur, işaretlenince kalkar', () => {
     const { ds } = setup()
     expect(attendanceQuestions(db, at(10, 5, 10))).toHaveLength(0)

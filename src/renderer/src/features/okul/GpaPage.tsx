@@ -7,9 +7,10 @@ import { TopBar } from '../../app/TopBar'
 import { errorText } from '../../lib/errors'
 import { Button, cn, EmptyState, ErrorState, Select, Skeleton, useToast } from '../../ui'
 import { formatScore } from './schoolText'
-import { useGpa, useSchoolWrite } from './useSchool'
+import { GradeTable } from './Board'
+import { useBoard, useGpa, useSchoolWrite } from './useSchool'
 
-// Ortalama (GANO) ekranı: bütün dönemler ve dersleri (kredi, harf, katsayı). Harf tahmin edilmez: elle girilen ya da
+// Notlar ve ortalama ekranı: önce aktif dönemin not durumu tablosu (panodan buraya taşındı), sonra GANO: bütün dönemler ve dersleri (kredi, harf, katsayı). Harf tahmin edilmez: elle girilen ya da
 // bütün notlar girilince çıkan harf. Aktif dönemde harf seçmek sadece simülasyondur ("BB yerine CB gelirse?"), ortalamalar anında güncellenir. Arşiv dönemde
 // harf gerçek nottur: seçmek kaydeder. Formül Σ(kredi × katsayı) / Σ kredi, tekrar alınan derste son not.
 
@@ -47,6 +48,7 @@ function GpaView({ terms }: { terms: Term[] }) {
   const termGpa = active ? gpa(rows(active)) : null
   const overall = gpa(terms.flatMap(rows))
   const simulating = Object.keys(sim).length > 0
+  const board = useBoard().data
 
   return (
     <>
@@ -58,7 +60,7 @@ function GpaView({ terms }: { terms: Term[] }) {
           >
             <ArrowLeft size={16} strokeWidth={2} aria-hidden /> Okul
           </Link>
-          <h2 className="x m-0 mt-auto text-[28px] leading-none font-black uppercase">Ortalama</h2>
+          <h2 className="x m-0 mt-auto text-[28px] leading-none font-black uppercase">Notlar ve ortalama</h2>
           <span className="font-semibold opacity-80">
             {simulating ? 'Simülasyon: değiştirdiğin harflerle.' : 'Aktif dönemde bir derse harf seç, ortalamanın ne olacağını gör.'}
           </span>
@@ -71,6 +73,8 @@ function GpaView({ terms }: { terms: Term[] }) {
           </Button>
         )}
       </header>
+
+      {board && board.courses.length > 0 && <GradeTable courses={board.courses} />}
 
       {[...terms].reverse().map((t) => {
         const g = gpa(rows(t))

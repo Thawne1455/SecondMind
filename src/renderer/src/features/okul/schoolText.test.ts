@@ -5,6 +5,7 @@ import {
   formatScore,
   formatSlots,
   guessTermName,
+  nextClassText,
   parseLetterTable,
   parseSlots,
   parseWeekday,
@@ -104,5 +105,15 @@ describe('toComponents', () => {
       { name: 'Quiz', kind: 'quiz', weight: 10 },
       { name: 'Final', kind: 'final', weight: 52.5 },
     ])
+  })
+})
+
+describe('nextClassText', () => {
+  const n = { day: '2026-09-30', startMin: 540, endMin: 650, room: 'D-201' }
+  it('sürüyorsa şimdi, değilse gün ve saat', () => {
+    expect(nextClassText(n, '2026-09-30', '2026-10-01', 600)).toBe('Şimdi · D-201')
+    expect(nextClassText(n, '2026-09-30', '2026-10-01', 480)).toBe('Bugün 09:00 · D-201')
+    expect(nextClassText(n, '2026-09-29', '2026-09-30', 480)).toBe('Yarın 09:00 · D-201')
+    expect(nextClassText({ ...n, room: '' }, '2026-09-27', '2026-09-28', 0)).toBe('Çar 09:00')
   })
 })

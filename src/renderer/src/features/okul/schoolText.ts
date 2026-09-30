@@ -4,6 +4,7 @@ import type {
   ComponentInput,
   ComponentKind,
   ExamCard,
+  NextClass,
   RequiredScoresOut,
   SlotInput,
 } from '@shared/ipc'
@@ -114,6 +115,15 @@ export function daysLeftText(n: number): string {
   if (n <= 0) return 'Bugün'
   if (n === 1) return 'Yarın'
   return `${n} gün`
+}
+
+/** Ders satırının sağındaki sıradaki ders: "Şimdi · D-201", "Bugün 14:00", "Yarın 09:00", "Pzt 09:00". */
+export function nextClassText(n: NextClass, today: string, tomorrow: string, nowMin: number): string {
+  const room = n.room ? ` · ${n.room}` : ''
+  if (n.day === today && n.startMin <= nowMin) return `Şimdi${room}`
+  const iso = new Date(`${n.day}T12:00:00`).getDay()
+  const day = n.day === today ? 'Bugün' : n.day === tomorrow ? 'Yarın' : WEEKDAY_SHORT[(iso + 6) % 7]
+  return `${day} ${clock(n.startMin)}${room}`
 }
 
 /** "Finalde en az 82" / "Vize ve Final: en az 70" / garanti / imkânsız. */

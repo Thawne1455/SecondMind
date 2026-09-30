@@ -4,6 +4,7 @@ import { ulid } from 'ulid'
 import type {
   Assignment,
   AssignmentSaveInput,
+  BoardWeek,
   AttendanceMark,
   AttendanceQuestion,
   AttendanceSession,
@@ -60,6 +61,7 @@ import {
   nextTone,
   slotOccurrences,
   termProgress,
+  nextOccurrence,
   termWeek,
   weekRange,
 } from '../domain/school/term'
@@ -1021,6 +1023,8 @@ export function getBoard(db: Db, dailyMax: number, now = new Date()): SchoolBoar
   return db.transaction((tx) => {
     sweepMissedStudy(tx, now, dailyMax)
     const today = dayKey(now)
+    const tomorrow = dayKey(addDays(now, 1))
+    const nowMin = now.getHours() * 60 + now.getMinutes()
     const weekStart = dayKey(startOfWeek(now, { weekStartsOn: 1 }))
     const weekEnd = dayKey(addDays(parseDayKey(weekStart), 6))
     const term = activeTerm(tx)
@@ -1040,6 +1044,10 @@ export function getBoard(db: Db, dailyMax: number, now = new Date()): SchoolBoar
         classes: [],
         study: [],
         dueThisWeek: [],
+        tomorrow,
+        soonClasses: [],
+        soonStudy: [],
+        dueSoon: [],
       }
 
     const courseRows = termCourses(tx, term.id)
@@ -1048,14 +1056,18 @@ export function getBoard(db: Db, dailyMax: number, now = new Date()): SchoolBoar
     const slots = slotsOf(tx, ids)
     const comps = componentsOf(tx, ids)
     const marks = ids.length ? tx.select().from(attendance).where(inArray(attendance.courseId, ids)).all() : []
+    const weekSummaries = courseWeekSummaries(tx, ids, term.weekCount)
 
     const boardCourses = courseRows.map((c) => {
+      const courseSlotRows = slots.filter((s) => s.courseId === c.id)
       const sessions = courseSessions(
         term,
-        slots.filter((s) => s.courseId === c.id),
+        courseSlotRows,
         marks.filter((m) => m.courseId === c.id),
         now,
       )
+      const next = nextOccurrence(term, courseSlotRows, today, nowMin)
+      const nextSlot = next && courseSlotRows.find((s) => s.id === next.slotId)
       return {
         id: c.id,
         name: c.name,
@@ -1065,6 +1077,13 @@ export function getBoard(db: Db, dailyMax: number, now = new Date()): SchoolBoar
         targetLetter: c.targetLetter,
         score: courseScore(c, comps),
         attendance: attendanceOf(c, sessions),
+        weeks: weekSummaries.get(c.id) ?? [],
+        nextClass: next && {
+          day: next.day,
+          startMin: next.startMin,
+          endMin: next.endMin,
+          room: nextSlot?.room || c.room,
+        },
       }
     })
 
@@ -1100,30 +1119,40 @@ export function getBoard(db: Db, dailyMax: number, now = new Date()): SchoolBoar
       }
     })
 
-    const classes = []
-    for (const s of slots) {
-      const day = dayKey(addDays(parseDayKey(weekStart), s.weekday - 1))
-      if (!inTerm(term, day)) continue
-      const c = byId.get(s.courseId)!
-      classes.push({
-        slotId: s.id,
-        courseId: c.id,
-        name: c.name,
-        code: c.code,
-        tone: c.tone,
-        room: s.room || c.room,
-        day,
-        startMin: s.startMin,
-        endMin: s.endMin,
-        attendance: marks.find((m) => m.slotId === s.id && m.day === day)?.status ?? null,
-      })
+    const classesOn = (day: DayKey) => {
+      if (!inTerm(term, day)) return []
+      const iso = getISODay(parseDayKey(day))
+      return slots
+        .filter((s) => s.weekday === iso)
+        .map((s) => {
+          const c = byId.get(s.courseId)!
+          return {
+            slotId: s.id,
+            courseId: c.id,
+            name: c.name,
+            code: c.code,
+            tone: c.tone,
+            room: s.room || c.room,
+            day,
+            startMin: s.startMin,
+            endMin: s.endMin,
+            attendance: marks.find((m) => m.slotId === s.id && m.day === day)?.status ?? null,
+          }
+        })
+        .sort((a, b) => a.startMin - b.startMin)
     }
+    const classes = Array.from({ length: 7 }, (_, i) => dayKey(addDays(parseDayKey(weekStart), i))).flatMap(classesOn)
 
     const weekBlocks = tx
       .select()
       .from(studyBlocks)
       .where(
-        and(gte(studyBlocks.day, weekStart), lte(studyBlocks.day, weekEnd), ne(studyBlocks.status, 'missed')),
+        and(
+          gte(studyBlocks.day, weekStart),
+          // Pazar günü "yarın" gelecek haftada
+          lte(studyBlocks.day, tomorrow > weekEnd ? tomorrow : weekEnd),
+          ne(studyBlocks.status, 'missed'),
+        ),
       )
       .all()
     const blockExams = weekBlocks.length
@@ -1142,7 +1171,7 @@ export function getBoard(db: Db, dailyMax: number, now = new Date()): SchoolBoar
           .all()
       : []
     const topicNames = topicNameMap(tx, weekBlocks.map((b) => b.topicId).filter((t): t is string => !!t))
-    const study = weekBlocks.flatMap((b) => {
+    const blocks = weekBlocks.flatMap((b) => {
       const e = blockExams.find((x) => x.id === b.examId)
       const c = e && byId.get(e.courseId)
       if (!e || !c) return []
@@ -1178,6 +1207,11 @@ export function getBoard(db: Db, dailyMax: number, now = new Date()): SchoolBoar
         return t < weekEndMs && (open || t >= weekStartMs)
       })
       .map((a) => ({ ...toAssignment(a), courseName: byId.get(a.courseId)!.name, tone: byId.get(a.courseId)!.tone }))
+    const soonLimit = now.getTime() + 48 * 3_600_000
+    const dueSoon = due
+      .filter((a) => (a.status === 'todo' || a.status === 'doing') && a.dueAt.getTime() < soonLimit)
+      .map((a) => ({ ...toAssignment(a), courseName: byId.get(a.courseId)!.name, tone: byId.get(a.courseId)!.tone }))
+    const soon = (day: DayKey) => day === today || day === tomorrow
 
     return {
       term: toTerm(term),
@@ -1190,10 +1224,65 @@ export function getBoard(db: Db, dailyMax: number, now = new Date()): SchoolBoar
       exams: examCards,
       weekStart,
       classes: classes.sort((a, b) => a.day.localeCompare(b.day) || a.startMin - b.startMin),
-      study,
+      study: blocks.filter((b) => b.day <= weekEnd),
       dueThisWeek,
+      tomorrow,
+      soonClasses: [today, tomorrow].flatMap(classesOn),
+      soonStudy: blocks.filter((b) => soon(b.day)).sort((a, b) => a.day.localeCompare(b.day) || a.startMin - b.startMin),
+      dueSoon,
     }
   })
+}
+
+/**
+ * Panodaki ders satırlarının hafta kareleri. Kare "dolu": haftanın başlığı, konusu, dolu notu ya da materyali var.
+ * Açık "anlamadım" işaretleri ayrıca sayılır.
+ */
+function courseWeekSummaries(tx: Conn, ids: string[], weekCount: number): Map<string, BoardWeek[]> {
+  const out = new Map<string, BoardWeek[]>()
+  if (!ids.length) return out
+  const weekRows = tx
+    .select()
+    .from(courseWeeks)
+    .where(and(inArray(courseWeeks.courseId, ids), lte(courseWeeks.weekNo, weekCount)))
+    .all()
+  const topicRows = tx
+    .select({ courseId: topics.courseId, weekNo: topics.weekNo })
+    .from(topics)
+    .where(and(inArray(topics.courseId, ids), isNull(topics.deletedAt)))
+    .all()
+  const noteRows = tx
+    .select({ weekId: notes.weekId, body: notes.bodyMd })
+    .from(notes)
+    .where(and(inArray(notes.courseId, ids), isNotNull(notes.weekId), isNull(notes.deletedAt)))
+    .all()
+  const materialRows = tx
+    .select({ courseId: courseMaterials.courseId, weekNo: courseMaterials.weekNo })
+    .from(courseMaterials)
+    .where(and(inArray(courseMaterials.courseId, ids), isNull(courseMaterials.deletedAt)))
+    .all()
+  const flagRows = tx
+    .select({ courseId: noteFlags.courseId, weekNo: noteFlags.weekNo })
+    .from(noteFlags)
+    .where(and(inArray(noteFlags.courseId, ids), isNull(noteFlags.deletedAt), isNull(noteFlags.resolvedAt)))
+    .all()
+  const key = (courseId: string, weekNo: number | null) => `${courseId}:${weekNo}`
+  const content = new Set([...topicRows, ...materialRows].map((r) => key(r.courseId, r.weekNo)))
+  const notedWeeks = new Set(noteRows.filter((n) => n.body.trim()).map((n) => n.weekId))
+  const flags = new Map<string, number>()
+  for (const f of flagRows) flags.set(key(f.courseId, f.weekNo), (flags.get(key(f.courseId, f.weekNo)) ?? 0) + 1)
+  for (const w of weekRows.sort((a, b) => a.weekNo - b.weekNo)) {
+    const k = key(w.courseId, w.weekNo)
+    const list = out.get(w.courseId) ?? []
+    list.push({
+      weekNo: w.weekNo,
+      title: w.title,
+      filled: !!w.title.trim() || content.has(k) || notedWeeks.has(w.id),
+      openFlags: flags.get(k) ?? 0,
+    })
+    out.set(w.courseId, list)
+  }
+  return out
 }
 
 const toAssignment = (a: AssignmentRow): Assignment => ({
