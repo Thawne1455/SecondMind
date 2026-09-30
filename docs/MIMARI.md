@@ -28,8 +28,8 @@ SecondMind/
   secondmind.db
   media/          yüklenen resim, PDF, ses; dosya adı = içerik hash'i + uzantı (tekrarları önler)
   ai/
-    CLAUDE.md     ajan kuralları (resources/ai-agent/CLAUDE.md'den kopyalanır, sürümlü)
-    jobs/<id>/    her AI işinin paketi ve çıktısı (son 30 iş tutulur)
+    jobs/<id>/    her AI işinin paketi ve çıktısı: girdi.md, kurallar.md, media/, cikti.json (son 30 iş tutulur)
+  models/         yerel AI modeli (Qwen3.5-9B GGUF, ilk kullanımda Ayarlar > AI'dan indirilir)
   backups/        "Yedek al" ile oluşan tarihli kopyalar
 ```
 
@@ -196,17 +196,31 @@ sadece farklar kaydedilir. Ayrıntı ve Unity kuralları `docs/PROJELER.md`'de.
 
 ## AI akışı
 
-AI = Taha'nın bilgisayarındaki **Claude Code**, aboneliğiyle, `-p` (tek seferlik) modunda. API anahtarı yok.
+İki çalıştırıcı, tek arayüz (`main/ai/runner.ts` `AiRunner`; karar `docs/YEREL-LLM.md`):
+**HIZLI** = yerel Qwen3.5-9B (`main/ai/localRunner.ts`, `node-llama-cpp`), **DERİN** = Taha'nın bilgisayarındaki
+Claude Code, aboneliğiyle, `-p` modunda (`main/ai/claudeRunner.ts`; API anahtarı yok). İkisi de aynı kuralları
+(`resources/ai-agent/CLAUDE.md`) ve aynı `girdi.md`'yi alır. Akışı `main/ai/jobs.ts` (`processDumps`) yürütür.
 
-1. **Paket (algoritma):** "AI ile İşle" → `ai/jobs/<id>/` oluşturulur:
-   - `girdi.md`: işlenecek döküm öğeleri (id'leriyle) + kısa bağlam: bugünün tarihi, profil özeti, aktif projeler
-     (ad, id, sıradaki adım, açık kilometre taşı), bu dönemin dersleri (ad, id, yaklaşan sınavlar), son 10 not başlığı.
-     Bağlam en fazla ~3.000 token olacak şekilde kırpılır. "AI'a kapalı" işaretli içerik asla girmez.
+1. **Paket (algoritma):** "AI ile İşle" → dökümler çalıştırıcıya göre gruplanır (eki olan döküm HIZLI seçilse de
+   DERİN'e gider; `domain/aiInput.splitByModel`), her grup bir `ai_jobs` satırı ve `ai/jobs/<id>/` klasörü olur:
+   - `girdi.md` (`domain/aiInput.buildJobInput`): bugünün tarihi ve önümüzdeki 7 günün adları, profil özeti (ayar
+     `aiProfile`), aktif projeler (ad, id, sıradaki adım, açık kilometre taşı), aktif dönemin dersleri (ad, id, yaklaşan
+     sınavlar), son 10 not başlığı, işlenecek döküm öğeleri (id, yazıldığı gün/saat, ekler). Bağlam en fazla ~3.000
+     token; aşılınca notlar, sonra dersler, sonra projeler sondan düşer (dökümler kırpılmaz). Pakette görünmeyen id
+     bilinmez sayılır. "AI'a kapalı" notlar hiç okunmaz (`db/aiContext.ts`).
+   - `kurallar.md`: o işte kullanılan kuralların kopyası (adı CLAUDE.md değil, Claude Code kendiliğinden yüklemesin).
    - `media/`: dökümdeki resim ve PDF'lerin kopyaları.
-2. **Çağrı:** `claude -p "<kısa talimat>" --model <model> --output-format json` komutu `cwd = iş klasörü` ile çalıştırılır.
-   Model: Hızlı = Haiku sınıfı, Derin = Sonnet sınıfı (Ayarlar'dan değiştirilebilir). İzinler salt okumaya sınırlanır;
-   ajan dosya yazmaz, sonucu stdout'a JSON olarak verir. Kesin bayrakları uygulamadan önce `claude --help` ile doğrula.
-   Zaman aşımı 5 dakika; iptal edilebilir.
+2. **Çağrı:**
+   - HIZLI: model ilk işte yüklenir, uygulama kapanana kadar bellekte kalır (`will-quit`'te bırakılır). Kurallar sistem
+     talimatı, `girdi.md` mesaj; çıktı `domain/changesGrammar.ts`'teki JSON şemasıyla grammar'a zorlanır, düşünme
+     kapalı. Aynı anda tek üretim.
+   - DERİN: `claude -p <talimat> --output-format json --model <aiDeepModel> --system-prompt <kurallar>
+     --json-schema <changesSchema'dan> --tools Read --permission-mode dontAsk --safe-mode --restricted
+     --strict-mcp-config --no-session-persistence`, `cwd = iş klasörü`. `--safe-mode` CLAUDE.md, hook, eklenti, MCP
+     yüklemez; `--restricted` okumayı iş klasörüne kapatır. `claude.exe` ayar `aiClaudePath`'ten, yoksa PATH ve
+     `~/.local/bin`'den bulunur. Zaman aşımı 5 dakika; iptalde süreç ağacı öldürülür.
+   - Ham çıktı `cikti.json`'a yazılır. İptal ya da hata: iş `cancelled`/`failed`, dökümler bekliyor'a döner. Açılışta
+     `running` kalmış iş (uygulama iş sürerken kapandı) `failed` olur (`recoverStaleJobs`).
 3. **Doğrulama (algoritma):** Çıktıdaki JSON `changesSchema` (zod) ile doğrulanır. Geçersiz işlemler tek tek reddedilir ve
    işe not düşülür; geçerliler `proposals`'a yazılır. Hiç geçerli işlem yoksa iş "başarısız" olur ve dökümler bekliyor'a döner.
 4. **Onay (Taha):** Onay Kutusu'nda gösterilir. Onaylanan her öneri tek bir DB transaction'ında uygulanır ve `activity_log`'a yazılır.

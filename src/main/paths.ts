@@ -23,6 +23,8 @@ export interface DataPaths {
   db: string
   media: string
   ai: string
+  /** Yerel AI modeli (Aşama 4, ilk kullanımda indirilir). */
+  models: string
   backups: string
   onOneDrive: boolean
 }
@@ -35,6 +37,7 @@ export function ensureDataPaths(): DataPaths {
     db: join(root, 'secondmind.db'),
     media: join(root, 'media'),
     ai: join(root, 'ai'),
+    models: join(root, 'models'),
     backups: join(root, 'backups'),
     onOneDrive: isUnderOneDrive(root, process.env),
   }

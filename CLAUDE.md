@@ -41,6 +41,7 @@ npm run lint
 npm run test         # vitest run
 npm run db:generate  # drizzle-kit migration üret
 npm run seed -- --data-dir <klasör> [--reset]  # örnek veri; gerçek veri klasörünü reddeder
+npm run ai:try -- --data-dir <klasör> [--model fast|deep] [--download]  # bekleyen dökümleri AI ile işler (arayüzsüz)
 npm run build        # paketle
 ```
 

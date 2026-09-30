@@ -23,7 +23,13 @@ export function startJob(
   return db.transaction((tx) => {
     const id = ulid()
     tx.insert(aiJobs)
-      .values({ id, kind: input.kind, model: input.model, startedAt: now, inputSummary: input.inputSummary })
+      .values({
+        id,
+        kind: input.kind,
+        model: input.model,
+        startedAt: now,
+        inputSummary: input.inputSummary,
+      })
       .run()
     if (input.dumpIds.length)
       tx.update(dumpItems)
@@ -50,9 +56,22 @@ export function failJob(
   now = new Date(),
 ): void {
   db.transaction((tx) => {
-    tx.update(aiJobs).set({ status, error, finishedAt: now, updatedAt: now }).where(eq(aiJobs.id, jobId)).run()
+    tx.update(aiJobs)
+      .set({ status, error, finishedAt: now, updatedAt: now })
+      .where(eq(aiJobs.id, jobId))
+      .run()
     releaseDumps(tx, jobId, now)
   })
+}
+
+/**
+ * Açılışta: önceki oturumda "çalışıyor" kalmış işler (uygulama iş sürerken kapandı) başarısız sayılır, dökümleri
+ * bekliyor'a döner. Dönen sayı: kurtarılan iş.
+ */
+export function recoverStaleJobs(db: Db, now = new Date()): number {
+  const stale = db.select({ id: aiJobs.id }).from(aiJobs).where(eq(aiJobs.status, 'running')).all()
+  for (const j of stale) failJob(db, j.id, 'Uygulama iş sürerken kapandı', 'failed', now)
+  return stale.length
 }
 
 /** Doğrulanmış çıktıyı yazar. Dönen sayı: oluşan öneri. */
@@ -81,7 +100,8 @@ export function finishJob(
       return 0
     }
     result.operations.forEach((op, sort) =>
-      tx.insert(proposals)
+      tx
+        .insert(proposals)
         .values({
           id: ulid(),
           jobId,
@@ -157,11 +177,18 @@ export function approveProposal(db: Db, id: string, edited?: unknown, now = new 
 export function rejectProposal(db: Db, id: string, now = new Date()): void {
   const row = liveProposal(db, id)
   if (row.status !== 'pending') throw new Error('Öneri zaten karara bağlanmış')
-  db.update(proposals).set({ status: 'rejected', decidedAt: now, updatedAt: now }).where(eq(proposals.id, id)).run()
+  db.update(proposals)
+    .set({ status: 'rejected', decidedAt: now, updatedAt: now })
+    .where(eq(proposals.id, id))
+    .run()
 }
 
 /** Tümünü onayla: her öneri kendi transaction'ında; biri hata verirse diğerleri yine uygulanır. */
-export function approveAll(db: Db, jobId: string, now = new Date()): { applied: number; failed: { id: string; error: string }[] } {
+export function approveAll(
+  db: Db,
+  jobId: string,
+  now = new Date(),
+): { applied: number; failed: { id: string; error: string }[] } {
   const pending = db
     .select({ id: proposals.id })
     .from(proposals)
@@ -196,5 +223,10 @@ export function listJobs(db: Db, limit = 20) {
 }
 
 export function jobProposals(db: Db, jobId: string): ProposalRow[] {
-  return db.select().from(proposals).where(eq(proposals.jobId, jobId)).orderBy(asc(proposals.sort)).all()
+  return db
+    .select()
+    .from(proposals)
+    .where(eq(proposals.jobId, jobId))
+    .orderBy(asc(proposals.sort))
+    .all()
 }

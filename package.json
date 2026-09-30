@@ -13,6 +13,7 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "seed": "tsx --tsconfig tsconfig.node.json scripts/seed.ts",
+    "ai:try": "tsx --tsconfig tsconfig.node.json scripts/ai-try.ts",
     "build": "electron-vite build"
   },
   "dependencies": {
@@ -30,6 +31,7 @@
     "drizzle-orm": "0.45.3",
     "fast-glob": "3.3.3",
     "lucide-react": "1.48.0",
+    "node-llama-cpp": "3.22.1",
     "pdfjs-dist": "6.3.289",
     "picomatch": "4.0.7",
     "react": "19.3.0",

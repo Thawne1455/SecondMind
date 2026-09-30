@@ -6,9 +6,8 @@
 // Gerçek veri klasörüne (%USERPROFILE%\SecondMind ya da uygulamanın config.json'daki dataDir'i)
 // hiçbir koşulda yazmaz. Örnek veri Taha'nın işlemi olmadığı için activity_log boş bırakılır.
 
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join, resolve, win32 } from 'node:path'
+import { existsSync, mkdirSync, rmSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { deflateSync, crc32 } from 'node:zlib'
 import Database from 'better-sqlite3'
 import { addDays, addHours, format, startOfDay, startOfWeek, subDays } from 'date-fns'
@@ -47,8 +46,8 @@ import {
   setWeekTitle,
   weekNote,
 } from '../src/main/db/school'
-import { defaultDataDir } from '../src/main/domain/dataDir'
 import { storeMedia } from '../src/main/media'
+import { isRealDataDir } from './devData'
 
 // ---------------------------------------------------------------- argümanlar ve güvenlik
 
@@ -71,27 +70,8 @@ function parseArgs(argv: string[]): { dataDir: string; reset: boolean } {
   return { dataDir: resolve(dataDir), reset }
 }
 
-const same = (a: string, b: string) =>
-  win32.resolve(a).replace(/\\+$/, '').toLowerCase() ===
-  win32.resolve(b).replace(/\\+$/, '').toLowerCase()
-
-/** Uygulamanın kendi config.json'unda seçili veri klasörü (userData = %APPDATA%\secondmind). */
-function configuredDataDir(): string | null {
-  const appData = process.env['APPDATA']
-  if (!appData) return null
-  const file = join(appData, 'secondmind', 'config.json')
-  if (!existsSync(file)) return null
-  try {
-    const dir = (JSON.parse(readFileSync(file, 'utf8')) as { dataDir?: unknown }).dataDir
-    return typeof dir === 'string' && dir ? dir : null
-  } catch {
-    return null
-  }
-}
-
 function assertNotRealData(dataDir: string): void {
-  const real = [defaultDataDir(homedir()), configuredDataDir()].filter((d): d is string => !!d)
-  if (real.some((d) => same(d, dataDir)))
+  if (isRealDataDir(dataDir))
     fail(`${dataDir} gerçek veri klasörü; örnek veri buraya yazılmaz (--reset ile de).`)
 }
 
@@ -619,7 +599,14 @@ const COURSES: CourseSeed[] = [
       { weekday: 1, start: '09:00', end: '10:50' },
       { weekday: 3, start: '13:00', end: '14:50' },
     ],
-    weeks: ['Diziler ve karmaşıklık', 'Bağlı listeler', 'Yığın ve kuyruk', 'Ağaçlar', 'İkili arama ağaçları', 'AVL ağaçları'],
+    weeks: [
+      'Diziler ve karmaşıklık',
+      'Bağlı listeler',
+      'Yığın ve kuyruk',
+      'Ağaçlar',
+      'İkili arama ağaçları',
+      'AVL ağaçları',
+    ],
     emphasized: [4, 6],
   },
   {
@@ -673,7 +660,11 @@ function seedSchool(db: Db, now: Date): { courses: number; exams: number } {
   const day = (offset: number) => format(addDays(now, offset), 'yyyy-MM-dd')
 
   // Geçmiş dönem: GANO'ya girer.
-  const past = saveTerm(db, { name: '2025-2026 Bahar', startDate: '2026-02-16', weekCount: 14, active: false }, subDays(now, 200))
+  const past = saveTerm(
+    db,
+    { name: '2025-2026 Bahar', startDate: '2026-02-16', weekCount: 14, active: false },
+    subDays(now, 200),
+  )
   for (const [name, code, credit, letter] of [
     ['Programlamaya Giriş II', 'BIL102', 6, 'BA'],
     ['Analiz II', 'MAT102', 6, 'CB'],
@@ -694,7 +685,12 @@ function seedSchool(db: Db, now: Date): { courses: number; exams: number } {
         instructorName: c.teacher,
         attendanceLimit: { kind: 'percent' as const, value: 30 },
         targetLetter: 'BB',
-        slots: c.slots.map((s) => ({ weekday: s.weekday, startMin: clockToMin(s.start), endMin: clockToMin(s.end), room: '' })),
+        slots: c.slots.map((s) => ({
+          weekday: s.weekday,
+          startMin: clockToMin(s.start),
+          endMin: clockToMin(s.end),
+          room: '',
+        })),
         components:
           c.code === 'ING201'
             ? [
@@ -718,7 +714,12 @@ function seedSchool(db: Db, now: Date): { courses: number; exams: number } {
     const course = byCode.get(c.code)!
     c.weeks.forEach((title, i) => {
       setWeekTitle(db, course.id, i + 1, title)
-      saveTopic(db, { courseId: course.id, weekNo: i + 1, name: title, emphasized: c.emphasized?.includes(i + 1) ?? false })
+      saveTopic(db, {
+        courseId: course.id,
+        weekNo: i + 1,
+        name: title,
+        emphasized: c.emphasized?.includes(i + 1) ?? false,
+      })
     })
     const quiz = db
       .select()
@@ -732,7 +733,11 @@ function seedSchool(db: Db, now: Date): { courses: number; exams: number } {
   const ds = byCode.get('BIL201')!
   const la = byCode.get('MAT205')!
   const comps = (courseId: string) =>
-    db.select().from(schema.gradeComponents).where(eq(schema.gradeComponents.courseId, courseId)).all()
+    db
+      .select()
+      .from(schema.gradeComponents)
+      .where(eq(schema.gradeComponents.courseId, courseId))
+      .all()
 
   // Sınavlar: Lineer Cebir vizesi 5 gün sonra (plan kurulu), Veri Yapıları vizesi 12 gün sonra.
   const laExam = saveExam(
@@ -764,20 +769,65 @@ function seedSchool(db: Db, now: Date): { courses: number; exams: number } {
     subDays(now, 3),
   ).id
   examCount += 2
-  const laTopics = db.select().from(schema.examTopics).where(eq(schema.examTopics.examId, laExam)).all()
-  laTopics.forEach((t, i) => setExamTopic(db, { examId: laExam, topicId: t.topicId, level: [2, 1, 0, 1][i] ?? 0 }))
-  const dsTopics = db.select().from(schema.examTopics).where(eq(schema.examTopics.examId, dsExam)).all()
-  dsTopics.forEach((t, i) => setExamTopic(db, { examId: dsExam, topicId: t.topicId, level: [3, 2, 2, 1, 0, 0][i] ?? 0 }))
+  const laTopics = db
+    .select()
+    .from(schema.examTopics)
+    .where(eq(schema.examTopics.examId, laExam))
+    .all()
+  laTopics.forEach((t, i) =>
+    setExamTopic(db, { examId: laExam, topicId: t.topicId, level: [2, 1, 0, 1][i] ?? 0 }),
+  )
+  const dsTopics = db
+    .select()
+    .from(schema.examTopics)
+    .where(eq(schema.examTopics.examId, dsExam))
+    .all()
+  dsTopics.forEach((t, i) =>
+    setExamTopic(db, { examId: dsExam, topicId: t.topicId, level: [3, 2, 2, 1, 0, 0][i] ?? 0 }),
+  )
   applyPlan(db, laExam, 180, now)
 
   // Ödevler: biri 3 gün sonra, biri geçen hafta teslim edildi.
-  saveAssignment(db, { courseId: ds.id, title: 'Bağlı liste uygulaması', dueAt: addHours(startOfDay(addDays(now, 3)), 23).getTime(), weekNo: 2 }, subDays(now, 6))
-  const done = saveAssignment(db, { courseId: la.id, title: 'Problem seti 1', dueAt: addHours(startOfDay(subDays(now, 4)), 17).getTime(), weekNo: 2 }, subDays(now, 12))
-  saveAssignment(db, { id: done.id, courseId: la.id, title: 'Problem seti 1', dueAt: addHours(startOfDay(subDays(now, 4)), 17).getTime(), status: 'graded', score: 90 }, subDays(now, 5))
+  saveAssignment(
+    db,
+    {
+      courseId: ds.id,
+      title: 'Bağlı liste uygulaması',
+      dueAt: addHours(startOfDay(addDays(now, 3)), 23).getTime(),
+      weekNo: 2,
+    },
+    subDays(now, 6),
+  )
+  const done = saveAssignment(
+    db,
+    {
+      courseId: la.id,
+      title: 'Problem seti 1',
+      dueAt: addHours(startOfDay(subDays(now, 4)), 17).getTime(),
+      weekNo: 2,
+    },
+    subDays(now, 12),
+  )
+  saveAssignment(
+    db,
+    {
+      id: done.id,
+      courseId: la.id,
+      title: 'Problem seti 1',
+      dueAt: addHours(startOfDay(subDays(now, 4)), 17).getTime(),
+      status: 'graded',
+      score: 90,
+    },
+    subDays(now, 5),
+  )
 
   // Yoklama: geçen haftalarda iki devamsızlık, kalanlar katıldı.
   for (const c of rows) {
-    const slots = db.select().from(schema.courseSlots).where(eq(schema.courseSlots.courseId, c.id)).all()
+    const slots = db
+      .select()
+      .from(schema.courseSlots)
+      .where(eq(schema.courseSlots.courseId, c.id))
+      .all()
     for (let w = 0; w < 3; w++)
       for (const s of slots) {
         const d = format(addDays(subDays(monday, 21 - w * 7), s.weekday - 1), 'yyyy-MM-dd')
@@ -797,9 +847,24 @@ function seedSchool(db: Db, now: Date): { courses: number; exams: number } {
     },
     subDays(now, 9),
   )
-  addFlag(db, noteId, 'Dairesel dizide dolu ile boşu ayırmak için neden bir hücre boş bırakılıyor?', subDays(now, 9))
-  addInstructorNote(db, ds.id, 'Vizede ispat yok, kod okuma ve karmaşıklık soruyor. Kağıda kod yazdırıyor.', subDays(now, 14))
-  addInstructorNote(db, la.id, 'Devamı sıkı alıyor: %30 sınırı var, imza ilk 10 dakikada.', subDays(now, 20))
+  addFlag(
+    db,
+    noteId,
+    'Dairesel dizide dolu ile boşu ayırmak için neden bir hücre boş bırakılıyor?',
+    subDays(now, 9),
+  )
+  addInstructorNote(
+    db,
+    ds.id,
+    'Vizede ispat yok, kod okuma ve karmaşıklık soruyor. Kağıda kod yazdırıyor.',
+    subDays(now, 14),
+  )
+  addInstructorNote(
+    db,
+    la.id,
+    'Devamı sıkı alıyor: %30 sınırı var, imza ilk 10 dakikada.',
+    subDays(now, 20),
+  )
 
   return { courses: COURSES.length + 4, exams: examCount }
 }

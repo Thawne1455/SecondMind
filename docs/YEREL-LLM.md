@@ -6,9 +6,13 @@
 
 - **HIZLI (varsayılan) = yerel Qwen3.5-9B**, **DERİN = Claude Code** (`claude -p`). İkisi `AiRunner` arayüzünün arkasında;
   iş paketi, `changesSchema` doğrulaması ve Onay Kutusu ortak.
-- Model: `unsloth/Qwen3.5-9B-GGUF`, `Q4_K_M` (5,7 GB, Apache 2.0), 8 GB VRAM'e sığar. `node-llama-cpp` 3.22 (CUDA'lı hazır
-  Windows derlemesi, yeniden derleme yok) ana süreçte yükler; ilk kullanımda Ayarlar > AI'dan `<veri>/models/`'a bir kez
-  indirilir, kurulum dosyasına girmez. Uygulama kapanınca model de kapanır (kural 3).
+- Model: `unsloth/Qwen3.5-9B-GGUF`, `Q4_K_M` (5,7 GB, Apache 2.0), 8 GB VRAM'e sığar. `node-llama-cpp` 3.22.1 ana
+  süreçte yükler; ilk kullanımda Ayarlar > AI'dan `<veri>/models/`'a bir kez indirilir, kurulum dosyasına girmez.
+  Uygulama kapanınca model de kapanır (kural 3).
+- **GPU (4b'de ölçüldü):** hazır CUDA ikilisi CUDA runtime DLL'lerini içermiyor ve bu makinede CUDA Toolkit kurulu değil;
+  bu yüzden `getLlama({ gpu: 'auto', build: 'never' })` **Vulkan**'ı seçer (RTX 4060'ı görür, kurulum gerekmez).
+  CUDA Toolkit 12 kurulursa aynı kod kendiliğinden CUDA'ya geçer. `gpu: 'cuda'` zorlanmaz: runtime yoksa kaynaktan
+  derlemeye kalkar (cmake/MSVC), bu yasak.
 - Çıktı `changesSchema`'dan türetilen JSON şemasına grammar ile zorlanır; yine de zod ile doğrulanır.
 - **Görüntü ve PDF yerelde yok:** `node-llama-cpp` görüntü girişini (mmproj) desteklemiyor. Eki olan döküm, tahta fotoğrafı,
   PDF, ders programı görseli ve haftalık değerlendirme DERİN'e gider. HIZLI seçiliyken ekli dökümler için

@@ -54,9 +54,10 @@ Karar (`docs/YEREL-LLM.md`): HIZLI = yerel Qwen3.5-9B (`node-llama-cpp`, grammar
 Görüntü/PDF içeren işler DERİN'e gider.
 - [x] 4a Öneri altyapısı: `ai_jobs`, `proposals` (migration + geri dönüş), `changesSchema` (zod), her işlem türü için
   uygulayıcı (tek transaction, `activity_log` grubu) ve geri al; testler
-- [ ] 4b Çalıştırıcılar: `AiRunner` arayüzü, iş paketi hazırlama (bağlam kırpma, "AI'a kapalı" hariç), yerel Qwen
+- [x] 4b Çalıştırıcılar: `AiRunner` arayüzü, iş paketi hazırlama (bağlam kırpma, "AI'a kapalı" hariç), yerel Qwen
   (model indirme + ilerleme, yükleme, grammar), Claude Code (`claude -p`, zaman aşımı, iptal); `resources/ai-agent/CLAUDE.md`
-  gözden geçirilir, iki çalıştırıcı da aynı kuralları kullanır
+  gözden geçirilir, iki çalıştırıcı da aynı kuralları kullanır. Arayüzsüz deneme: `npm run ai:try` (IPC ve ilerleme
+  olayı 4c'de, model indirme ekranı 4e'de). Yerel model gerçek modelle henüz denenmedi (indirme bekliyor).
 - [ ] 4c Döküm: `AI ile İşle` + HIZLI/DERİN, ilerleme ve iptal, İşlenenler / Atlananlar sekmeleri
 - [ ] 4d Onay Kutusu (çizilmemiş ekran: önce düzen planı + onay): gruplar, öneri karosu, onayla / reddet / düzenle,
   tümünü onayla, işlem günlüğü ve geri al

@@ -5,7 +5,17 @@ import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Operation } from '@shared/schemas/ai'
-import { approveAll, approveProposal, failJob, finishJob, jobProposals, rejectProposal, startJob, undoProposal } from './ai'
+import {
+  approveAll,
+  approveProposal,
+  failJob,
+  finishJob,
+  jobProposals,
+  recoverStaleJobs,
+  rejectProposal,
+  startJob,
+  undoProposal,
+} from './ai'
 import type { Db } from './client'
 import { createDump } from './dump'
 import { createNote, updateNote } from './knowledge'
@@ -25,11 +35,20 @@ beforeEach(() => {
 
 const now = new Date(2026, 8, 30, 10, 0)
 const dump = (text: string) => createDump(db, text, []).id
-const dumpRow = (id: string) => db.select().from(schema.dumpItems).where(eq(schema.dumpItems.id, id)).get()!
+const dumpRow = (id: string) =>
+  db.select().from(schema.dumpItems).where(eq(schema.dumpItems.id, id)).get()!
 const log = () => db.select().from(schema.activityLog).all()
 
-function job(ops: Operation[], dumpIds: string[], unprocessed: { dumpId: string; reason: string }[] = []) {
-  const jobId = startJob(db, { kind: 'dump', model: 'fast', dumpIds, inputSummary: `${dumpIds.length} döküm` }, now)
+function job(
+  ops: Operation[],
+  dumpIds: string[],
+  unprocessed: { dumpId: string; reason: string }[] = [],
+) {
+  const jobId = startJob(
+    db,
+    { kind: 'dump', model: 'fast', dumpIds, inputSummary: `${dumpIds.length} döküm` },
+    now,
+  )
   finishJob(db, jobId, { operations: ops, rejected: [], unprocessed }, null, now)
   return jobId
 }
@@ -39,7 +58,14 @@ describe('iş yaşam döngüsü', () => {
     const d1 = dump('yarın hocaya mail at')
     const d2 = dump('şu ne demekti')
     const jobId = job(
-      [{ op: 'create_reminder', sourceDumpIds: [d1], title: 'Hocaya mail at', at: '2026-10-01T09:00' }],
+      [
+        {
+          op: 'create_reminder',
+          sourceDumpIds: [d1],
+          title: 'Hocaya mail at',
+          at: '2026-10-01T09:00',
+        },
+      ],
       [d1, d2],
       [{ dumpId: d2, reason: 'Belirsiz' }],
     )
@@ -59,20 +85,48 @@ describe('iş yaşam döngüsü', () => {
     expect(dumpRow(d1).status).toBe('pending')
     expect(jobId).not.toBe(j2)
   })
+
+  it('açılışta yarım kalan iş başarısız olur, döküm bekliyor’a döner', () => {
+    const d1 = dump('a')
+    const j = startJob(db, { kind: 'dump', model: 'deep', dumpIds: [d1], inputSummary: '' }, now)
+    expect(recoverStaleJobs(db, now)).toBe(1)
+    expect(db.select().from(schema.aiJobs).where(eq(schema.aiJobs.id, j)).get()!.status).toBe(
+      'failed',
+    )
+    expect(dumpRow(d1).status).toBe('pending')
+    expect(recoverStaleJobs(db, now)).toBe(0)
+  })
 })
 
 describe('onay, düzenleme, geri alma', () => {
   it('görev önerisi AI adına tek grupla yazılır, geri alınınca çöpe gider', () => {
     const d1 = dump('Runika menü müziği uzun')
-    const pid = createProject(db, { name: 'Runika', kind: 'unity', color: '#3be08f', folderPath: null }, now)
+    const pid = createProject(
+      db,
+      { name: 'Runika', kind: 'unity', color: '#3be08f', folderPath: null },
+      now,
+    )
     const jobId = job(
-      [{ op: 'create_task', sourceDumpIds: [d1], title: 'Menü müziğini kırp', context: { projectId: pid }, kind: 'bug' }],
+      [
+        {
+          op: 'create_task',
+          sourceDumpIds: [d1],
+          title: 'Menü müziğini kırp',
+          context: { projectId: pid },
+          kind: 'bug',
+        },
+      ],
       [d1],
     )
     const [p] = jobProposals(db, jobId)
     approveProposal(db, p!.id, undefined, now)
     const task = db.select().from(schema.tasks).get()!
-    expect(task).toMatchObject({ title: 'Menü müziğini kırp', projectId: pid, kind: 'bug', kanbanStatus: 'todo' })
+    expect(task).toMatchObject({
+      title: 'Menü müziğini kırp',
+      projectId: pid,
+      kind: 'bug',
+      kanbanStatus: 'todo',
+    })
     const entries = log().filter((l) => l.targetTable === 'tasks')
     expect(entries).toHaveLength(1)
     expect(entries[0]).toMatchObject({ actor: 'ai', groupId: jobProposals(db, jobId)[0]!.groupId })
@@ -85,10 +139,20 @@ describe('onay, düzenleme, geri alma', () => {
 
   it('not + fikir + sonraki adım; düzenlenerek onay; toplu onay hataları ayrı', () => {
     const d1 = dump('karışık')
-    const pid = createProject(db, { name: 'Runika', kind: 'unity', color: '#3be08f', folderPath: null }, now)
+    const pid = createProject(
+      db,
+      { name: 'Runika', kind: 'unity', color: '#3be08f', folderPath: null },
+      now,
+    )
     const jobId = job(
       [
-        { op: 'create_note', sourceDumpIds: [d1], title: 'Rüya', bodyMd: 'Uçuyordum', collection: 'Günlük' },
+        {
+          op: 'create_note',
+          sourceDumpIds: [d1],
+          title: 'Rüya',
+          bodyMd: 'Uçuyordum',
+          collection: 'Günlük',
+        },
         { op: 'create_idea', sourceDumpIds: [d1], title: 'Ritim oyunu', note: 'Davul' },
         { op: 'set_project_next_step', sourceDumpIds: [d1], projectId: pid, text: 'Boss dövüşü' },
         { op: 'add_instructor_note', sourceDumpIds: [d1], courseId: 'yok', text: 'x' },
@@ -96,11 +160,21 @@ describe('onay, düzenleme, geri alma', () => {
       [d1],
     )
     const ps = jobProposals(db, jobId)
-    approveProposal(db, ps[0]!.id, { title: 'Rüya günlüğü', bodyMd: 'Uçuyordum, sonra düştüm' }, now)
+    approveProposal(
+      db,
+      ps[0]!.id,
+      { title: 'Rüya günlüğü', bodyMd: 'Uçuyordum, sonra düştüm' },
+      now,
+    )
     const r = approveAll(db, jobId, now)
     expect(r.applied).toBe(2)
     expect(r.failed.map((f) => f.id)).toEqual([ps[3]!.id])
-    expect(jobProposals(db, jobId).map((p) => p.status)).toEqual(['edited', 'approved', 'approved', 'pending'])
+    expect(jobProposals(db, jobId).map((p) => p.status)).toEqual([
+      'edited',
+      'approved',
+      'approved',
+      'pending',
+    ])
 
     const allNotes = db.select().from(schema.notes).all()
     const dream = allNotes.find((n) => n.title === 'Rüya günlüğü')!
@@ -150,21 +224,53 @@ describe('okul, hatırlatma ve nota ekleme', () => {
     const d1 = dump('karışık')
     const jobId = job(
       [
-        { op: 'create_exam', sourceDumpIds: [d1], courseId: course.id, title: 'Vize', date: '2026-11-02', time: '10:30' },
-        { op: 'add_instructor_note', sourceDumpIds: [d1], courseId: course.id, text: 'Soru 4 sınavda çıkar' },
-        { op: 'create_task', sourceDumpIds: [d1], title: '3. bölümü çalış', context: { courseId: course.id }, kind: 'bug' },
-        { op: 'create_reminder', sourceDumpIds: [d1], title: 'Hocaya mail', at: '2026-10-01T09:00' },
+        {
+          op: 'create_exam',
+          sourceDumpIds: [d1],
+          courseId: course.id,
+          title: 'Vize',
+          date: '2026-11-02',
+          time: '10:30',
+        },
+        {
+          op: 'add_instructor_note',
+          sourceDumpIds: [d1],
+          courseId: course.id,
+          text: 'Soru 4 sınavda çıkar',
+        },
+        {
+          op: 'create_task',
+          sourceDumpIds: [d1],
+          title: '3. bölümü çalış',
+          context: { courseId: course.id },
+          kind: 'bug',
+        },
+        {
+          op: 'create_reminder',
+          sourceDumpIds: [d1],
+          title: 'Hocaya mail',
+          at: '2026-10-01T09:00',
+        },
         { op: 'append_to_note', sourceDumpIds: [d1], noteId: note.id, appendMd: 'Soru 4 nedir?' },
       ],
       [d1],
     )
     expect(approveAll(db, jobId, now)).toEqual({ applied: 5, failed: [] })
-    expect(db.select().from(schema.exams).get()).toMatchObject({ title: 'Vize', day: '2026-11-02', startMin: 630 })
+    expect(db.select().from(schema.exams).get()).toMatchObject({
+      title: 'Vize',
+      day: '2026-11-02',
+      startMin: 630,
+    })
     expect(db.select().from(schema.instructorNotes).get()!.text).toBe('Soru 4 sınavda çıkar')
     // Proje dışı görevde tür yok sayılır
-    expect(db.select().from(schema.tasks).get()).toMatchObject({ courseId: course.id, kind: 'task', projectId: null })
+    expect(db.select().from(schema.tasks).get()).toMatchObject({
+      courseId: course.id,
+      kind: 'task',
+      projectId: null,
+    })
     expect(db.select().from(schema.reminders).get()!.at).toEqual(new Date(2026, 9, 1, 9, 0))
-    const body = () => db.select().from(schema.notes).where(eq(schema.notes.id, note.id)).get()!.bodyMd
+    const body = () =>
+      db.select().from(schema.notes).where(eq(schema.notes.id, note.id)).get()!.bodyMd
     expect(body()).toBe('İlk satır\n\nSoru 4 nedir?')
 
     undoProposal(db, jobProposals(db, jobId)[4]!.id, now)

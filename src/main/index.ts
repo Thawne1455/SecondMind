@@ -1,6 +1,8 @@
 import { app, BrowserWindow, nativeTheme, shell } from 'electron'
 import { join } from 'node:path'
 import { THEME_ARG_PREFIX, type Theme } from '@shared/ipc'
+import { disposeLocalModel } from './ai/localRunner'
+import { recoverStaleJobs } from './db/ai'
 import { closeDb, getDb, openDb } from './db/client'
 import { rolloverTasks } from './db/schedule'
 import { folderPathById } from './db/shots'
@@ -94,6 +96,8 @@ if (!app.requestSingleInstanceLock()) {
     handleProjectFileProtocol((id) => folderPathById(getDb(), id))
     // Gün sonu kaydırma açılışta: kaçırılan günlerin açık görevleri bugüne (Bugün her okumada da kontrol eder).
     rolloverTasks(getDb())
+    // Uygulama iş sürerken kapandıysa o işin dökümleri bekliyor'a döner.
+    recoverStaleJobs(getDb())
 
     registerAppIpc(paths)
     registerDumpIpc(paths)
@@ -121,5 +125,9 @@ if (!app.requestSingleInstanceLock()) {
 
   // Arka plan süreci yok: son pencere kapanınca uygulama tamamen kapanır.
   app.on('window-all-closed', () => app.quit())
-  app.on('will-quit', () => closeDb())
+  app.on('will-quit', () => {
+    // Yerel model uygulamayla birlikte kapanır (kural 3).
+    void disposeLocalModel()
+    closeDb()
+  })
 }

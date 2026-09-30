@@ -135,6 +135,12 @@ export const settingValueSchemas = {
   theme: themeSchema,
   /** Okul: sınav çalışma planında günlük en fazla çalışma (dk). */
   studyDailyMaxMin: z.number().int().min(30).max(720),
+  /** AI: iş paketine giren kısa profil özeti (Ayarlar > AI). */
+  aiProfile: z.string().max(2000),
+  /** AI: `claude.exe` yolu; null = PATH ve `~/.local/bin`'de aranır. */
+  aiClaudePath: z.string().min(1).max(500).nullable(),
+  /** AI: DERİN'de Claude Code'un modeli (takma ad ya da tam ad). */
+  aiDeepModel: z.string().min(1).max(80),
 } as const
 
 export type SettingKey = keyof typeof settingValueSchemas
@@ -143,6 +149,9 @@ export type SettingValue<K extends SettingKey> = z.infer<(typeof settingValueSch
 export const settingDefaults: { [K in SettingKey]: SettingValue<K> } = {
   theme: 'light',
   studyDailyMaxMin: 180,
+  aiProfile: '',
+  aiClaudePath: null,
+  aiDeepModel: 'sonnet',
 }
 
 const settingKeySchema = z.enum(Object.keys(settingValueSchemas) as [SettingKey, ...SettingKey[]])
