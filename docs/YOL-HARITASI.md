@@ -75,8 +75,17 @@ Görüntü/PDF içeren işler DERİN'e gider.
   oturum raporlarının Onay Kutusu'na düşmesi (5e) ayrı iş, henüz yok.
   Gözlem (ayrı iş, yapılmadı): Qwen göreli tarihi yanlış güne koyuyor (geçmiş zamanlı hatırlatma onaylanamıyor),
   sınav yerine hatırlatma öneriyor, fikir notuna id yazabiliyor.
-- [ ] 4e Ayarlar > AI: model indir / sil, Claude Code yolu ve test, HIZLI/DERİN seçimi, "AI'a kapalı" koleksiyonlar;
-  okul işlemleri (ders programı görselinden dönem/ders/saat/hoca önerisi, DERİN)
+- [x] 4e-1 Ayarlar > AI: "Beni tanı" profili, varsayılan model (HIZLI/DERİN), yerel model indir (ilerleme, iptal,
+  kaldığı yerden) / sil (onaylı, bellekteyse önce bırakır), Claude Code yolu (otomatik bulunan gösterilir) + model adı +
+  `Test et` (sürüm + kısa `-p` denemesi), "AI'a kapalı" koleksiyonlar
+  Kararlar (4e-1): "AI'a kapalı" koleksiyon düzeyinde de var (`collections.ai_excluded`, 0013 + geri dönüş); not başına
+  işaret kalır, not kapalıysa ya da koleksiyonu kapalıysa pakete girmez. Kapalı koleksiyondaki notta Bilgi'deki chip
+  "AI'a kapalı · koleksiyon" olur. İndirme ana süreçte, uygulama kapanınca durur; yarım dosya kalır (`.ipull`, baştan tam
+  boyutta ayrılır, boyutu ilerlemeyi söylemez). Silme AI çalışırken ve indirme sürerken reddedilir. Boyutlar ikili
+  birimle (Windows Gezgini gibi: model 5,3 GB). Zihin verileri (Taha, 2026-10-03): varsayılan kapalı olmak zorunda değil,
+  kullanıcıya bağlı; şu an `checkins` pakete hiç girmiyor, Aşama 7'de Ayarlar > AI'a bir anahtar olarak eklenir.
+- [ ] 4e-2 Okul işlemleri: ders programı görselinden/PDF'inden dönem, ders, saat, derslik ve hoca önerisi (DERİN,
+  `schedule_import` iş türü, `changes.json`'a okul işlemleri, Onay Kutusu'nda önizleme)
 **Bitti sayılır:** 5 karışık döküm (metin + tahta fotoğrafı) işlenip doğru önerilere dönüşüyor, onaylananlar yerine yazılıyor, geri alınabiliyor.
 
 ## Aşama 5 — Projeler · BİTTİ
@@ -193,6 +202,8 @@ baytlar IPC ile (`material:bytes`). AI ile izlenceden müfredat çıkarma, `crea
 - [ ] Eğilimler grafikleri (SVG bileşenleri), içgörü üretimi (`domain/insights` + test)
 - [ ] Kararlar ve gözden geçirme, Başarılar zaman çizelgesi
 - [ ] Haftalık değerlendirme (AI akışı, `weekly_review`)
+- [ ] Zihin verileri AI'a: Ayarlar > AI'da anahtar (Taha'nın seçimi; 4e-1 kararı). Zihin günlüğü `notes`'ta tutulursa
+  bu anahtar kapalıyken `db/aiContext.ts` onu da hariç tutmalı
 
 ## Aşama 8 — Cilalama ve paketleme
 - [ ] Yedekleme ve geri yükleme, veri klasörünü taşıma

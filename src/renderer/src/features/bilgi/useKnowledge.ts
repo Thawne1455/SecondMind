@@ -101,6 +101,12 @@ export const useRenameCollection = () =>
     window.api.invoke('collection:rename', input),
   )
 
+/** Ayarlar > AI: koleksiyondaki notlar AI iş paketlerine girmesin. */
+export const useSetCollectionAiExcluded = () =>
+  useKnowledgeMutation((input: { id: string; aiExcluded: boolean }) =>
+    window.api.invoke('collection:setAiExcluded', input),
+  )
+
 export const useDeleteCollection = () =>
   useKnowledgeMutation((input: { id: string; mode: CollectionDeleteMode }) =>
     window.api.invoke('collection:delete', input),

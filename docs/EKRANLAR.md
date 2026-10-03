@@ -57,7 +57,7 @@ Ana renk leylak. Dört sekme:
 
 **Haftalık değerlendirme** Pazar günü Bugün'de bir karo olarak önerilir; AI akışıyla çalışır (MIMARI.md).
 
-Zihin verileri varsayılan olarak "AI'a kapalı"dır; Taha Ayarlar'dan açabilir.
+Zihin verilerinin AI'a gidip gitmeyeceği Taha'nın seçimidir (Ayarlar > AI'da anahtar, Aşama 7).
 
 ## Bilgi — "Şunu nereye yazmıştım?"
 
@@ -73,4 +73,5 @@ Proje dokümanları ve ders hafta notları da aramada çıkar ama Bilgi listesin
 
 Bölümler: Profil ("Beni tanı" metni, AI her işte görür) · Veri klasörü ve `Yedek al` · Görünüm (Açık / Koyu / Sistem) ·
 Rutinler · Okul (dönemler, ders programı, devam sınırları, günlük en fazla çalışma) · Projeler (bağlı klasörler, alan kuralları, köprü) ·
-AI (Claude Code yolu ve test butonu, Hızlı/Derin model adları, "AI'a kapalı" koleksiyonlar ve alanlar).
+AI ("Beni tanı" profili, varsayılan model, HIZLI yerel model indir / sil, DERİN Claude Code yolu + model adı + Test et,
+"AI'a kapalı" koleksiyonlar; not başına kapatma Bilgi editöründe).

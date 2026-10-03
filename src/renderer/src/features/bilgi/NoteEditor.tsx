@@ -291,13 +291,22 @@ function NoteStrip({ note, status, beforeDelete, basePath }: NoteStripProps) {
       <Chip selected={note.pinned} onClick={() => patch({ pinned: !note.pinned })}>
         {note.pinned ? 'Sabitlendi' : 'Sabitle'}
       </Chip>
-      <Chip
-        selected={note.aiExcluded}
-        onClick={() => patch({ aiExcluded: !note.aiExcluded })}
-        title="Açıkken bu not AI iş paketlerine girmez"
-      >
-        AI'a kapalı
-      </Chip>
+      {current?.aiExcluded ? (
+        <span
+          title="Bu koleksiyon AI'a kapalı (Ayarlar > AI)"
+          className="inline-flex h-[34px] items-center rounded-full bg-ink px-3.5 text-[14px] font-bold whitespace-nowrap text-on-ink opacity-70"
+        >
+          AI'a kapalı · koleksiyon
+        </span>
+      ) : (
+        <Chip
+          selected={note.aiExcluded}
+          onClick={() => patch({ aiExcluded: !note.aiExcluded })}
+          title="Açıkken bu not AI iş paketlerine girmez"
+        >
+          AI'a kapalı
+        </Chip>
+      )}
       <Menu
         align="end"
         label="Not menüsü"

@@ -43,7 +43,7 @@ silinebilenlerde `deleted_at`. Aşağısı başlangıç taslağıdır; aşamalar
 - `dump_attachments`: döküm id, media id, sıra. Bir döküm = bir gönderim (metin + birden çok ek).
 - `media`: hash (sha256, unique), dosya adı, mime, boyut, orijinal ad. Satırlar silinmez; aynı içerik tek dosya.
   Renderer dosyaları `sm-media://m/<hash>.<ext>` protokolüyle okur (salt okunur, sadece `media/`, ad biçimi doğrulanır).
-- `collections`: ad, sıra, soft delete. Ad sadece canlı koleksiyonlar arasında benzersiz (kısmi unique index);
+- `collections`: ad, sıra, `ai_excluded` (koleksiyondaki notlar AI'a gitmez), soft delete. Ad sadece canlı koleksiyonlar arasında benzersiz (kısmi unique index);
   silinen koleksiyon geri gelirken ad çakışırsa "(2)" eki alır.
 - `notes`: başlık, `body_md` (markdown; resimler `![](sm-media://m/…)`), `collection_id` (null = koleksiyonsuz),
   bağlam (`project_id` | `course_id` | `week_id`; FK yok, tablolar Aşama 5/6'da), `pinned`, `ai_excluded`, soft delete.
@@ -207,7 +207,7 @@ Claude Code, aboneliğiyle, `-p` modunda (`main/ai/claudeRunner.ts`; API anahtar
      `aiProfile`), aktif projeler (ad, id, sıradaki adım, açık kilometre taşı), aktif dönemin dersleri (ad, id, yaklaşan
      sınavlar), son 10 not başlığı, işlenecek döküm öğeleri (id, yazıldığı gün/saat, ekler). Bağlam en fazla ~3.000
      token; aşılınca notlar, sonra dersler, sonra projeler sondan düşer (dökümler kırpılmaz). Pakette görünmeyen id
-     bilinmez sayılır. "AI'a kapalı" notlar hiç okunmaz (`db/aiContext.ts`).
+     bilinmez sayılır. "AI'a kapalı" notlar ve AI'a kapalı koleksiyonlardaki notlar hiç okunmaz (`db/aiContext.ts`).
    - `kurallar.md`: o işte kullanılan kuralların kopyası (adı CLAUDE.md değil, Claude Code kendiliğinden yüklemesin).
    - `media/`: dökümdeki resim ve PDF'lerin kopyaları.
 2. **Çağrı:**

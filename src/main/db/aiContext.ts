@@ -16,7 +16,7 @@ import {
 } from './schema'
 
 // AI iş paketinin bağlamı (MIMARI.md "AI akışı" 1. adım). Kırpma `domain/aiInput`'ta; burası sadece okur.
-// "AI'a kapalı" notlar hiç okunmaz.
+// "AI'a kapalı" notlar ve AI'a kapalı koleksiyonlardaki notlar hiç okunmaz.
 
 export function loadAiContext(db: Db, profile: string, now = new Date()): AiContext {
   const projectRows = db
@@ -82,7 +82,13 @@ export function loadAiContext(db: Db, profile: string, now = new Date()): AiCont
       collections,
       and(eq(collections.id, notes.collectionId), isNull(collections.deletedAt)),
     )
-    .where(and(isNull(notes.deletedAt), eq(notes.aiExcluded, false)))
+    .where(
+      and(
+        isNull(notes.deletedAt),
+        eq(notes.aiExcluded, false),
+        sql`coalesce(${collections.aiExcluded}, 0) = 0`,
+      ),
+    )
     .orderBy(desc(notes.updatedAt))
     .limit(10)
     .all()

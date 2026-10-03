@@ -9,6 +9,8 @@ export const collections = sqliteTable(
     id: id(),
     name: text('name').notNull(),
     position: integer('position').notNull().default(0),
+    /** Açıkken koleksiyondaki notlar AI iş paketlerine girmez (not başına `notes.ai_excluded` ile birlikte). */
+    aiExcluded: integer('ai_excluded', { mode: 'boolean' }).notNull().default(false),
     ...timestamps(),
     deletedAt: deletedAt(),
   },

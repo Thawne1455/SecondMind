@@ -15,6 +15,12 @@ export const ipcChannels = [
   'ai:process',
   'ai:status',
   'ai:cancel',
+  'aiModel:status',
+  'aiModel:download',
+  'aiModel:cancelDownload',
+  'aiModel:delete',
+  'claude:info',
+  'claude:test',
   'proposal:list',
   'proposal:count',
   'proposal:approve',
@@ -26,6 +32,7 @@ export const ipcChannels = [
   'collection:list',
   'collection:create',
   'collection:rename',
+  'collection:setAiExcluded',
   'collection:delete',
   'collection:restore',
   'tag:list',
@@ -189,6 +196,8 @@ export const ipcEvents = [
   'park:shown',
   /** AI çalıştırması ilerledi ya da bitti: durum ve döküm listeleri yenilenir. */
   'ai:changed',
+  /** Yerel model indirmesi ilerledi, bitti ya da model silindi: Ayarlar > AI yenilenir. */
+  'aiModel:changed',
 ] as const
 export type IpcEvent = (typeof ipcEvents)[number]
 

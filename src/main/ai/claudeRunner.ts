@@ -165,3 +165,83 @@ export function createClaudeRunner(opts: {
       }),
   }
 }
+
+/** `claude --version` çıktısından sürüm ("2.1.3 (Claude Code)" → "2.1.3"). */
+export function parseClaudeVersion(stdout: string): string | null {
+  return /\d+\.\d+\.\d+[\w.-]*/.exec(stdout)?.[0] ?? null
+}
+
+function runOnce(
+  file: string,
+  args: string[],
+  cwd: string,
+  timeoutMs: number,
+): Promise<{ code: number | null; stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(file, args, { cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
+    let stdout = ''
+    let stderr = ''
+    const timer = setTimeout(() => {
+      killTree(child.pid)
+      reject(new AiRunError(`Zaman aşımı (${Math.round(timeoutMs / 1000)} sn)`))
+    }, timeoutMs)
+    child.stdout.setEncoding('utf8').on('data', (s: string) => (stdout += s))
+    child.stderr.setEncoding('utf8').on('data', (s: string) => (stderr += s))
+    child.on('error', (e) => {
+      clearTimeout(timer)
+      reject(new AiRunError(`Claude Code başlatılamadı: ${e.message}`))
+    })
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      resolve({ code, stdout, stderr })
+    })
+  })
+}
+
+export type ClaudeProbe = { version: string | null; reply: string }
+
+/**
+ * Ayarlar > AI "Test et": önce sürüm, sonra işlerle aynı bayraklarla kısa bir `-p` denemesi (seçili model yanıt
+ * veriyor mu, abonelik oturumu açık mı). Hata `AiRunError` olarak tek satır döner.
+ */
+export async function testClaude(opts: {
+  claudePath: string
+  model: string
+  cwd: string
+  timeoutMs?: number
+}): Promise<ClaudeProbe> {
+  const v = await runOnce(opts.claudePath, ['--version'], opts.cwd, 15_000)
+  const version = parseClaudeVersion(v.stdout)
+  if (v.code !== 0 || !version)
+    throw new AiRunError(
+      `Sürüm okunamadı (${v.code}): ${(v.stderr || v.stdout).trim().slice(0, 200)}`,
+    )
+  const r = await runOnce(
+    opts.claudePath,
+    [
+      '-p',
+      'Sadece OK yaz.',
+      '--output-format',
+      'json',
+      '--model',
+      opts.model,
+      '--tools',
+      'Read',
+      '--permission-mode',
+      'dontAsk',
+      '--safe-mode',
+      '--restricted',
+      '--strict-mcp-config',
+      '--no-session-persistence',
+    ],
+    opts.cwd,
+    opts.timeoutMs ?? 90_000,
+  )
+  try {
+    return { version, reply: parseClaudeResult(r.stdout).trim().slice(0, 80) }
+  } catch (e) {
+    if (r.code !== 0 && r.stderr.trim())
+      throw new AiRunError(`Claude Code hata verdi (${r.code}): ${r.stderr.trim().slice(0, 300)}`)
+    throw e
+  }
+}

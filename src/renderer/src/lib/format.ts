@@ -3,11 +3,12 @@ import { tr } from 'date-fns/locale'
 
 const nf = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 1 })
 
-/** 1_258_291 → "1,2 MB". */
+/** 1_258_291 → "1,2 MB". İkili birim (Windows Gezgini gibi): 5_680_522_464 → "5,3 GB". */
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${nf.format(bytes / 1024)} KB`
-  return `${nf.format(bytes / (1024 * 1024))} MB`
+  if (bytes < 1024 ** 3) return `${nf.format(bytes / 1024 ** 2)} MB`
+  return `${nf.format(bytes / 1024 ** 3)} GB`
 }
 
 const MINUTE = 60_000

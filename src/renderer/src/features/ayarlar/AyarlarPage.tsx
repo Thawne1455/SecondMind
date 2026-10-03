@@ -3,10 +3,11 @@ import { TopBar } from '../../app/TopBar'
 import { useAppInfo } from '../../lib/app'
 import { useSetSetting, useSetting } from '../../lib/settings'
 import { Chip, ErrorState, SectionHeader, Skeleton } from '../../ui'
+import { AiSection } from './AiSection'
 import { RoutinesSection } from './RoutinesSection'
 import { SchoolSection } from './SchoolSection'
 
-// Ayarlar iskeleti: görünüm, rutinler (3a), okul (6) ve veri klasörü. Diğer bölümler ilgili aşamalarda eklenir.
+// Ayarlar iskeleti: görünüm, rutinler (3a), okul (6), AI (4e-1) ve veri klasörü. Diğer bölümler ilgili aşamalarda eklenir.
 export function AyarlarPage() {
   const theme = useSetting('theme')
   const setTheme = useSetSetting('theme')
@@ -31,6 +32,8 @@ export function AyarlarPage() {
       <RoutinesSection />
 
       <SchoolSection />
+
+      <AiSection />
 
       <section className="flex max-w-[720px] flex-col gap-4 pt-4">
         <SectionHeader title="Veri klasörü" />

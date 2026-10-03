@@ -8,6 +8,7 @@ import { rolloverTasks } from './db/schedule'
 import { folderPathById } from './db/shots'
 import { getSetting } from './db/settings'
 import { cancelAiRun, registerAiIpc } from './ipc/ai'
+import { cancelModelDownload, registerAiSetupIpc } from './ipc/aiSetup'
 import { registerInboxIpc } from './ipc/inbox'
 import { registerAppIpc } from './ipc/app'
 import { registerBridgeIpc } from './ipc/bridge'
@@ -104,6 +105,7 @@ if (!app.requestSingleInstanceLock()) {
     registerAppIpc(paths)
     registerDumpIpc(paths)
     registerAiIpc(paths)
+    registerAiSetupIpc(paths)
     registerInboxIpc()
     registerKnowledgeIpc(paths)
     registerPlanningIpc()
@@ -132,6 +134,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('will-quit', () => {
     // Süren AI işi ve yerel model uygulamayla birlikte kapanır (kural 3).
     cancelAiRun()
+    cancelModelDownload()
     void disposeLocalModel()
     closeDb()
   })

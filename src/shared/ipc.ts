@@ -1,12 +1,14 @@
 import { z } from 'zod'
 import type { IpcChannel, IpcEvent, Theme } from './ipc-channels'
 import { aiProcessInputSchema, aiStatusSchema } from './schemas/aiRun'
+import { claudeInfoSchema, claudeTestResultSchema, localModelInfoSchema } from './schemas/aiSetup'
 import { activityListInputSchema, activityListSchema, inboxSchema } from './schemas/inbox'
 import { dumpCreateInputSchema, dumpItemSchema, dumpStatusSchema } from './schemas/dump'
 import {
   collectionCreateInputSchema,
   collectionDeleteInputSchema,
   collectionRenameInputSchema,
+  collectionSetAiExcludedInputSchema,
   collectionSummarySchema,
   ideaSetStatusInputSchema,
   ideaSummarySchema,
@@ -117,6 +119,7 @@ import {
 
 export * from './ipc-channels'
 export * from './schemas/aiRun'
+export * from './schemas/aiSetup'
 export * from './schemas/inbox'
 export * from './schemas/dump'
 export * from './schemas/knowledge'
@@ -221,6 +224,36 @@ export const ipcContract = {
     input: z.void(),
     output: z.void(),
   },
+  // ---------------------------------------------------------------- Ayarlar > AI (4e-1)
+  /** Yerel modelin durumu ve süren indirme; ilerleme `aiModel:changed` olayıyla. */
+  'aiModel:status': {
+    input: z.void(),
+    output: localModelInfoSchema,
+  },
+  /** İndirmeyi başlatır ve hemen döner (yarım kalan indirme kaldığı yerden sürer). */
+  'aiModel:download': {
+    input: z.void(),
+    output: z.void(),
+  },
+  'aiModel:cancelDownload': {
+    input: z.void(),
+    output: z.void(),
+  },
+  /** Model dosyasını siler; bellekteyse önce bırakır. AI çalışırken ya da indirme sürerken reddedilir. */
+  'aiModel:delete': {
+    input: z.void(),
+    output: z.void(),
+  },
+  /** Claude Code'un ayarlı ve otomatik bulunan yolu. */
+  'claude:info': {
+    input: z.void(),
+    output: claudeInfoSchema,
+  },
+  /** Sürüm + seçili modelle kısa bir deneme. Hata da sonuç olarak döner. */
+  'claude:test': {
+    input: z.void(),
+    output: claudeTestResultSchema,
+  },
   // ---------------------------------------------------------------- Onay Kutusu (4d)
   /** Bekleyen önerisi olan işler (kaynağa göre gruplar) + Düzenle formunun proje/ders seçicileri. */
   'proposal:list': {
@@ -273,6 +306,11 @@ export const ipcContract = {
   },
   'collection:rename': {
     input: collectionRenameInputSchema,
+    output: z.void(),
+  },
+  /** Koleksiyondaki notlar AI iş paketlerine girmesin (Ayarlar > AI). */
+  'collection:setAiExcluded': {
+    input: collectionSetAiExcludedInputSchema,
     output: z.void(),
   },
   /** Soft delete; `withNotes`'ta notlar da aynı `group_id` ile çöp kutusuna gider. */

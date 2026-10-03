@@ -11,6 +11,7 @@ import {
   listNoteTitles,
   listTags,
   renameCollection,
+  setCollectionAiExcluded,
   restoreCollection,
   restoreNote,
   searchNotes,
@@ -25,6 +26,9 @@ export function registerKnowledgeIpc(paths: DataPaths): void {
   handle('collection:list', () => listCollections(getDb()))
   handle('collection:create', ({ name }) => createCollection(getDb(), name))
   handle('collection:rename', ({ id, name }) => renameCollection(getDb(), id, name))
+  handle('collection:setAiExcluded', ({ id, aiExcluded }) =>
+    setCollectionAiExcluded(getDb(), id, aiExcluded),
+  )
   handle('collection:delete', ({ id, mode }) => deleteCollection(getDb(), id, mode))
   handle('collection:restore', ({ id }) => restoreCollection(getDb(), id))
 

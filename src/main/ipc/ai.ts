@@ -131,6 +131,8 @@ async function execute(run: Running, paths: DataPaths): Promise<void> {
   }
 }
 
+export const isAiRunning = () => running !== null
+
 export function getAiStatus(): AiStatus {
   if (!running) return { running: null, last }
   const { dumpIds, ...run } = running

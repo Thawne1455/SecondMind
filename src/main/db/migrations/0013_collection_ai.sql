@@ -1,0 +1,1 @@
+ALTER TABLE `collections` ADD `ai_excluded` integer DEFAULT false NOT NULL;

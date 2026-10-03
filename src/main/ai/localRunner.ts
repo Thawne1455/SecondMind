@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import type { GbnfJsonObjectSchema, Llama, LlamaGrammar, LlamaModel } from 'node-llama-cpp'
 import { CHANGES_GRAMMAR } from '../domain/changesGrammar'
@@ -26,15 +26,24 @@ const MAX_OUTPUT_TOKENS = 3072
 
 export const localModelPath = (modelsDir: string) => join(modelsDir, LOCAL_MODEL.fileName)
 
+/**
+ * İndirici (ipull) yarım dosyayı bu adla tutar; indirme kaldığı yerden sürer. Dosya baştan tam boyutta ayrıldığı için
+ * boyutu ne kadar indirildiğini söylemez.
+ */
+const partialPath = (modelsDir: string) => `${localModelPath(modelsDir)}.ipull`
+
 export function localModelStatus(modelsDir: string): {
   downloaded: boolean
   path: string
   bytes: number
+  /** Yarım kalmış indirme var. */
+  partial: boolean
 } {
   const path = localModelPath(modelsDir)
+  const partial = existsSync(partialPath(modelsDir))
   return existsSync(path)
-    ? { downloaded: true, path, bytes: statSync(path).size }
-    : { downloaded: false, path, bytes: 0 }
+    ? { downloaded: true, path, bytes: statSync(path).size, partial }
+    : { downloaded: false, path, bytes: 0, partial }
 }
 
 const isAbort = (e: unknown) =>
@@ -105,6 +114,15 @@ export async function disposeLocalModel(): Promise<void> {
   } catch {
     // Yüklenemediyse bırakılacak bir şey yok.
   }
+}
+
+export const isLocalModelLoaded = () => loaded !== null
+
+/** Model dosyasını ve yarım indirmeyi siler; model bellekteyse önce bırakılır. */
+export async function deleteLocalModel(modelsDir: string): Promise<void> {
+  await disposeLocalModel()
+  for (const path of [localModelPath(modelsDir), partialPath(modelsDir)])
+    rmSync(path, { force: true })
 }
 
 export function createLocalRunner(opts: { modelsDir: string }): AiRunner {

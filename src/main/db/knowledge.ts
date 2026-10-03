@@ -72,7 +72,12 @@ function assertNameFree(db: Conn, name: string, exceptId?: string): void {
 
 export function listCollections(db: Db): CollectionSummary[] {
   return db
-    .select({ id: collections.id, name: collections.name, noteCount: count(notes.id) })
+    .select({
+      id: collections.id,
+      name: collections.name,
+      noteCount: count(notes.id),
+      aiExcluded: collections.aiExcluded,
+    })
     .from(collections)
     .leftJoin(notes, and(eq(notes.collectionId, collections.id), isNull(notes.deletedAt)))
     .where(isNull(collections.deletedAt))
@@ -100,7 +105,7 @@ export function createCollection(db: Db, name: string): CollectionSummary {
       targetId: row.id,
       after: row,
     })
-    return { id: row.id, name: row.name, noteCount: 0 }
+    return { id: row.id, name: row.name, noteCount: 0, aiExcluded: row.aiExcluded }
   })
 }
 
@@ -113,6 +118,29 @@ export function renameCollection(db: Db, id: string, name: string): void {
     const after = tx
       .update(collections)
       .set({ name, updatedAt: new Date() })
+      .where(eq(collections.id, id))
+      .returning()
+      .get()
+    logActivity(tx, {
+      actor: 'taha',
+      action: 'update',
+      targetTable: 'collections',
+      targetId: id,
+      before,
+      after,
+    })
+  })
+}
+
+/** Koleksiyonu AI'a kapatır ya da açar (Ayarlar > AI). */
+export function setCollectionAiExcluded(db: Db, id: string, aiExcluded: boolean): void {
+  db.transaction((tx) => {
+    const before = liveCollection(tx, id)
+    if (!before) throw new Error('Koleksiyon bulunamadı')
+    if (before.aiExcluded === aiExcluded) return
+    const after = tx
+      .update(collections)
+      .set({ aiExcluded, updatedAt: new Date() })
       .where(eq(collections.id, id))
       .returning()
       .get()

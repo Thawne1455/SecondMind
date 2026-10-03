@@ -14,10 +14,16 @@ export const collectionSummarySchema = z.object({
   id: z.string(),
   name: z.string(),
   noteCount: z.number(),
+  /** Koleksiyondaki notlar AI iş paketlerine girmez (Ayarlar > AI). */
+  aiExcluded: z.boolean(),
 })
 
 export const collectionCreateInputSchema = z.object({ name: collectionName })
 export const collectionRenameInputSchema = z.object({ id: z.string(), name: collectionName })
+export const collectionSetAiExcludedInputSchema = z.object({
+  id: z.string(),
+  aiExcluded: z.boolean(),
+})
 
 /** keepNotes: notlar koleksiyonsuz kalır. withNotes: notlar da çöp kutusuna gider. */
 export const collectionDeleteModeSchema = z.enum(['keepNotes', 'withNotes'])

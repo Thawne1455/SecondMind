@@ -18,8 +18,10 @@ import {
   restoreCollection,
   restoreNote,
   searchNotes,
+  setCollectionAiExcluded,
   updateNote,
 } from './knowledge'
+import { loadAiContext } from './aiContext'
 import * as schema from './schema'
 
 let db: Db
@@ -43,10 +45,37 @@ describe('koleksiyonlar', () => {
   it('oluşturur, sayar, yeniden adlandırır; canlı adlar benzersiz', () => {
     const okul = createCollection(db, 'Okul')
     createNote(db, okul.id)
-    expect(listCollections(db)).toEqual([{ id: okul.id, name: 'Okul', noteCount: 1 }])
+    expect(listCollections(db)).toEqual([
+      { id: okul.id, name: 'Okul', noteCount: 1, aiExcluded: false },
+    ])
     expect(() => createCollection(db, 'Okul')).toThrow(/zaten var/)
     renameCollection(db, okul.id, 'Ders notları')
     expect(listCollections(db)[0]?.name).toBe('Ders notları')
+  })
+
+  it("AI'a kapalı koleksiyonun ve notun başlıkları AI bağlamına girmez", () => {
+    const gizli = createCollection(db, 'Kişisel')
+    const acik = createCollection(db, 'Okul')
+    const a = createNote(db, gizli.id).id
+    updateNote(db, { id: a, title: 'Gizli günlük' })
+    const b = createNote(db, acik.id).id
+    updateNote(db, { id: b, title: 'Ders özeti' })
+    note('x', { title: 'Tek tek kapalı', aiExcluded: true })
+    note('y', { title: 'Koleksiyonsuz' })
+
+    const titles = () =>
+      loadAiContext(db, '')
+        .notes.map((n) => n.title)
+        .sort()
+    expect(titles()).toEqual(['Ders özeti', 'Gizli günlük', 'Koleksiyonsuz'])
+
+    setCollectionAiExcluded(db, gizli.id, true)
+    expect(listCollections(db).find((c) => c.id === gizli.id)?.aiExcluded).toBe(true)
+    expect(titles()).toEqual(['Ders özeti', 'Koleksiyonsuz'])
+    expect(log().at(-1)).toMatchObject({ targetTable: 'collections', action: 'update' })
+
+    setCollectionAiExcluded(db, gizli.id, false)
+    expect(titles()).toEqual(['Ders özeti', 'Gizli günlük', 'Koleksiyonsuz'])
   })
 
   it('keepNotes: notlar koleksiyonsuz kalır, geri alınca geri bağlanır', () => {
