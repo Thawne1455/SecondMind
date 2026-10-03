@@ -35,6 +35,11 @@ Yanıtın **yalnızca** JSON olur. Açıklama, markdown kod bloğu, ön söz yok
 | `create_exam` | sourceDumpIds, courseId, title ("Vize", "Final", "Quiz 2"), date (YYYY-MM-DD) | time (HH:mm), weekFrom, weekTo (kapsanan hafta aralığı) |
 | `set_project_next_step` | sourceDumpIds, projectId, text | |
 | `add_instructor_note` | sourceDumpIds, courseId, text | |
+| `import_term` | sourceDumpIds, name ("2026-2027 Bahar") | startDate, endDate (YYYY-MM-DD), weekCount (1–30) |
+| `import_course` | sourceDumpIds, name, slots (boş liste olabilir) | code, credit, instructor (hoca adı), instructorEmail, instructorOfficeHours |
+
+`slots` öğesi: `{ "weekday": 1, "start": "09:00", "end": "10:50", "room": "D-201" }`; weekday 1 = Pazartesi … 7 = Pazar,
+saatler 24 saatlik "HH:mm", room yoksa null.
 
 `sourceDumpIds`: işlemin çıktığı döküm(ler)in id'leri. `context` ya proje ya ders olur, ikisi birden olmaz.
 
@@ -57,3 +62,13 @@ Yanıtın **yalnızca** JSON olur. Açıklama, markdown kod bloğu, ön söz yok
    tavsiye veya teşhis ekleme.
 8. Her döküm öğesi ya en az bir işlemin `sourceDumpIds`'inde ya da `unprocessed`'ta yer almalı. Hiçbirini atlama.
 9. Az ve doğru öneri, çok ve gürültülü öneriden iyidir. Aynı şeyi iki işlemle önerme.
+10. **Ders programı** (haftalık ders çizelgesinin fotoğrafı, ekran görüntüsü ya da PDF'i): not yazma; her ders için bir
+    `import_course` üret, aynı dersin bütün saatleri tek işlemin `slots`'unda. Ayrıca en fazla bir `import_term`:
+    - Program bir dönem adı ya da tarih aralığı gösteriyorsa onu yaz. Adı "Bu dönemin dersleri" başlığındaki aktif
+      dönemle aynı döneme işaret ediyorsa aktif dönemin adını **aynen** kullan (uygulama adla eşleştirir).
+    - Programda dönem bilgisi yoksa `import_term` üretme (dersler aktif döneme eklenir).
+    - Tarihleri programda yazmıyorsa uydurma, null bırak.
+    - Ders adını programdaki gibi yaz (kısaltmayı açma). Ders zaten "Bu dönemin dersleri" listesindeyse oradaki adı ve
+      kodu kullan. Hoca adını unvanıyla birlikte programdaki gibi yaz ("Dr. Öğr. Üyesi Ayşe Kaya").
+    - Laboratuvar/uygulama saati ayrı satırdaysa aynı dersin `slots`'una ekle; ayrı bir ders kodu varsa ayrı ders yap.
+    - Okunamayan hücreyi tahmin etme: o dersi saatsiz bırak (`slots: []`) ya da hiç ekleme.

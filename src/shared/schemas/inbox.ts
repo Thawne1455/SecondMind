@@ -47,6 +47,42 @@ export const proposalViewSchema = z.object({
   diff: proposalDiffSchema.nullable(),
 })
 
+const previewSlotSchema = z.object({
+  weekday: z.number(),
+  startMin: z.number(),
+  endMin: z.number(),
+  room: z.string(),
+})
+
+/**
+ * Ders programı önizlemesi (4e-2): hedef dönem şeridi ve haftalık ızgara. Eşleştirme ana süreçte, uygulayıcıyla aynı
+ * algoritmayla (`domain/school/scheduleImport`).
+ */
+export const schedulePreviewSchema = z.object({
+  term: z.object({
+    /** Dönem önerisi (yoksa null). */
+    proposalId: z.string().nullable(),
+    /** new: onaylanınca oluşur (ya da bu önerilerle oluştu) · existing: dersler var olan döneme · none: dönem yok. */
+    mode: z.enum(['new', 'existing', 'none']),
+    name: z.string(),
+    active: z.boolean(),
+    startDate: z.string().nullable(),
+    endDate: z.string().nullable(),
+    weekCount: z.number().nullable(),
+  }),
+  courses: z.array(
+    z.object({
+      proposalId: z.string(),
+      /** Dönemde aynı ders var: öneri onu günceller. */
+      update: z.boolean(),
+      tone: z.string(),
+      /** Onaylanınca yerine geçecek eski saatler (sadece saat değişiyorsa). */
+      oldSlots: z.array(previewSlotSchema),
+      changes: z.array(z.object({ label: z.string(), before: z.string(), after: z.string() })),
+    }),
+  ),
+})
+
 export const proposalGroupSchema = z.object({
   jobId: z.string(),
   kind: z.enum(['dump', 'weekly_review', 'schedule_import']),
@@ -55,6 +91,8 @@ export const proposalGroupSchema = z.object({
   startedAt: z.number(),
   pending: z.number(),
   proposals: z.array(proposalViewSchema),
+  /** İşte dönem/ders önerisi varsa. */
+  schedule: schedulePreviewSchema.nullable(),
 })
 
 /** Düzenle formundaki seçiciler. */
@@ -103,6 +141,7 @@ export type ProposalSource = z.infer<typeof proposalSourceSchema>
 export type ProposalDiff = z.infer<typeof proposalDiffSchema>
 export type ProposalView = z.infer<typeof proposalViewSchema>
 export type ProposalGroup = z.infer<typeof proposalGroupSchema>
+export type SchedulePreview = z.infer<typeof schedulePreviewSchema>
 export type ProposalContexts = z.infer<typeof proposalContextsSchema>
 export type Inbox = z.infer<typeof inboxSchema>
 export type ActivityActorName = z.infer<typeof activityActorSchema>

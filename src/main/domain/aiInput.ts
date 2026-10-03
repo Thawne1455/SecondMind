@@ -22,9 +22,12 @@ export type AiContextCourse = {
   exams: { title: string; day: string }[]
 }
 export type AiContextNote = { id: string; title: string; collection: string | null }
+export type AiContextTerm = { name: string; startDate: string; endDate: string }
 export type AiContext = {
   now: Date
   profile: string
+  /** Aktif dönem (ders programı aktarımında dönemi eşleştirmek için); yoksa null. */
+  term?: AiContextTerm | null
   projects: AiContextProject[]
   courses: AiContextCourse[]
   notes: AiContextNote[]
@@ -131,7 +134,9 @@ export function buildJobInput(
       projectIds,
     ],
     [
-      '## Bu dönemin dersleri',
+      ctx.term
+        ? `## Bu dönemin dersleri (aktif dönem: ${clip(ctx.term.name, 80)}, ${ctx.term.startDate} – ${ctx.term.endDate})`
+        : '## Bu dönemin dersleri',
       ctx.courses.map((c) => ({ id: c.id, line: courseLine(c) })),
       courseIds,
     ],

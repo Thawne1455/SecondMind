@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Operation } from '@shared/schemas/ai'
-import { fromForm, toForm, validateEdit } from './editForm'
+import { fromForm, slotErrors, toForm, validateEdit } from './editForm'
 import { dayText, groupHeading, proposalLine } from './proposalText'
 
 // Cumartesi 3 Ekim 2026, 14:00.
@@ -125,5 +125,57 @@ describe('Düzenle formu', () => {
       errors: { estimateMin: 'Geçersiz değer' },
     })
     expect(validateEdit(task, fromForm('create_task', toForm(task)))).toEqual({ ok: true })
+  })
+})
+
+describe('ders programı önerileri', () => {
+  const course: Operation = {
+    op: 'import_course',
+    sourceDumpIds: ['d1'],
+    name: 'Veri Yapıları',
+    code: 'BLM201',
+    instructor: 'Dr. Ayşe Kaya',
+    slots: [
+      { weekday: 3, start: '13:00', end: '14:50', room: null },
+      { weekday: 1, start: '09:00', end: '10:50', room: 'D-201' },
+    ],
+  }
+
+  it('ders ve dönem cümlesi', () => {
+    expect(proposalLine(course, now)).toEqual({
+      title: 'Veri Yapıları (BLM201)',
+      meta: ['Pzt 09:00-10:50 D-201, Çar 13:00-14:50', 'Dr. Ayşe Kaya'],
+    })
+    expect(
+      proposalLine(
+        {
+          op: 'import_term',
+          sourceDumpIds: [],
+          name: '2026-2027 Bahar',
+          startDate: '2027-02-15',
+          endDate: '2027-05-30',
+          weekCount: 14,
+        },
+        now,
+      ),
+    ).toEqual({ title: '2026-2027 Bahar', meta: ['15 Şub – 30 May 2027', '14 hafta'] })
+    expect(proposalLine({ op: 'import_term', sourceDumpIds: [], name: 'X' }, now).meta).toEqual([
+      'Başlangıç tarihi yok',
+    ])
+  })
+
+  it('saatler tek metin olarak düzenlenir', () => {
+    const form = toForm(course)
+    expect(form.slots).toBe('Pzt 09:00-10:50 D-201, Çar 13:00-14:50')
+    const edited = fromForm('import_course', { ...form, slots: 'Sal 10:00-11:50 B-105' })
+    expect(edited.slots).toEqual([{ weekday: 2, start: '10:00', end: '11:50', room: 'B-105' }])
+    expect(validateEdit(course, edited)).toEqual({ ok: true })
+  })
+
+  it('anlaşılmayan saat alan hatası olur', () => {
+    expect(slotErrors('import_course', { slots: 'Pzt 9-, Sal 10:00-11:00' })).toEqual({
+      slots: 'Anlaşılmadı: Pzt 9- (örnek: Pzt 09:00-10:50 D-201)',
+    })
+    expect(slotErrors('import_course', { slots: 'Sal 10:00-11:00' })).toEqual({})
   })
 })

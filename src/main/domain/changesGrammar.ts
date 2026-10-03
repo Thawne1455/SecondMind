@@ -46,6 +46,33 @@ export const OPERATION_GRAMMARS = [
   }),
   op('set_project_next_step', { projectId: id, text: str(300) }),
   op('add_instructor_note', { courseId: id, text: str(2000) }),
+  op('import_term', {
+    name: str(80),
+    startDate: nullable(date),
+    endDate: nullable(date),
+    weekCount: nullable(int),
+  }),
+  op('import_course', {
+    name: str(120),
+    code: nullable(str(30)),
+    credit: nullable({ type: 'number' }),
+    instructor: nullable(str(120)),
+    instructorEmail: nullable(str(200)),
+    instructorOfficeHours: nullable(str(300)),
+    slots: {
+      type: 'array',
+      maxItems: 20,
+      items: {
+        type: 'object',
+        properties: {
+          weekday: int,
+          start: { type: 'string', minLength: 5, maxLength: 5 },
+          end: { type: 'string', minLength: 5, maxLength: 5 },
+          room: nullable(str(60)),
+        },
+      },
+    },
+  }),
 ] as const
 
 export const CHANGES_GRAMMAR = {

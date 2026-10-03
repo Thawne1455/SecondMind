@@ -132,3 +132,53 @@ describe('validateChanges', () => {
     expect(() => validateChanges({ version: 2, operations: [] }, known)).toThrow(ChangesParseError)
   })
 })
+
+describe('ders programı işlemleri', () => {
+  it('dönem ve ders geçer; ters saat ve ters tarih tek tek reddedilir', () => {
+    const r = validateChanges(
+      {
+        version: 1,
+        operations: [
+          {
+            op: 'import_term',
+            sourceDumpIds: ['d1'],
+            name: '2026-2027 Bahar',
+            startDate: '2027-02-15',
+          },
+          {
+            op: 'import_course',
+            sourceDumpIds: ['d1'],
+            name: 'Veri Yapıları',
+            slots: [{ weekday: 1, start: '09:00', end: '10:50', room: 'D-201' }],
+          },
+          {
+            op: 'import_course',
+            sourceDumpIds: ['d1'],
+            name: 'Fizik',
+            slots: [{ weekday: 2, start: '11:00', end: '10:00' }],
+          },
+          {
+            op: 'import_course',
+            sourceDumpIds: ['d1'],
+            name: 'Kimya',
+            slots: [{ weekday: 8, start: '9:00', end: '10:00' }],
+          },
+          {
+            op: 'import_term',
+            sourceDumpIds: ['d1'],
+            name: 'Ters',
+            startDate: '2027-02-15',
+            endDate: '2027-01-01',
+          },
+        ],
+      },
+      known,
+    )
+    expect(r.operations.map((o) => o.op)).toEqual(['import_term', 'import_course'])
+    expect(r.rejected.map((x) => x.reason)).toEqual([
+      'slots.0.end: Bitiş başlangıçtan sonra olmalı',
+      expect.stringMatching(/^slots\.0\.weekday/),
+      'endDate: Bitiş başlangıçtan önce olamaz',
+    ])
+  })
+})

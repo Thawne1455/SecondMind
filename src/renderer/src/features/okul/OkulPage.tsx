@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Plus } from 'lucide-react'
+import { Plus, Sparkles } from 'lucide-react'
 import type { AttendanceMark, BoardAssignment, WeekClass, WeekStudy } from '@shared/ipc'
 import { TopBar } from '../../app/TopBar'
 import { errorText } from '../../lib/errors'
@@ -8,6 +8,7 @@ import { useNow } from '../../lib/useNow'
 import { Button, EmptyState, ErrorState, Modal, Skeleton, useToast } from '../../ui'
 import { CourseShelf, SoonStrip, TermBand } from './Board'
 import { ExamDialog } from './ExamDialog'
+import { ImportScheduleDialog } from './ImportScheduleDialog'
 import { SetupWizard } from './SetupWizard'
 import { useBoard, useSchoolWrite } from './useSchool'
 import { WeekProgram } from './WeekProgram'
@@ -20,6 +21,7 @@ import { WeekProgram } from './WeekProgram'
 export function OkulPage() {
   const board = useBoard()
   const [setupOpen, setSetupOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   return (
     <main className="flex min-h-full flex-col gap-[18px] px-8 pt-[22px] pb-8">
@@ -31,23 +33,33 @@ export function OkulPage() {
           <Skeleton shape="tile" className="h-[420px]" />
         </>
       ) : board.isError ? (
-        <ErrorState title="Pano açılamadı" detail={errorText(board.error)} onRetry={() => void board.refetch()} />
+        <ErrorState
+          title="Pano açılamadı"
+          detail={errorText(board.error)}
+          onRetry={() => void board.refetch()}
+        />
       ) : !board.data.term ? (
         <EmptyState
           className="h-60 max-w-[640px]"
           title="Dönem tanımlanmadı"
           message="Derslerini ve programını gir, SecondMind haftanı kursun."
           action={{ label: 'Dönem oluştur', icon: Plus, onClick: () => setSetupOpen(true) }}
+          aiAction={{
+            label: 'Programdan doldur',
+            icon: Sparkles,
+            onClick: () => setImportOpen(true),
+          }}
         />
       ) : (
-        <BoardView />
+        <BoardView onImport={() => setImportOpen(true)} />
       )}
       <SetupWizard open={setupOpen} onClose={() => setSetupOpen(false)} />
+      <ImportScheduleDialog open={importOpen} onClose={() => setImportOpen(false)} />
     </main>
   )
 }
 
-function BoardView() {
+function BoardView({ onImport }: { onImport: () => void }) {
   const board = useBoard().data!
   const navigate = useNavigate()
   const now = new Date(useNow(60_000))
@@ -69,7 +81,10 @@ function BoardView() {
   function onDone(a: BoardAssignment) {
     assignment.mutate(
       { id: a.id, courseId: a.courseId, title: a.title, dueAt: a.dueAt, status: 'submitted' },
-      { onSuccess: () => toast({ message: `${a.title} teslim edildi.`, domain: 'school' }), onError },
+      {
+        onSuccess: () => toast({ message: `${a.title} teslim edildi.`, domain: 'school' }),
+        onError,
+      },
     )
   }
 
@@ -82,6 +97,7 @@ function BoardView() {
           title="Bu dönemde ders yok"
           message="Ayarlar > Okul'dan ders ve programını ekle."
           action={{ label: 'Ayarlara git', onClick: () => void navigate('/ayarlar#okul') }}
+          aiAction={{ label: 'Programdan doldur', icon: Sparkles, onClick: onImport }}
         />
       ) : (
         <>
@@ -103,6 +119,9 @@ function BoardView() {
             </Button>
             <Button size="sm" variant="secondary" onClick={() => void navigate('/ayarlar#okul')}>
               Dönem ayarları
+            </Button>
+            <Button size="sm" variant="ai" icon={Sparkles} onClick={onImport}>
+              Programdan doldur
             </Button>
           </div>
           <CourseShelf board={board} nowMin={nowMin} />

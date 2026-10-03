@@ -48,19 +48,28 @@ type EmptyStateProps = {
   message?: ReactNode
   /** Tek eylem. */
   action?: { label: string; icon?: LucideIcon; onClick: () => void }
+  /** İstisnai ikinci yol (Okul: "Programdan doldur", AI ile); amber. */
+  aiAction?: { label: string; icon?: LucideIcon; onClick: () => void }
   className?: string
 }
 
-export function EmptyState({ title, message, action, className }: EmptyStateProps) {
+export function EmptyState({ title, message, action, aiAction, className }: EmptyStateProps) {
   return (
     <div className={cn(STATE_TILE, 'bg-s2 text-ink', className)}>
       <span className={STATE_TITLE}>{title}</span>
       {message && <span className="text-ink2">{message}</span>}
-      {action && (
-        <div>
-          <Button icon={action.icon} onClick={action.onClick}>
-            {action.label}
-          </Button>
+      {(action || aiAction) && (
+        <div className="flex flex-wrap gap-2.5">
+          {action && (
+            <Button icon={action.icon} onClick={action.onClick}>
+              {action.label}
+            </Button>
+          )}
+          {aiAction && (
+            <Button variant="ai" icon={aiAction.icon} onClick={aiAction.onClick}>
+              {aiAction.label}
+            </Button>
+          )}
         </div>
       )}
     </div>

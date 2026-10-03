@@ -84,8 +84,21 @@ Görüntü/PDF içeren işler DERİN'e gider.
   boyutta ayrılır, boyutu ilerlemeyi söylemez). Silme AI çalışırken ve indirme sürerken reddedilir. Boyutlar ikili
   birimle (Windows Gezgini gibi: model 5,3 GB). Zihin verileri (Taha, 2026-10-03): varsayılan kapalı olmak zorunda değil,
   kullanıcıya bağlı; şu an `checkins` pakete hiç girmiyor, Aşama 7'de Ayarlar > AI'a bir anahtar olarak eklenir.
-- [ ] 4e-2 Okul işlemleri: ders programı görselinden/PDF'inden dönem, ders, saat, derslik ve hoca önerisi (DERİN,
+- [x] 4e-2 Okul işlemleri: ders programı görselinden/PDF'inden dönem, ders, saat, derslik ve hoca önerisi (DERİN,
   `schedule_import` iş türü, `changes.json`'a okul işlemleri, Onay Kutusu'nda önizleme)
+  Kararlar (4e-2, Taha): program iki yoldan verilir: Okul'da `Programdan doldur` (boş durumda ve Ders defterleri
+  başlığında; dosya döküm olarak kaydedilip sadece o DERİN ile hemen işlenir) ve Döküm'e atılan program fotoğrafı (aynı
+  öneriler). İşlemler `import_term` (ad, tarihler, hafta) ve `import_course` (ad, kod, kredi, hoca, e-posta, ofis saati,
+  saatler). Birleştirme algoritmayla (`domain/school/scheduleImport`): dönem adla eşleşir (yoksa yeni dönem, onaylanınca
+  aktif; ad yoksa aktif dönem); ders önce kodla sonra adla eşleşir, eşleşen ders güncellenir (boş gelen alan ve boş saat
+  listesi korunur, aynı gün/başlangıçlı saatin kimliği korunur), hoca unvansız karşılaştırılır. Ders onaylanınca işin
+  bekleyen dönem önerisi de aynı grupla uygulanır; geri almada ikisi birlikte. Dönemde sonradan eklenmiş ders varken
+  dönemi oluşturan grup geri alınmaz. Var olan döneme işaret eden dönem önerisi karo değil şerittir, rozete girmez,
+  bekleyen ders kalmayınca kendiliğinden kapanır. Onay Kutusu'nda: dönem şeridi, haftalık önizleme (gün × saat, kayan
+  saatin eski yeri kesikli, bloğa tıklayınca ders karosu vurgulanır), ders karoları (+ Ders / Ders güncelleme, değişen
+  alanlar "eski → yeni"), `Programı onayla`. Düzenle'de saatler tek metin (Okul ayarlarıyla aynı yazım). Geri almada ders
+  saatleri (`course_slots`) gerçekten geri yazılır/silinir. Gerçek Claude Code ile denendi (2026-10-03, örnek veri,
+  basit program görseli): 1 dönem + 6 ders, saat/derslik/hoca hepsi doğru, ~1 dk.
 **Bitti sayılır:** 5 karışık döküm (metin + tahta fotoğrafı) işlenip doğru önerilere dönüşüyor, onaylananlar yerine yazılıyor, geri alınabiliyor.
 
 ## Aşama 5 — Projeler · BİTTİ

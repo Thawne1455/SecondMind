@@ -1,10 +1,17 @@
 import { z } from 'zod'
+import { attachmentInputSchema } from './dump'
 
 // "AI ile İşle" çalıştırmasının durumu (Döküm, üst çubuk). Ana süreç tutar; `ai:changed` olayıyla renderer yeniden sorar.
 
 export const aiModelSchema = z.enum(['fast', 'deep'])
 
 export const aiProcessInputSchema = z.object({ model: aiModelSchema })
+
+/** Okul > Programdan doldur: program dosyası (resim, ekran görüntüsü, PDF) ve isteğe bağlı kısa not. */
+export const scheduleImportInputSchema = z.object({
+  text: z.string().max(2000).default(''),
+  attachments: z.array(attachmentInputSchema).min(1, 'Program dosyası yok').max(5),
+})
 
 export const aiRunSchema = z.object({
   /** Her "AI ile İşle" basışı yeni bir çalıştırma; toast bir kez gösterilsin diye kimlik. */
@@ -44,3 +51,5 @@ export type AiModel = z.infer<typeof aiModelSchema>
 export type AiRun = z.infer<typeof aiRunSchema>
 export type AiRunResult = z.infer<typeof aiRunResultSchema>
 export type AiStatus = z.infer<typeof aiStatusSchema>
+
+export type ScheduleImportInput = z.input<typeof scheduleImportInputSchema>

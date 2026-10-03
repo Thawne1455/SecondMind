@@ -13,6 +13,7 @@ export const ipcChannels = [
   'dump:restore',
   'dump:requeue',
   'ai:process',
+  'ai:importSchedule',
   'ai:status',
   'ai:cancel',
   'aiModel:status',

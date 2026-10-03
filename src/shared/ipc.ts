@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { IpcChannel, IpcEvent, Theme } from './ipc-channels'
-import { aiProcessInputSchema, aiStatusSchema } from './schemas/aiRun'
+import { aiProcessInputSchema, aiStatusSchema, scheduleImportInputSchema } from './schemas/aiRun'
 import { claudeInfoSchema, claudeTestResultSchema, localModelInfoSchema } from './schemas/aiSetup'
 import { activityListInputSchema, activityListSchema, inboxSchema } from './schemas/inbox'
 import { dumpCreateInputSchema, dumpItemSchema, dumpStatusSchema } from './schemas/dump'
@@ -213,6 +213,14 @@ export const ipcContract = {
   /** Bekleyen tüm dökümleri işlemeye başlar ve hemen döner; ilerleme `ai:status` + `ai:changed`. */
   'ai:process': {
     input: aiProcessInputSchema,
+    output: z.object({ dumps: z.number() }),
+  },
+  /**
+   * Okul > Programdan doldur (4e-2): ders programı dosyası döküm olarak kaydedilir ve DERİN ile hemen işlenir
+   * (iş türü `schedule_import`). İlerleme ve sonuç `ai:process` ile aynı.
+   */
+  'ai:importSchedule': {
+    input: scheduleImportInputSchema,
     output: z.object({ dumps: z.number() }),
   },
   'ai:status': {

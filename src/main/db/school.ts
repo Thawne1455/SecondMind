@@ -43,6 +43,7 @@ import {
 } from '@shared/school/grades'
 import { dayKey, parseDayKey } from '../domain/recurrence'
 import { attendanceStatus, type AttendanceLimit } from '../domain/school/attendance'
+import type { ImportCourseRef, ImportTermRef } from '../domain/school/scheduleImport'
 import {
   buildStudyPlan,
   dayFreeSlots,
@@ -202,7 +203,9 @@ const termCourses = (tx: Conn, termId: string) =>
     .all()
 
 const slotsOf = (tx: Conn, courseIds: string[]) =>
-  courseIds.length ? tx.select().from(courseSlots).where(inArray(courseSlots.courseId, courseIds)).all() : []
+  courseIds.length
+    ? tx.select().from(courseSlots).where(inArray(courseSlots.courseId, courseIds)).all()
+    : []
 
 const componentsOf = (tx: Conn, courseIds: string[]) =>
   courseIds.length
@@ -350,7 +353,12 @@ export function deleteTerm(db: Db, id: string, now = new Date()): void {
 
 // ---------------------------------------------------------------- ders
 
-function resolveInstructor(tx: DbTx, name: string | undefined, now: Date, groupId: string): string | null {
+function resolveInstructor(
+  tx: DbTx,
+  name: string | undefined,
+  now: Date,
+  groupId: string,
+): string | null {
   const clean = name?.trim()
   if (!clean) return null
   const key = clean.toLocaleLowerCase('tr-TR')
@@ -421,7 +429,9 @@ function writeSlots(
 function writeCourse(tx: DbTx, input: CourseSaveInput, now: Date, groupId: string): CourseRow {
   const term = liveTerm(tx, input.termId)
   const instructorId =
-    input.instructorName !== undefined ? resolveInstructor(tx, input.instructorName, now, groupId) : undefined
+    input.instructorName !== undefined
+      ? resolveInstructor(tx, input.instructorName, now, groupId)
+      : undefined
   // Güncellemede verilmeyen alan korunur.
   const common = {
     name: input.name.trim(),
@@ -537,6 +547,49 @@ export function listCourses(db: Db, termId: string): CourseListItem[] {
   }))
 }
 
+/** Ders programı önerileri için (4e-2): canlı dönemler ve bir dönemin dersleri saatleri ve hocasıyla. */
+export function importTermRefs(db: Conn): ImportTermRef[] {
+  return db
+    .select({ id: terms.id, name: terms.name, active: terms.active })
+    .from(terms)
+    .where(isNull(terms.deletedAt))
+    .all()
+}
+
+export function importCourseRefs(db: Conn, termId: string): ImportCourseRef[] {
+  const rows = termCourses(db, termId)
+  const slots = slotsOf(
+    db,
+    rows.map((r) => r.id),
+  )
+  const names = new Map(
+    db
+      .select()
+      .from(instructors)
+      .where(isNull(instructors.deletedAt))
+      .all()
+      .map((i) => [i.id, i.name]),
+  )
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    code: r.code,
+    credit: r.credit,
+    tone: r.tone,
+    instructorName: r.instructorId ? (names.get(r.instructorId) ?? null) : null,
+    slots: slots
+      .filter((s) => s.courseId === r.id)
+      .map((s) => ({
+        id: s.id,
+        weekday: s.weekday,
+        startMin: s.startMin,
+        endMin: s.endMin,
+        // Saatin dersliği boşsa dersinki geçerli (pano da böyle gösterir).
+        room: s.room.trim() || r.room,
+      })),
+  }))
+}
+
 /** Ders sırası (Ayarlar'da sürükleme yok; yukarı / aşağı). */
 export function moveCourse(db: Db, id: string, dir: -1 | 1, now = new Date()): void {
   db.transaction((tx) => {
@@ -649,7 +702,11 @@ function busyForDay(tx: Conn, day: DayKey, excludeStudyIds: ReadonlySet<string>)
     for (const s of slotsOf(tx, courseIds))
       if (s.weekday === iso && !cancelled.has(s.id)) out.push({ start: s.startMin, end: s.endMin })
   }
-  for (const r of tx.select().from(routines).where(and(isNull(routines.deletedAt), eq(routines.active, true))).all()) {
+  for (const r of tx
+    .select()
+    .from(routines)
+    .where(and(isNull(routines.deletedAt), eq(routines.active, true)))
+    .all()) {
     const days = JSON.parse(r.daysJson) as number[]
     if (!days.includes(iso)) continue
     const [h, m] = r.startTime.split(':').map(Number) as [number, number]
@@ -693,7 +750,12 @@ function freeUntil(
   }
   for (const day of days)
     freeSlots.push(
-      ...dayFreeSlots(day, busyForDay(tx, day, exclude), undefined, day === today ? minuteOfDay(now) : undefined),
+      ...dayFreeSlots(
+        day,
+        busyForDay(tx, day, exclude),
+        undefined,
+        day === today ? minuteOfDay(now) : undefined,
+      ),
     )
   return { freeSlots, load }
 }
@@ -731,7 +793,12 @@ export function sweepMissedStudy(tx: DbTx, now: Date, dailyMax: number): number 
     if (!exam || exam.day <= today) continue
     const { freeSlots, load } = freeUntil(tx, exam.day, now, new Set())
     const r = redistribute({
-      missed: list.map((b) => ({ day: b.day, start: b.startMin, end: b.endMin, topicId: b.topicId })),
+      missed: list.map((b) => ({
+        day: b.day,
+        start: b.startMin,
+        end: b.endMin,
+        topicId: b.topicId,
+      })),
       examDay: exam.day,
       today,
       freeSlots,
@@ -843,7 +910,10 @@ export function schoolDayBlocks(tx: Conn, day: DayKey): SchoolDayBlock[] {
       )
       .all()
     const examById = new Map(examRows.map((e) => [e.id, e]))
-    const topicNames = topicNameMap(tx, blocks.map((b) => b.topicId).filter((t): t is string => !!t))
+    const topicNames = topicNameMap(
+      tx,
+      blocks.map((b) => b.topicId).filter((t): t is string => !!t),
+    )
     const courseAll = new Map(
       tx
         .select()
@@ -906,7 +976,12 @@ export function attendanceQuestions(db: Db, now = new Date()): AttendanceQuestio
     }))
 }
 
-export function setStudyStatus(db: Db, id: string, status: 'planned' | 'done', now = new Date()): void {
+export function setStudyStatus(
+  db: Db,
+  id: string,
+  status: 'planned' | 'done',
+  now = new Date(),
+): void {
   db.transaction((tx) => {
     const before = tx.select().from(studyBlocks).where(eq(studyBlocks.id, id)).get()
     if (!before) throw new Error('Çalışma bloğu bulunamadı')
@@ -953,7 +1028,8 @@ export function setAttendance(
       return
     }
     if (!slot) throw new Error('Ders saati bulunamadı')
-    if (getISODay(parseDayKey(input.day)) !== slot.weekday) throw new Error('Bu gün o dersin günü değil')
+    if (getISODay(parseDayKey(input.day)) !== slot.weekday)
+      throw new Error('Bu gün o dersin günü değil')
     const row = tx
       .insert(attendance)
       .values({
@@ -1028,7 +1104,12 @@ export function getBoard(db: Db, dailyMax: number, now = new Date()): SchoolBoar
     const weekStart = dayKey(startOfWeek(now, { weekStartsOn: 1 }))
     const weekEnd = dayKey(addDays(parseDayKey(weekStart), 6))
     const term = activeTerm(tx)
-    const allTerms = tx.select().from(terms).where(isNull(terms.deletedAt)).orderBy(asc(terms.startDate)).all()
+    const allTerms = tx
+      .select()
+      .from(terms)
+      .where(isNull(terms.deletedAt))
+      .orderBy(asc(terms.startDate))
+      .all()
     const overall = gpa(allTerms.flatMap((t, i) => termGpaCourses(tx, t, i)))
     if (!term)
       return {
@@ -1055,7 +1136,9 @@ export function getBoard(db: Db, dailyMax: number, now = new Date()): SchoolBoar
     const byId = new Map(courseRows.map((c) => [c.id, c]))
     const slots = slotsOf(tx, ids)
     const comps = componentsOf(tx, ids)
-    const marks = ids.length ? tx.select().from(attendance).where(inArray(attendance.courseId, ids)).all() : []
+    const marks = ids.length
+      ? tx.select().from(attendance).where(inArray(attendance.courseId, ids)).all()
+      : []
     const weekSummaries = courseWeekSummaries(tx, ids, term.weekCount)
 
     const boardCourses = courseRows.map((c) => {
@@ -1141,7 +1224,9 @@ export function getBoard(db: Db, dailyMax: number, now = new Date()): SchoolBoar
         })
         .sort((a, b) => a.startMin - b.startMin)
     }
-    const classes = Array.from({ length: 7 }, (_, i) => dayKey(addDays(parseDayKey(weekStart), i))).flatMap(classesOn)
+    const classes = Array.from({ length: 7 }, (_, i) =>
+      dayKey(addDays(parseDayKey(weekStart), i)),
+    ).flatMap(classesOn)
 
     const weekBlocks = tx
       .select()
@@ -1170,7 +1255,10 @@ export function getBoard(db: Db, dailyMax: number, now = new Date()): SchoolBoar
           )
           .all()
       : []
-    const topicNames = topicNameMap(tx, weekBlocks.map((b) => b.topicId).filter((t): t is string => !!t))
+    const topicNames = topicNameMap(
+      tx,
+      weekBlocks.map((b) => b.topicId).filter((t): t is string => !!t),
+    )
     const blocks = weekBlocks.flatMap((b) => {
       const e = blockExams.find((x) => x.id === b.examId)
       const c = e && byId.get(e.courseId)
@@ -1206,11 +1294,19 @@ export function getBoard(db: Db, dailyMax: number, now = new Date()): SchoolBoar
         const open = a.status === 'todo' || a.status === 'doing'
         return t < weekEndMs && (open || t >= weekStartMs)
       })
-      .map((a) => ({ ...toAssignment(a), courseName: byId.get(a.courseId)!.name, tone: byId.get(a.courseId)!.tone }))
+      .map((a) => ({
+        ...toAssignment(a),
+        courseName: byId.get(a.courseId)!.name,
+        tone: byId.get(a.courseId)!.tone,
+      }))
     const soonLimit = now.getTime() + 48 * 3_600_000
     const dueSoon = due
       .filter((a) => (a.status === 'todo' || a.status === 'doing') && a.dueAt.getTime() < soonLimit)
-      .map((a) => ({ ...toAssignment(a), courseName: byId.get(a.courseId)!.name, tone: byId.get(a.courseId)!.tone }))
+      .map((a) => ({
+        ...toAssignment(a),
+        courseName: byId.get(a.courseId)!.name,
+        tone: byId.get(a.courseId)!.tone,
+      }))
     const soon = (day: DayKey) => day === today || day === tomorrow
 
     return {
@@ -1218,7 +1314,13 @@ export function getBoard(db: Db, dailyMax: number, now = new Date()): SchoolBoar
       today,
       week: termWeek(term, today),
       progress: termProgress(term, today),
-      termGpa: gpa(termGpaCourses(tx, term, allTerms.findIndex((t) => t.id === term.id))).gpa,
+      termGpa: gpa(
+        termGpaCourses(
+          tx,
+          term,
+          allTerms.findIndex((t) => t.id === term.id),
+        ),
+      ).gpa,
       overallGpa: overall.gpa,
       courses: boardCourses,
       exams: examCards,
@@ -1228,7 +1330,9 @@ export function getBoard(db: Db, dailyMax: number, now = new Date()): SchoolBoar
       dueThisWeek,
       tomorrow,
       soonClasses: [today, tomorrow].flatMap(classesOn),
-      soonStudy: blocks.filter((b) => soon(b.day)).sort((a, b) => a.day.localeCompare(b.day) || a.startMin - b.startMin),
+      soonStudy: blocks
+        .filter((b) => soon(b.day))
+        .sort((a, b) => a.day.localeCompare(b.day) || a.startMin - b.startMin),
       dueSoon,
     }
   })
@@ -1264,13 +1368,20 @@ function courseWeekSummaries(tx: Conn, ids: string[], weekCount: number): Map<st
   const flagRows = tx
     .select({ courseId: noteFlags.courseId, weekNo: noteFlags.weekNo })
     .from(noteFlags)
-    .where(and(inArray(noteFlags.courseId, ids), isNull(noteFlags.deletedAt), isNull(noteFlags.resolvedAt)))
+    .where(
+      and(
+        inArray(noteFlags.courseId, ids),
+        isNull(noteFlags.deletedAt),
+        isNull(noteFlags.resolvedAt),
+      ),
+    )
     .all()
   const key = (courseId: string, weekNo: number | null) => `${courseId}:${weekNo}`
   const content = new Set([...topicRows, ...materialRows].map((r) => key(r.courseId, r.weekNo)))
   const notedWeeks = new Set(noteRows.filter((n) => n.body.trim()).map((n) => n.weekId))
   const flags = new Map<string, number>()
-  for (const f of flagRows) flags.set(key(f.courseId, f.weekNo), (flags.get(key(f.courseId, f.weekNo)) ?? 0) + 1)
+  for (const f of flagRows)
+    flags.set(key(f.courseId, f.weekNo), (flags.get(key(f.courseId, f.weekNo)) ?? 0) + 1)
   for (const w of weekRows.sort((a, b) => a.weekNo - b.weekNo)) {
     const k = key(w.courseId, w.weekNo)
     const list = out.get(w.courseId) ?? []
@@ -1299,7 +1410,12 @@ const toAssignment = (a: AssignmentRow): Assignment => ({
 
 const mediaUrl = (fileName: string) => `sm-media://m/${fileName}`
 
-export function getCourseDetail(db: Db, id: string, dailyMax: number, now = new Date()): CourseDetail | null {
+export function getCourseDetail(
+  db: Db,
+  id: string,
+  dailyMax: number,
+  now = new Date(),
+): CourseDetail | null {
   return db.transaction((tx) => {
     sweepMissedStudy(tx, now, dailyMax)
     const course = tx
@@ -1321,7 +1437,9 @@ export function getCourseDetail(db: Db, id: string, dailyMax: number, now = new 
       ? tx
           .select()
           .from(instructorNotes)
-          .where(and(eq(instructorNotes.instructorId, instructor.id), isNull(instructorNotes.deletedAt)))
+          .where(
+            and(eq(instructorNotes.instructorId, instructor.id), isNull(instructorNotes.deletedAt)),
+          )
           .orderBy(asc(instructorNotes.day), asc(instructorNotes.createdAt))
           .all()
       : []
@@ -1457,7 +1575,11 @@ export function getCourseDetail(db: Db, id: string, dailyMax: number, now = new 
   })
 }
 
-function examsToSummaries(tx: Conn, rows: readonly ExamRow[], comps: readonly ComponentRow[]): ExamSummary[] {
+function examsToSummaries(
+  tx: Conn,
+  rows: readonly ExamRow[],
+  comps: readonly ComponentRow[],
+): ExamSummary[] {
   const ids = rows.map((e) => e.id)
   const stats = examStats(tx, ids)
   const topicIds = new Map<string, string[]>()
@@ -1494,7 +1616,13 @@ export function listInstructors(db: Db) {
     .where(isNull(instructors.deletedAt))
     .orderBy(asc(instructors.name))
     .all()
-    .map((i) => ({ id: i.id, name: i.name, email: i.email, room: i.room, officeHours: i.officeHours }))
+    .map((i) => ({
+      id: i.id,
+      name: i.name,
+      email: i.email,
+      room: i.room,
+      officeHours: i.officeHours,
+    }))
 }
 
 export function saveInstructor(
@@ -1543,7 +1671,12 @@ export function saveInstructor(
   })
 }
 
-export function addInstructorNote(db: Db, courseId: string, text: string, now = new Date()): { id: string } {
+export function addInstructorNote(
+  db: Db,
+  courseId: string,
+  text: string,
+  now = new Date(),
+): { id: string } {
   return db.transaction((tx) => {
     const course = liveCourse(tx, courseId)
     if (!course.instructorId) throw new Error('Önce dersin hocasını gir')
@@ -1577,7 +1710,13 @@ function weekRow(tx: Conn, courseId: string, weekNo: number) {
   return row
 }
 
-export function setWeekTitle(db: Db, courseId: string, weekNo: number, title: string, now = new Date()): void {
+export function setWeekTitle(
+  db: Db,
+  courseId: string,
+  weekNo: number,
+  title: string,
+  now = new Date(),
+): void {
   db.transaction((tx) => {
     const before = weekRow(tx, courseId, weekNo)
     if (before.title === title.trim()) return
@@ -1592,7 +1731,12 @@ export function setWeekTitle(db: Db, courseId: string, weekNo: number, title: st
 }
 
 /** Haftanın ders notu: yoksa oluşturulur (Bilgi listesinde görünmez, aramada çıkar). */
-export function weekNote(db: Db, courseId: string, weekNo: number, now = new Date()): { noteId: string } {
+export function weekNote(
+  db: Db,
+  courseId: string,
+  weekNo: number,
+  now = new Date(),
+): { noteId: string } {
   return db.transaction((tx) => {
     const course = liveCourse(tx, courseId)
     const week = weekRow(tx, courseId, weekNo)
@@ -1668,12 +1812,24 @@ export function saveTopic(db: Db, input: TopicSaveInput, now = new Date()): { id
       const upcoming = tx
         .select()
         .from(exams)
-        .where(and(eq(exams.courseId, input.courseId), isNull(exams.deletedAt), gte(exams.day, dayKey(now))))
+        .where(
+          and(
+            eq(exams.courseId, input.courseId),
+            isNull(exams.deletedAt),
+            gte(exams.day, dayKey(now)),
+          ),
+        )
         .all()
       for (const e of upcoming) {
         if (e.weekFrom === null || e.weekTo === null) continue
-        if (row.weekNo < Math.min(e.weekFrom, e.weekTo) || row.weekNo > Math.max(e.weekFrom, e.weekTo)) continue
-        tx.insert(examTopics).values({ examId: e.id, topicId: row.id, createdAt: now, updatedAt: now }).run()
+        if (
+          row.weekNo < Math.min(e.weekFrom, e.weekTo) ||
+          row.weekNo > Math.max(e.weekFrom, e.weekTo)
+        )
+          continue
+        tx.insert(examTopics)
+          .values({ examId: e.id, topicId: row.id, createdAt: now, updatedAt: now })
+          .run()
       }
     }
     return { id: row.id }
@@ -1693,7 +1849,12 @@ const SOFT_TABLES = {
   note_flags: noteFlags,
 } as const
 
-export function softDelete(db: Db, table: SchoolRestoreInput['table'], id: string, now = new Date()): void {
+export function softDelete(
+  db: Db,
+  table: SchoolRestoreInput['table'],
+  id: string,
+  now = new Date(),
+): void {
   if (table === 'terms') return deleteTerm(db, id, now)
   const t = SOFT_TABLES[table]
   db.transaction((tx) => {
@@ -1703,7 +1864,12 @@ export function softDelete(db: Db, table: SchoolRestoreInput['table'], id: strin
       .where(and(eq(t.id, id), isNull(t.deletedAt)))
       .get()
     if (!before) throw new Error('Kayıt bulunamadı')
-    const after = tx.update(t).set({ deletedAt: now, updatedAt: now }).where(eq(t.id, id)).returning().get()
+    const after = tx
+      .update(t)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(eq(t.id, id))
+      .returning()
+      .get()
     log(tx, 'delete', table, id, before, after)
     // Ödev silinince hatırlatması da gider.
     if (table === 'assignments') dropReminder(tx, (before as AssignmentRow).reminderId, now)
@@ -1716,7 +1882,12 @@ export function restoreSchool(db: Db, { table, id }: SchoolRestoreInput, now = n
     const before = tx.select().from(t).where(eq(t.id, id)).get()
     if (!before?.deletedAt) return
     const groupId = ulid()
-    const after = tx.update(t).set({ deletedAt: null, updatedAt: now }).where(eq(t.id, id)).returning().get()
+    const after = tx
+      .update(t)
+      .set({ deletedAt: null, updatedAt: now })
+      .where(eq(t.id, id))
+      .returning()
+      .get()
     log(tx, 'restore', table, id, before, after, groupId)
     if (table === 'terms') {
       // Başka aktif dönem yoksa geri gelen dönem aktif olur.
@@ -1857,7 +2028,13 @@ export function materialFile(db: Db, id: string): { fileName: string; mime: stri
 
 export function saveComponent(
   db: Db,
-  input: { id?: string; courseId: string; name: string; kind: ComponentRow['kind']; weight: number },
+  input: {
+    id?: string
+    courseId: string
+    name: string
+    kind: ComponentRow['kind']
+    weight: number
+  },
   now = new Date(),
 ): { id: string } {
   return db.transaction((tx) => {
@@ -1882,7 +2059,14 @@ export function saveComponent(
     const sort = componentsOf(tx, [input.courseId]).length
     const row = tx
       .insert(gradeComponents)
-      .values({ id: ulid(), courseId: input.courseId, ...values, sort, createdAt: now, updatedAt: now })
+      .values({
+        id: ulid(),
+        courseId: input.courseId,
+        ...values,
+        sort,
+        createdAt: now,
+        updatedAt: now,
+      })
       .returning()
       .get()
     log(tx, 'create', 'grade_components', row.id, undefined, row)
@@ -1890,7 +2074,12 @@ export function saveComponent(
   })
 }
 
-export function setGrade(db: Db, componentId: string, score: number | null, now = new Date()): void {
+export function setGrade(
+  db: Db,
+  componentId: string,
+  score: number | null,
+  now = new Date(),
+): void {
   db.transaction((tx) => {
     const before = tx
       .select()
@@ -2066,7 +2255,11 @@ function planTopics(tx: Conn, exam: ExamRow) {
       estimateMin: et.estimateMin,
       sort: (t.weekNo ?? 99) * 1000 + t.sort,
     }
-    return { ...base, estimateMin: Math.max(0, topicMinutes(base) - (done.get(t.id) ?? 0)), name: t.name }
+    return {
+      ...base,
+      estimateMin: Math.max(0, topicMinutes(base) - (done.get(t.id) ?? 0)),
+      name: t.name,
+    }
   })
 }
 
@@ -2077,7 +2270,13 @@ function replaceable(tx: Conn, examId: string, now: Date): StudyRow[] {
   return tx
     .select()
     .from(studyBlocks)
-    .where(and(eq(studyBlocks.examId, examId), eq(studyBlocks.status, 'planned'), gte(studyBlocks.day, today)))
+    .where(
+      and(
+        eq(studyBlocks.examId, examId),
+        eq(studyBlocks.status, 'planned'),
+        gte(studyBlocks.day, today),
+      ),
+    )
     .all()
     .filter((b) => b.day > today || b.startMin > nowMin)
 }
@@ -2099,7 +2298,12 @@ function computePlan(tx: Conn, examId: string, dailyMax: number, now: Date) {
   return { exam, replace, plan, names }
 }
 
-export function previewPlan(db: Db, examId: string, dailyMax: number, now = new Date()): PlanPreview {
+export function previewPlan(
+  db: Db,
+  examId: string,
+  dailyMax: number,
+  now = new Date(),
+): PlanPreview {
   const { replace, plan, names } = computePlan(db, examId, dailyMax, now)
   return {
     blocks: plan.blocks.map((b) => ({
@@ -2117,7 +2321,12 @@ export function previewPlan(db: Db, examId: string, dailyMax: number, now = new 
 }
 
 /** "Planı onayla": başlamamış planlı bloklar silinir, yeni plan yazılır (tek grup, geri alınabilir). */
-export function applyPlan(db: Db, examId: string, dailyMax: number, now = new Date()): { blocks: number } {
+export function applyPlan(
+  db: Db,
+  examId: string,
+  dailyMax: number,
+  now = new Date(),
+): { blocks: number } {
   return db.transaction((tx) => {
     const { exam, replace, plan } = computePlan(tx, examId, dailyMax, now)
     const groupId = ulid()
@@ -2148,7 +2357,12 @@ export function clearPlan(db: Db, examId: string, now = new Date()): void {
   })
 }
 
-export function getExamPrep(db: Db, examId: string, dailyMax: number, now = new Date()): ExamPrep | null {
+export function getExamPrep(
+  db: Db,
+  examId: string,
+  dailyMax: number,
+  now = new Date(),
+): ExamPrep | null {
   return db.transaction((tx) => {
     sweepMissedStudy(tx, now, dailyMax)
     const exam = tx
@@ -2178,7 +2392,13 @@ export function getExamPrep(db: Db, examId: string, dailyMax: number, now = new 
     const flags = tx
       .select()
       .from(noteFlags)
-      .where(and(eq(noteFlags.courseId, course.id), isNull(noteFlags.deletedAt), isNull(noteFlags.resolvedAt)))
+      .where(
+        and(
+          eq(noteFlags.courseId, course.id),
+          isNull(noteFlags.deletedAt),
+          isNull(noteFlags.resolvedAt),
+        ),
+      )
       .all()
     const blocks = tx
       .select()
@@ -2187,8 +2407,12 @@ export function getExamPrep(db: Db, examId: string, dailyMax: number, now = new 
       .orderBy(asc(studyBlocks.day), asc(studyBlocks.startMin))
       .all()
     const names = new Map(allTopics.map((t) => [t.id, t.name]))
-    const planned = blocks.filter((b) => b.status !== 'missed').reduce((n, b) => n + b.endMin - b.startMin, 0)
-    const done = blocks.filter((b) => b.status === 'done').reduce((n, b) => n + b.endMin - b.startMin, 0)
+    const planned = blocks
+      .filter((b) => b.status !== 'missed')
+      .reduce((n, b) => n + b.endMin - b.startMin, 0)
+    const done = blocks
+      .filter((b) => b.status === 'done')
+      .reduce((n, b) => n + b.endMin - b.startMin, 0)
     const reviews = tx
       .select()
       .from(exams)
@@ -2216,8 +2440,14 @@ export function getExamPrep(db: Db, examId: string, dailyMax: number, now = new 
           included: !!et,
           level,
           estimateMin: et?.estimateMin ?? null,
-          minutes: topicMinutes({ level, emphasized: t.emphasized, estimateMin: et?.estimateMin ?? null }),
-          openFlags: flags.filter((f) => f.weekNo === t.weekNo).map((f) => ({ id: f.id, excerpt: f.excerpt })),
+          minutes: topicMinutes({
+            level,
+            emphasized: t.emphasized,
+            estimateMin: et?.estimateMin ?? null,
+          }),
+          openFlags: flags
+            .filter((f) => f.weekNo === t.weekNo)
+            .map((f) => ({ id: f.id, excerpt: f.excerpt })),
         }
       }),
       blocks: blocks.map((b) => ({
@@ -2298,7 +2528,11 @@ function syncReminder(tx: DbTx, a: AssignmentRow, now: Date, groupId?: string) {
   tx.update(assignments).set({ reminderId: row.id }).where(eq(assignments.id, a.id)).run()
 }
 
-export function saveAssignment(db: Db, input: AssignmentSaveInput, now = new Date()): { id: string } {
+export function saveAssignment(
+  db: Db,
+  input: AssignmentSaveInput,
+  now = new Date(),
+): { id: string } {
   return db.transaction((tx) => {
     liveCourse(tx, input.courseId)
     const groupId = ulid()
@@ -2326,7 +2560,9 @@ export function saveAssignment(db: Db, input: AssignmentSaveInput, now = new Dat
         .set({
           ...values,
           // Puan girilen ödev notlandı sayılır.
-          ...(input.score !== undefined && input.score !== null && input.status === undefined && { status: 'graded' }),
+          ...(input.score !== undefined &&
+            input.score !== null &&
+            input.status === undefined && { status: 'graded' }),
           ...(submitting && { submittedAt: now }),
           ...(input.status !== undefined &&
             (input.status === 'todo' || input.status === 'doing') && { submittedAt: null }),
@@ -2361,7 +2597,12 @@ export function submittedSince(db: Db, since: Date): number {
 // ---------------------------------------------------------------- GANO
 
 export function gpaOverview(db: Db): GpaOverview {
-  const termRows = db.select().from(terms).where(isNull(terms.deletedAt)).orderBy(asc(terms.startDate)).all()
+  const termRows = db
+    .select()
+    .from(terms)
+    .where(isNull(terms.deletedAt))
+    .orderBy(asc(terms.startDate))
+    .all()
   return {
     terms: termRows.map((t, order) => {
       const rows = termCourses(db, t.id)

@@ -7,9 +7,11 @@ import type { AiModel, AiRun, AiRunResult, AiStatus } from '@shared/ipc'
 import { cancelJob, processDumps, runningJobIds, type JobOutcome } from '../ai/jobs'
 import { runnerFactory } from '../ai/runners'
 import { getDb } from '../db/client'
-import { pendingDumpIds } from '../db/dump'
+import type { JobKind } from '../db/ai'
+import { createDump, pendingDumpIds } from '../db/dump'
 import { aiJobs, dumpItems } from '../db/schema'
 import { getSetting } from '../db/settings'
+import { storeMedia } from '../media'
 import type { DataPaths } from '../paths'
 import { handle } from './handle'
 import { broadcast } from './projects'
@@ -17,7 +19,7 @@ import { broadcast } from './projects'
 // "AI ile İşle" (4c). Çalıştırma ana süreçte, uygulama açıkken sürer (kural 3: arka plan süreci yok). Aynı anda tek
 // çalıştırma. Durum bellekte; her ilerlemede `ai:changed` yayılır, renderer `ai:status`'u yeniden sorar.
 
-type Running = Omit<AiRun, 'done'> & { dumpIds: string[] }
+type Running = Omit<AiRun, 'done'> & { dumpIds: string[]; kind: JobKind }
 
 let running: Running | null = null
 let last: AiRunResult | null = null
@@ -121,6 +123,7 @@ async function execute(run: Running, paths: DataPaths): Promise<void> {
         run.current = { model: p.model, message: p.message ?? '', ratio: p.ratio ?? null }
         notify()
       },
+      run.kind,
     )
   } catch (e) {
     crash = e instanceof Error ? e.message : String(e)
@@ -135,7 +138,7 @@ export const isAiRunning = () => running !== null
 
 export function getAiStatus(): AiStatus {
   if (!running) return { running: null, last }
-  const { dumpIds, ...run } = running
+  const { dumpIds, kind: _kind, ...run } = running
   return { running: { ...run, done: doneCount(dumpIds) }, last }
 }
 
@@ -146,23 +149,39 @@ export function cancelAiRun(): void {
   for (const id of runningJobIds()) cancelJob(id)
 }
 
+function start(paths: DataPaths, dumpIds: string[], model: AiModel, kind: JobKind): void {
+  const run: Running = {
+    runId: ulid(),
+    model,
+    total: dumpIds.length,
+    current: null,
+    cancelling: false,
+    dumpIds,
+    kind,
+  }
+  running = run
+  void execute(run, paths)
+  notify(true)
+}
+
 export function registerAiIpc(paths: DataPaths): void {
   handle('ai:process', ({ model }: { model: AiModel }) => {
     if (running) throw new Error('AI zaten çalışıyor')
     const dumpIds = pendingDumpIds(getDb())
     if (!dumpIds.length) throw new Error('İşlenecek döküm yok')
-    const run: Running = {
-      runId: ulid(),
-      model,
-      total: dumpIds.length,
-      current: null,
-      cancelling: false,
-      dumpIds,
-    }
-    running = run
-    void execute(run, paths)
-    notify(true)
+    start(paths, dumpIds, model, 'dump')
     return { dumps: dumpIds.length }
+  })
+
+  // Okul > Programdan doldur (4e-2): dosya bir döküm olarak kaydedilir (Döküm > İşlenenler'de izi kalır) ve sadece o,
+  // DERİN ile hemen işlenir. Görüntü/PDF okuyabilen tek çalıştırıcı DERİN.
+  handle('ai:importSchedule', ({ text, attachments }) => {
+    if (running) throw new Error('AI zaten çalışıyor')
+    const db = getDb()
+    const files = attachments.map((a) => storeMedia(db, paths.media, a))
+    const dump = createDump(db, text.trim() || 'Ders programı (Okul > Programdan doldur)', files)
+    start(paths, [dump.id], 'deep', 'schedule_import')
+    return { dumps: 1 }
   })
 
   handle('ai:status', () => getAiStatus())

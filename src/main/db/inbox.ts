@@ -8,6 +8,7 @@ import type {
   ProposalSource,
   ProposalTarget,
   ProposalView,
+  SchedulePreview,
 } from '@shared/ipc'
 import { operationSchema, type Operation } from '@shared/schemas/ai'
 import {
@@ -17,7 +18,15 @@ import {
   isUndoGroup,
   type ActivityRow,
 } from '../domain/activityText'
-import { undoProposal } from './ai'
+import {
+  courseChanges,
+  importSlots,
+  matchCourse,
+  movedSlots,
+  previewTones,
+  resolveTerm,
+} from '../domain/school/scheduleImport'
+import { isApplied, undoProposal } from './ai'
 import type { Db } from './client'
 import {
   activityLog,
@@ -30,6 +39,7 @@ import {
   proposals,
   terms,
 } from './schema'
+import { importCourseRefs, importTermRefs } from './school'
 import { undoGroup } from './undo'
 
 // Onay Kutusu'nun okuma tarafı (4d): bekleyen önerisi olan işler grup olarak, her öneri hedef alanı, kaynak döküm
@@ -40,10 +50,29 @@ const DIFF_CONTEXT = 2
 const ACTIVITY_ROWS_MAX = 3000
 const DAY = 24 * 60 * 60 * 1000
 
+/**
+ * Bekleyen öneri sayısı (kenar çubuğu rozeti). Var olan döneme işaret eden dönem önerisi sayılmaz: Onay Kutusu'nda
+ * karo değil, bilgi şeridi olarak görünür.
+ */
 export function pendingProposalCount(db: Db): number {
-  return (
+  const n =
     db.select({ n: count() }).from(proposals).where(eq(proposals.status, 'pending')).get()?.n ?? 0
-  )
+  const termRows = db
+    .select({ payloadJson: proposals.payloadJson })
+    .from(proposals)
+    .where(and(eq(proposals.status, 'pending'), eq(proposals.op, 'import_term')))
+    .all()
+  if (!termRows.length) return n
+  const refs = importTermRefs(db)
+  const hidden = termRows.filter((t) => {
+    const op = operationSchema.safeParse(JSON.parse(t.payloadJson))
+    return (
+      op.success &&
+      op.data.op === 'import_term' &&
+      resolveTerm(op.data.name, refs).kind === 'existing'
+    )
+  }).length
+  return n - hidden
 }
 
 type Lookup = {
@@ -146,6 +175,97 @@ function targetOf(l: Lookup, op: Operation): ProposalTarget {
       return courseTarget(l, op.courseId)
     case 'set_project_next_step':
       return projectTarget(l, op.projectId)
+    case 'import_term':
+    case 'import_course':
+      return plain('school', 'Okul')
+  }
+}
+
+type ParsedProposal = { row: typeof proposals.$inferSelect; op: Operation }
+
+/**
+ * Ders programı önizlemesi: hedef dönem (yeni / var olan / yok) ve her ders önerisinin yeni mi güncelleme mi olduğu,
+ * tonu, değişen alanları. Uygulayıcıyla aynı eşleştirme (`resolveTerm`, `matchCourse`).
+ */
+function schedulePreview(db: Db, items: ParsedProposal[]): SchedulePreview | null {
+  const termItem = items.find((p) => p.op.op === 'import_term')
+  const courseItems = items.filter((p) => p.op.op === 'import_course')
+  if (!termItem && !courseItems.length) return null
+
+  const termRefs = importTermRefs(db)
+  const termOp = termItem?.op.op === 'import_term' ? termItem.op : null
+  const termLive = !!termItem && (termItem.row.status === 'pending' || isApplied(termItem.row))
+  const target = resolveTerm(termLive ? termOp!.name : null, termRefs)
+  // Bu önerilerle oluşmuş dönem "yeni" kalır (şerit ve Geri al görünsün).
+  const createdHere =
+    !!termItem?.row.groupId &&
+    isApplied(termItem.row) &&
+    !!db
+      .select({ id: activityLog.id })
+      .from(activityLog)
+      .where(
+        and(
+          eq(activityLog.groupId, termItem.row.groupId),
+          eq(activityLog.targetTable, 'terms'),
+          eq(activityLog.action, 'create'),
+        ),
+      )
+      .get()
+  const existing =
+    target.kind === 'existing'
+      ? db.select().from(terms).where(eq(terms.id, target.termId)).get()
+      : undefined
+  const term: SchedulePreview['term'] =
+    target.kind === 'new' || createdHere
+      ? {
+          proposalId: termItem!.row.id,
+          mode: 'new',
+          name: termOp!.name,
+          active: true,
+          startDate: termOp!.startDate ?? null,
+          endDate: termOp!.endDate ?? null,
+          weekCount: termOp!.weekCount ?? null,
+        }
+      : {
+          proposalId: termItem?.row.id ?? null,
+          mode: existing ? 'existing' : 'none',
+          name: existing?.name ?? '',
+          active: existing?.active ?? false,
+          startDate: existing?.startDate ?? null,
+          endDate: existing?.endDate ?? null,
+          weekCount: existing?.weekCount ?? null,
+        }
+
+  const termCourses = existing ? importCourseRefs(db, existing.id) : []
+  // Uygulanmış ders de eşleşir (kendisiyle): tonu dönemdeki gerçek tonu olur. Güncelleme/fark sadece bekleyende.
+  const matches = courseItems.map((p) =>
+    p.op.op === 'import_course' && p.row.status !== 'rejected'
+      ? matchCourse(p.op, termCourses)
+      : null,
+  )
+  const tones = previewTones(matches, termCourses)
+  return {
+    term,
+    courses: courseItems.map((p, i) => {
+      const match = p.row.status === 'pending' ? (matches[i] ?? null) : null
+      const op = p.op.op === 'import_course' ? p.op : null
+      const next = op && match ? importSlots(op.slots, match.slots) : []
+      return {
+        proposalId: p.row.id,
+        update: !!match,
+        tone: tones[i]!,
+        oldSlots:
+          match && op?.slots.length
+            ? movedSlots(match.slots, next).map(({ weekday, startMin, endMin, room }) => ({
+                weekday,
+                startMin,
+                endMin,
+                room,
+              }))
+            : [],
+        changes: op && match ? courseChanges(op, match) : [],
+      }
+    }),
   }
 }
 
@@ -266,19 +386,18 @@ export function inbox(db: Db): Inbox {
   const src = sources(db, [...new Set(parsed.flatMap((p) => p.op.sourceDumpIds))])
 
   const groups: ProposalGroup[] = jobs.map((job) => {
-    const views: ProposalView[] = parsed
-      .filter((p) => p.row.jobId === job.id)
-      .map(({ row, op }) => ({
-        id: row.id,
-        op: row.op,
-        payload: op,
-        status: row.status,
-        undone: row.undoneAt !== null,
-        decidedAt: row.decidedAt?.getTime() ?? null,
-        target: targetOf(l, op),
-        sources: op.sourceDumpIds.flatMap((id) => src.get(id) ?? []),
-        diff: diffOf(l, op),
-      }))
+    const items = parsed.filter((p) => p.row.jobId === job.id)
+    const views: ProposalView[] = items.map(({ row, op }) => ({
+      id: row.id,
+      op: row.op,
+      payload: op,
+      status: row.status,
+      undone: row.undoneAt !== null,
+      decidedAt: row.decidedAt?.getTime() ?? null,
+      target: targetOf(l, op),
+      sources: op.sourceDumpIds.flatMap((id) => src.get(id) ?? []),
+      diff: diffOf(l, op),
+    }))
     return {
       jobId: job.id,
       kind: job.kind,
@@ -286,6 +405,7 @@ export function inbox(db: Db): Inbox {
       startedAt: job.startedAt.getTime(),
       pending: views.filter((v) => v.status === 'pending').length,
       proposals: views,
+      schedule: schedulePreview(db, items),
     }
   })
   return { groups, contexts: contexts(db) }

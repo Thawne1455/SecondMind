@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { AiModel, AiRunResult } from '@shared/ipc'
+import type { AiModel, AiRunResult, ScheduleImportInput } from '@shared/ipc'
 import { useToast } from '../../ui'
 import { proposalKeys } from '../onay/useOnay'
 import { dumpKeys } from './useDumps'
@@ -20,6 +20,19 @@ export function useAiProcess() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (model: AiModel) => window.api.invoke('ai:process', { model }),
+    onSettled: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: aiKeys.status }),
+        client.invalidateQueries({ queryKey: dumpKeys.all }),
+      ]),
+  })
+}
+
+/** Okul > Programdan doldur: dosya döküm olur ve DERİN ile hemen işlenir. */
+export function useImportSchedule() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (input: ScheduleImportInput) => window.api.invoke('ai:importSchedule', input),
     onSettled: () =>
       Promise.all([
         client.invalidateQueries({ queryKey: aiKeys.status }),

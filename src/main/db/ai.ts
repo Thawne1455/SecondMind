@@ -1,10 +1,12 @@
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { ulid } from 'ulid'
 import { operationSchema, type Operation } from '@shared/schemas/ai'
-import { applyOperation } from '../ai/apply'
+import { applyOperation, type ApplyHint } from '../ai/apply'
 import { jobSucceeded, type ValidatedChanges } from '../domain/changes'
+import { resolveTerm } from '../domain/school/scheduleImport'
 import type { Db, DbTx } from './client'
 import { aiJobs, dumpItems, proposals } from './schema'
+import { importTermRefs } from './school'
 import { undoGroup } from './undo'
 
 // AI işleri ve öneriler (MIMARI.md "AI akışı"). İş başlayınca dökümleri 'processing'e alır; biterken geçerli işlemler
@@ -140,6 +142,48 @@ function liveProposal(db: Db, id: string): ProposalRow {
   return row
 }
 
+const parseOp = (row: ProposalRow): Operation => operationSchema.parse(JSON.parse(row.payloadJson))
+
+/** Uygulanmış ve geri alınmamış. */
+export const isApplied = (row: Pick<ProposalRow, 'status' | 'undoneAt'>): boolean =>
+  (row.status === 'approved' || row.status === 'edited') && !row.undoneAt
+
+/** Ders programı işinin dönem önerisi (işte en fazla bir tane kullanılır: ilki). */
+export function termProposal(db: Db | DbTx, jobId: string): ProposalRow | undefined {
+  return db
+    .select()
+    .from(proposals)
+    .where(and(eq(proposals.jobId, jobId), eq(proposals.op, 'import_term')))
+    .orderBy(asc(proposals.sort))
+    .get()
+}
+
+/** Ders önerisinin dönemi: dönem önerisi bekliyorsa ya da uygulandıysa onun adı, yoksa null (aktif dönem). */
+function termHint(term: ProposalRow | undefined): ApplyHint {
+  if (!term || !(term.status === 'pending' || isApplied(term))) return { termName: null }
+  const op = parseOp(term)
+  return { termName: op.op === 'import_term' ? op.name : null }
+}
+
+/**
+ * Bekleyen ders önerisi kalmadıysa, zaten var olan döneme işaret eden dönem önerisi kendiliğinden kapanır (yazacağı bir
+ * şey yok; Onay Kutusu'nda karo olarak değil şerit olarak görünür). Yeni dönem önerisi Taha'nın kararını bekler.
+ */
+function settleTermProposals(db: Db, jobId: string, now: Date): void {
+  const rows = db.select().from(proposals).where(eq(proposals.jobId, jobId)).all()
+  if (rows.some((r) => r.op === 'import_course' && r.status === 'pending')) return
+  const terms = importTermRefs(db)
+  for (const r of rows) {
+    if (r.op !== 'import_term' || r.status !== 'pending') continue
+    const op = parseOp(r)
+    if (op.op !== 'import_term' || resolveTerm(op.name, terms).kind !== 'existing') continue
+    db.update(proposals)
+      .set({ status: 'approved', decidedAt: now, updatedAt: now })
+      .where(eq(proposals.id, r.id))
+      .run()
+  }
+}
+
 /**
  * Onayla (ya da düzenleyip onayla). Düzenlenen yük yeniden doğrulanır; işlem türü ve kaynak dökümler değişmez.
  * Uygulama hata verirse öneri bekliyor'da kalır ve hata yukarı çıkar.
@@ -147,7 +191,7 @@ function liveProposal(db: Db, id: string): ProposalRow {
 export function approveProposal(db: Db, id: string, edited?: unknown, now = new Date()): void {
   const row = liveProposal(db, id)
   if (row.status !== 'pending') throw new Error('Öneri zaten karara bağlanmış')
-  const original = operationSchema.parse(JSON.parse(row.payloadJson))
+  const original = parseOp(row)
   let op: Operation = original
   if (edited !== undefined) {
     // Formda gelen alanlar asıl önerinin üstüne; tür ve kaynak dökümler korunur.
@@ -165,9 +209,19 @@ export function approveProposal(db: Db, id: string, edited?: unknown, now = new 
     }
     op = parsed.data
   }
+  // Ders, işin bekleyen dönem önerisiyle birlikte uygulanır (ders dönemsiz kalamaz); ikisi tek grupta geri alınır.
+  const term = op.op === 'import_course' ? termProposal(db, row.jobId) : undefined
+  const hint = termHint(term)
   const groupId = ulid()
   db.transaction(() => {
-    applyOperation(db, op, groupId, now)
+    if (term?.status === 'pending') {
+      applyOperation(db, parseOp(term), groupId, now)
+      db.update(proposals)
+        .set({ status: 'approved', groupId, decidedAt: now, updatedAt: now })
+        .where(eq(proposals.id, term.id))
+        .run()
+    }
+    applyOperation(db, op, groupId, now, hint)
     db.update(proposals)
       .set({
         status: edited === undefined ? 'approved' : 'edited',
@@ -178,16 +232,20 @@ export function approveProposal(db: Db, id: string, edited?: unknown, now = new 
       })
       .where(eq(proposals.id, id))
       .run()
+    settleTermProposals(db, row.jobId, now)
   })
 }
 
 export function rejectProposal(db: Db, id: string, now = new Date()): void {
   const row = liveProposal(db, id)
   if (row.status !== 'pending') throw new Error('Öneri zaten karara bağlanmış')
-  db.update(proposals)
-    .set({ status: 'rejected', decidedAt: now, updatedAt: now })
-    .where(eq(proposals.id, id))
-    .run()
+  db.transaction(() => {
+    db.update(proposals)
+      .set({ status: 'rejected', decidedAt: now, updatedAt: now })
+      .where(eq(proposals.id, id))
+      .run()
+    settleTermProposals(db, row.jobId, now)
+  })
 }
 
 /** Tümünü onayla: her öneri kendi transaction'ında; biri hata verirse diğerleri yine uygulanır. */
@@ -197,14 +255,18 @@ export function approveAll(
   now = new Date(),
 ): { applied: number; failed: { id: string; error: string }[] } {
   const pending = db
-    .select({ id: proposals.id })
+    .select({ id: proposals.id, op: proposals.op })
     .from(proposals)
     .where(and(eq(proposals.jobId, jobId), eq(proposals.status, 'pending')))
     .orderBy(asc(proposals.sort))
     .all()
+    // Dönem derslerden önce: dersler ona eklenir.
+    .sort((a, b) => Number(b.op === 'import_term') - Number(a.op === 'import_term'))
   let applied = 0
   const failed: { id: string; error: string }[] = []
   for (const p of pending) {
+    // Bir ders önerisiyle birlikte uygulanmış (dönem) ya da kendiliğinden kapanmış olabilir.
+    if (liveProposal(db, p.id).status !== 'pending') continue
     try {
       approveProposal(db, p.id, undefined, now)
       applied++
@@ -215,13 +277,19 @@ export function approveAll(
   return { applied, failed }
 }
 
-/** Uygulanmış öneriyi geri alır (oluşanlar çöp kutusuna, değişenler eski haline). */
+/**
+ * Uygulanmış öneriyi geri alır (oluşanlar çöp kutusuna, değişenler eski haline). Aynı grupla uygulanan öneriler
+ * (ders + onunla oluşan dönem) birlikte geri alınmış sayılır.
+ */
 export function undoProposal(db: Db, id: string, now = new Date()): void {
   const row = liveProposal(db, id)
   if (!row.groupId || row.undoneAt) throw new Error('Geri alınacak uygulama yok')
   db.transaction(() => {
     undoGroup(db, row.groupId!, now)
-    db.update(proposals).set({ undoneAt: now, updatedAt: now }).where(eq(proposals.id, id)).run()
+    db.update(proposals)
+      .set({ undoneAt: now, updatedAt: now })
+      .where(eq(proposals.groupId, row.groupId!))
+      .run()
   })
 }
 

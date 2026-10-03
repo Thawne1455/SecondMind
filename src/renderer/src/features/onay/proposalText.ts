@@ -3,6 +3,7 @@ import { tr } from 'date-fns/locale'
 import type { Operation } from '@shared/schemas/ai'
 import type { ProposalGroup } from '@shared/ipc'
 import { formatDayName } from '../../lib/format'
+import { formatSlots } from '../okul/schoolText'
 
 // Onay Kutusu metinleri: işlem türü etiketi, önerinin tek cümlesi, grup başlığı. Tarihler hep gün adı + tarihle
 // yazılır ("Cuma 9 Eki"): AI'ın göreli tarih hatası tek bakışta görülsün.
@@ -17,6 +18,44 @@ export const OP_TAG: Record<Operation['op'], string> = {
   create_exam: '+ Sınav',
   set_project_next_step: 'Proje durumu',
   add_instructor_note: '+ Hoca notu',
+  import_term: 'Yeni dönem',
+  import_course: '+ Ders',
+}
+
+/** Haftalık önizlemeden karoya kaydırmak için. */
+export const proposalAnchor = (id: string) => `oneri-${id}`
+
+/** Mevcut dersi güncelleyen ders önerisinin etiketi. */
+export const COURSE_UPDATE_TAG = 'Ders güncelleme'
+
+const clockMin = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number) as [number, number]
+  return h * 60 + m
+}
+
+/** Programdan gelen saat ("09:00") → okul saat satırı (dakika). */
+export function importSlotToSlot(s: {
+  weekday: number
+  start: string
+  end: string
+  room?: string | null
+}) {
+  return {
+    weekday: s.weekday,
+    startMin: clockMin(s.start),
+    endMin: clockMin(s.end),
+    room: s.room?.trim() ?? '',
+  }
+}
+
+/** "16 Şub – 22 May"; yıl farklıysa yıllı. */
+export function termRangeText(start: string | null, end: string | null): string | null {
+  if (!start) return null
+  const a = parseDay(start)
+  if (!end) return `${format(a, 'd MMM yyyy', { locale: tr })}'den`
+  const b = parseDay(end)
+  const pattern = a.getFullYear() === b.getFullYear() ? 'd MMM' : 'd MMM yyyy'
+  return `${format(a, pattern, { locale: tr })} – ${format(b, 'd MMM yyyy', { locale: tr })}`
 }
 
 const TASK_KIND: Record<'task' | 'bug' | 'research', string> = {
@@ -92,6 +131,22 @@ export function proposalLine(op: Operation, now: Date): { title: string; meta: s
       return { title: op.text, meta: [] }
     case 'add_instructor_note':
       return { title: firstLine(op.text, 160) ?? op.text, meta: [] }
+    case 'import_term':
+      return {
+        title: op.name,
+        meta: [
+          termRangeText(op.startDate ?? null, op.endDate ?? null) ?? 'Başlangıç tarihi yok',
+          op.weekCount ? `${op.weekCount} hafta` : null,
+        ].filter((m): m is string => !!m),
+      }
+    case 'import_course':
+      return {
+        title: op.code?.trim() ? `${op.name} (${op.code.trim()})` : op.name,
+        meta: [
+          op.slots.length ? formatSlots(op.slots.map(importSlotToSlot)) : 'Saat yok',
+          op.instructor?.trim() || null,
+        ].filter((m): m is string => !!m),
+      }
   }
 }
 

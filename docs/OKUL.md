@@ -40,7 +40,13 @@ kaplıyordu, not girilmemişken tablo ve sınav şeridi boş duruyordu):
 Sınav şeridi ayrı bölüm değildir: sınavlar Bugün/Yarın/Yaklaşan şeridine ve ders satırlarına dağılır; tümü ders
 detayındaki Sınavlar sekmesindedir. `+ Sınav` ve `Dönem ayarları` ders defterleri başlığının sağında.
 
-Boş durum (dönem yok): "Dönem tanımlanmadı. Derslerini ve programını gir, SecondMind haftanı kursun." + `+ Dönem oluştur`.
+Boş durum (dönem yok): "Dönem tanımlanmadı. Derslerini ve programını gir, SecondMind haftanı kursun." + `+ Dönem oluştur`
+ve `Programdan doldur` (amber).
+
+**Programdan doldur** (4e-2): ders programının fotoğrafı, ekran görüntüsü ya da PDF'i (bırak / seç / Ctrl V) DERİN'e
+gider; dönem, dersler, saatler, derslikler ve hocalar Onay Kutusu'na öneri olarak düşer (haftalık önizlemeyle).
+Buton boş durumda ve Ders defterleri başlığında `Dönem ayarları`'nın yanında. Döküm'e atılan program fotoğrafı da aynı
+önerilere dönüşür.
 
 ## Ders detayı
 

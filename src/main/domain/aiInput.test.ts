@@ -103,3 +103,13 @@ describe('splitByModel', () => {
 it('inputSummary', () => {
   expect(inputSummary([dump('a', 'x'), dump('b', 'y', 2)])).toBe('2 döküm · 2 ek')
 })
+
+it('aktif dönem ders başlığında (ders programı eşleştirmesi için)', () => {
+  const r = buildJobInput(
+    { ...ctx, term: { name: '2026-2027 Güz', startDate: '2026-09-21', endDate: '2026-12-27' } },
+    [dump('d1', 'a')],
+  )
+  expect(r.markdown).toContain(
+    '## Bu dönemin dersleri (aktif dönem: 2026-2027 Güz, 2026-09-21 – 2026-12-27)',
+  )
+})

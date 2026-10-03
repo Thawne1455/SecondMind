@@ -50,6 +50,11 @@ export function loadAiContext(db: Db, profile: string, now = new Date()): AiCont
     : []
 
   const today = dayKey(now)
+  const term = db
+    .select({ name: terms.name, startDate: terms.startDate, endDate: terms.endDate })
+    .from(terms)
+    .where(and(eq(terms.active, true), isNull(terms.deletedAt)))
+    .get()
   const courseRows = db
     .select({ id: courses.id, name: courses.name, code: courses.code })
     .from(courses)
@@ -96,6 +101,7 @@ export function loadAiContext(db: Db, profile: string, now = new Date()): AiCont
   return {
     now,
     profile,
+    term: term ?? null,
     projects: projectRows.map((p) => {
       const m = openMilestones.find((x) => x.projectId === p.id)
       return { ...p, milestone: m ? { title: m.title, targetDate: m.targetDate } : null }

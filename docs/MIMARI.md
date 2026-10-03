@@ -245,11 +245,20 @@ Claude Code, aboneliğiyle, `-p` modunda (`main/ai/claudeRunner.ts`; API anahtar
     { "op": "create_idea", "sourceDumpIds": ["..."], "title": "...", "note": "..." },
     { "op": "create_exam", "sourceDumpIds": ["..."], "courseId": "...", "title": "Vize", "date": "2026-11-02", "time": "10:30", "weekFrom": 1, "weekTo": 7 },
     { "op": "set_project_next_step", "sourceDumpIds": ["..."], "projectId": "...", "text": "..." },
-    { "op": "add_instructor_note", "sourceDumpIds": ["..."], "courseId": "...", "text": "..." }
+    { "op": "add_instructor_note", "sourceDumpIds": ["..."], "courseId": "...", "text": "..." },
+    { "op": "import_term", "sourceDumpIds": ["..."], "name": "2026-2027 Bahar", "startDate": "2027-02-15", "endDate": null, "weekCount": 14 },
+    { "op": "import_course", "sourceDumpIds": ["..."], "name": "Veri Yapıları", "code": "BIL201", "instructor": "Dr. Öğr. Üyesi Ayşe Kaya",
+      "slots": [ { "weekday": 1, "start": "09:00", "end": "10:50", "room": "D-201" } ] }
   ],
   "unprocessed": [ { "dumpId": "...", "reason": "Hangi derse ait olduğu belirsiz" } ]
 }
 ```
+
+**Ders programı** (4e-2, iş türü `schedule_import`; Okul > Programdan doldur ya da Döküm'deki program fotoğrafı):
+`import_term` / `import_course` id taşımaz; hedef dönem ve dersin yeni mi güncelleme mi olduğu uygulamada bulunur
+(`domain/school/scheduleImport`: dönem adla, ders kodla sonra adla, hoca unvansız). Önizleme (`db/inbox.ts`
+`schedulePreview`) ve uygulayıcı aynı fonksiyonları kullanır. Ders onaylanınca işin bekleyen dönem önerisi aynı grupla
+uygulanır (`db/ai.ts`).
 
 Ajanın kuralları `resources/ai-agent/CLAUDE.md`'dedir. Oraya yazılan her kural `changesSchema` ile tutarlı olmalı.
 

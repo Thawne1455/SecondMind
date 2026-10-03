@@ -1,23 +1,47 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Check, Image as ImageIcon, Pencil, Undo2, X } from 'lucide-react'
-import type { ProposalContexts, ProposalDiff, ProposalView } from '@shared/ipc'
+import type { ProposalContexts, ProposalDiff, ProposalView, SchedulePreview } from '@shared/ipc'
 import { errorText } from '../../lib/errors'
 import { Button, cn, Field, Input, Select, Tag, Textarea, useToast } from '../../ui'
-import { FIELDS, fromForm, toForm, validateEdit, type FieldSpec, type FormValues } from './editForm'
-import { OP_TAG, proposalLine } from './proposalText'
+import {
+  FIELDS,
+  fromForm,
+  slotErrors,
+  toForm,
+  validateEdit,
+  type FieldSpec,
+  type FormValues,
+} from './editForm'
+import { COURSE_UPDATE_TAG, OP_TAG, proposalAnchor, proposalLine } from './proposalText'
 import { useApprove, useReject, useUndoProposal } from './useOnay'
 
 // Öneri karosu: işlem türü + hedef alan etiketi, tek cümle (ya da fark karosu), kaynak döküm alıntısı,
 // Reddet · Düzenle · Onayla. Düzenle karoyu yerinde forma çevirir. Karar verilen öneri tek satıra iner.
 
-type CardProps = { proposal: ProposalView; contexts: ProposalContexts; now: Date }
+type ScheduleCourse = SchedulePreview['courses'][number]
 
-export function ProposalCard({ proposal, contexts, now }: CardProps) {
+type CardProps = {
+  proposal: ProposalView
+  contexts: ProposalContexts
+  now: Date
+  /** Ders programı önerisinde: güncelleme mi, ton, değişen alanlar. */
+  course?: ScheduleCourse
+  /** Haftalık önizlemede bloğuna tıklandı: karo kısa süre vurgulanır. */
+  focused?: boolean
+}
+
+export function ProposalCard({ proposal, contexts, now, course, focused }: CardProps) {
   const [editing, setEditing] = useState(false)
   if (proposal.status !== 'pending') return <DecidedRow proposal={proposal} now={now} />
   return (
-    <li className="flex flex-col gap-3.5 rounded-tile bg-s2 px-6 py-5">
-      <TagRow proposal={proposal} />
+    <li
+      id={proposalAnchor(proposal.id)}
+      className={cn(
+        'flex scroll-mt-6 flex-col gap-3.5 rounded-tile bg-s2 px-6 py-5 outline-offset-2 transition-[outline-color] duration-200',
+        focused ? 'outline-3 outline-indigo' : 'outline-3 outline-transparent',
+      )}
+    >
+      <TagRow proposal={proposal} course={course} />
       {editing ? (
         <ProposalEditor
           proposal={proposal}
@@ -31,6 +55,7 @@ export function ProposalCard({ proposal, contexts, now }: CardProps) {
           ) : (
             <Sentence proposal={proposal} now={now} />
           )}
+          {course && course.changes.length > 0 && <ChangeList changes={course.changes} />}
           <Sources proposal={proposal} />
           <Actions proposal={proposal} onEdit={() => setEditing(true)} />
         </>
@@ -39,11 +64,16 @@ export function ProposalCard({ proposal, contexts, now }: CardProps) {
   )
 }
 
-function TagRow({ proposal }: { proposal: ProposalView }) {
+function TagRow({ proposal, course }: { proposal: ProposalView; course?: ScheduleCourse }) {
   const { target, diff } = proposal
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Tag className="bg-s3">{OP_TAG[proposal.payload.op]}</Tag>
+      <Tag className="bg-s3">
+        {course?.update ? COURSE_UPDATE_TAG : OP_TAG[proposal.payload.op]}
+      </Tag>
+      {course && (
+        <span aria-hidden className="size-3.5 rounded-[4px]" style={{ background: course.tone }} />
+      )}
       <Tag
         domain={target.missing ? 'warning' : target.domain}
         fill={target.missing ? undefined : (target.fill ?? undefined)}
@@ -76,6 +106,26 @@ function Sentence({ proposal, now }: { proposal: ProposalView; now: Date }) {
         </span>
       ))}
     </p>
+  )
+}
+
+/** Mevcut dersin değişen alanları: "Saat  Pzt 09:00-10:50 → Pzt 10:00-11:50". */
+function ChangeList({ changes }: { changes: ScheduleCourse['changes'] }) {
+  return (
+    <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-block bg-bg p-3 text-[15px] leading-[1.45]">
+      {changes.map((c) => (
+        <div key={c.label} className="contents">
+          <dt className="cx self-center text-ink3">{c.label}</dt>
+          <dd className="m-0 min-w-0 tabular-nums">
+            <span className="text-ink2 line-through decoration-t-coral">{c.before}</span>
+            <span aria-label="yerine" className="px-2 font-bold">
+              →
+            </span>
+            <span className="rounded-md bg-green/25 px-1.5 font-bold">{c.after}</span>
+          </dd>
+        </div>
+      ))}
+    </dl>
   )
 }
 
@@ -144,7 +194,7 @@ function Sources({ proposal }: { proposal: ProposalView }) {
   )
 }
 
-function Actions({ proposal, onEdit }: { proposal: ProposalView; onEdit: () => void }) {
+export function Actions({ proposal, onEdit }: { proposal: ProposalView; onEdit: () => void }) {
   const { toast } = useToast()
   const approve = useApprove()
   const reject = useReject()
@@ -196,7 +246,7 @@ const DECIDED: Record<Exclude<ProposalView['status'], 'pending'>, string> = {
 }
 
 /** Karara bağlanmış öneri: tek satır, onaylıysa Geri al. */
-function DecidedRow({ proposal, now }: { proposal: ProposalView; now: Date }) {
+export function DecidedRow({ proposal, now }: { proposal: ProposalView; now: Date }) {
   const { toast } = useToast()
   const undo = useUndoProposal()
   const applied = proposal.status !== 'rejected'
@@ -253,7 +303,7 @@ function DecidedRow({ proposal, now }: { proposal: ProposalView; now: Date }) {
 type EditorProps = { proposal: ProposalView; contexts: ProposalContexts; onCancel: () => void }
 
 /** Düzenle: önerinin alanları formda; "Kaydet ve onayla" düzenlenmiş yükle uygular. */
-function ProposalEditor({ proposal, contexts, onCancel }: EditorProps) {
+export function ProposalEditor({ proposal, contexts, onCancel }: EditorProps) {
   const { toast } = useToast()
   const approve = useApprove()
   const op = proposal.payload
@@ -263,6 +313,11 @@ function ProposalEditor({ proposal, contexts, onCancel }: EditorProps) {
 
   function submit(e: FormEvent) {
     e.preventDefault()
+    const slotProblems = slotErrors(op.op, values)
+    if (Object.keys(slotProblems).length) {
+      setErrors(slotProblems)
+      return
+    }
     const edited = fromForm(op.op, values)
     const check = validateEdit(op, edited)
     if (!check.ok) {
@@ -353,6 +408,14 @@ function FieldControl({ spec, value, onChange, contexts, autoFocus }: ControlPro
   switch (spec.kind) {
     case 'textarea':
       return <Textarea {...common} rows={4} onChange={(e) => onChange(e.target.value)} />
+    case 'slots':
+      return (
+        <Input
+          {...common}
+          placeholder="Pzt 09:00-10:50 D-201, Çar 13:00-14:50"
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )
     case 'date':
       return <Input {...common} type="date" onChange={(e) => onChange(e.target.value)} />
     case 'time':

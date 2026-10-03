@@ -1,4 +1,6 @@
-import { operationSchema, type Operation } from '@shared/schemas/ai'
+import { operationSchema, type ImportSlot, type Operation } from '@shared/schemas/ai'
+import { clock, formatSlots, parseSlots } from '../okul/schoolText'
+import { importSlotToSlot } from './proposalText'
 
 // Düzenle formu: önerinin alanları türüne göre (metin, tarih, bağlam seçici...). Form değerleri hep metin; gönderirken
 // yüke çevrilir ve paylaşılan `operationSchema` ile doğrulanır (ana süreç de yeniden doğrular).
@@ -14,6 +16,8 @@ export type FieldKind =
   | 'project'
   | 'course'
   | 'taskKind'
+  /** Ders saatleri tek metin: "Pzt 09:00-10:50 D-201, Çar 13:00-14:50" (Okul ayarlarıyla aynı yazım). */
+  | 'slots'
 
 export type FieldSpec = {
   key: string
@@ -63,6 +67,39 @@ export const FIELDS: Record<Operation['op'], FieldSpec[]> = {
     { key: 'courseId', label: 'Ders', kind: 'course' },
     { key: 'text', label: 'Hoca notu', kind: 'textarea', wide: true },
   ],
+  import_term: [
+    { key: 'name', label: 'Dönem', kind: 'text', wide: true },
+    { key: 'startDate', label: 'Başlangıç', kind: 'date' },
+    { key: 'endDate', label: 'Bitiş', kind: 'date', optional: true },
+    { key: 'weekCount', label: 'Hafta sayısı', kind: 'number', optional: true },
+  ],
+  import_course: [
+    { key: 'name', label: 'Ders', kind: 'text', wide: true },
+    { key: 'code', label: 'Kod', kind: 'text', optional: true },
+    { key: 'credit', label: 'Kredi', kind: 'number', optional: true },
+    { key: 'instructor', label: 'Hoca', kind: 'text', optional: true, wide: true },
+    { key: 'slots', label: 'Saatler', kind: 'slots', wide: true },
+  ],
+}
+
+const toImportSlots = (text: string): ImportSlot[] =>
+  parseSlots(text).slots.map((s) => ({
+    weekday: s.weekday,
+    start: clock(s.startMin),
+    end: clock(s.endMin),
+    room: s.room?.trim() || null,
+  }))
+
+/** Saat metninde anlaşılmayan parça varsa alan hatası (zod'dan önce: mesaj daha açık olsun). */
+export function slotErrors(op: Operation['op'], values: FormValues): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const f of FIELDS[op])
+    if (f.kind === 'slots') {
+      const { errors } = parseSlots(values[f.key] ?? '')
+      if (errors.length)
+        out[f.key] = `Anlaşılmadı: ${errors.join(', ')} (örnek: Pzt 09:00-10:50 D-201)`
+    }
+  return out
 }
 
 export type FormValues = Record<string, string>
@@ -87,6 +124,10 @@ export function toForm(op: Operation): FormValues {
   const out: FormValues = {}
   for (const f of FIELDS[op.op]) {
     if (f.kind === 'context') out[f.key] = contextValue(source.context as never)
+    else if (f.kind === 'slots')
+      out[f.key] = formatSlots(
+        ((source[f.key] as ImportSlot[] | undefined) ?? []).map(importSlotToSlot),
+      )
     else {
       const v = source[f.key]
       out[f.key] = v === null || v === undefined ? '' : String(v)
@@ -106,7 +147,10 @@ export function fromForm(op: Operation['op'], values: FormValues): Record<string
         out.context = contextFrom(raw)
         break
       case 'number':
-        out[f.key] = raw === '' ? null : Number(raw)
+        out[f.key] = raw === '' ? null : Number(raw.replace(',', '.'))
+        break
+      case 'slots':
+        out[f.key] = toImportSlots(raw)
         break
       case 'taskKind':
         // Tür sadece proje görevinde anlamlı.

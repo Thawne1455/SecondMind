@@ -1,7 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { loadAiContext, loadJobDumps } from '../db/aiContext'
-import { failJob, finishJob, startJob } from '../db/ai'
+import { failJob, finishJob, startJob, type JobKind } from '../db/ai'
 import type { Db } from '../db/client'
 import {
   buildJobInput,
@@ -139,11 +139,13 @@ export async function processDumps(
   dumpIds: string[],
   requested: AiModel,
   onProgress: (p: JobProgress) => void = () => {},
+  /** Okul > Programdan doldur: `schedule_import` (Onay Kutusu'nda "Ders programından"). */
+  kind: JobKind = 'dump',
 ): Promise<JobOutcome[]> {
   const dumps = loadJobDumps(env.db, dumpIds)
   const jobs = splitByModel(dumps, requested).map((g) => {
     const jobId = startJob(env.db, {
-      kind: 'dump',
+      kind,
       model: g.model,
       dumpIds: g.dumps.map((d) => d.id),
       inputSummary: inputSummary(g.dumps),

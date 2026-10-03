@@ -90,6 +90,53 @@ export const addInstructorNoteOpSchema = z.object({
   text: text(2000),
 })
 
+/** "HH:mm", 00:00–23:59. */
+const clockSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Saat SS:dd olmalı')
+
+/** Ders programından bir saat: hafta günü (1 = Pzt), başlangıç, bitiş, derslik. */
+export const importSlotSchema = z
+  .object({
+    weekday: z.number().int().min(1).max(7),
+    start: clockSchema,
+    end: clockSchema,
+    room: z.string().trim().max(60).nullish(),
+  })
+  .refine((s) => s.end > s.start, { message: 'Bitiş başlangıçtan sonra olmalı', path: ['end'] })
+
+/**
+ * Ders programındaki dönem. Uygulama adıyla mevcut dönemlere bakar: aynı adlı dönem varsa dersler ona eklenir (bu
+ * işlem bir şey yazmaz), yoksa yeni dönem oluşur ve aktif olur (başlangıç tarihi şart).
+ */
+export const importTermOpSchema = z
+  .object({
+    op: z.literal('import_term'),
+    sourceDumpIds,
+    name: text(80),
+    startDate: dayKeySchema.nullish(),
+    endDate: dayKeySchema.nullish(),
+    weekCount: z.number().int().min(1).max(30).nullish(),
+  })
+  .refine((t) => !t.startDate || !t.endDate || t.endDate >= t.startDate, {
+    message: 'Bitiş başlangıçtan önce olamaz',
+    path: ['endDate'],
+  })
+
+/**
+ * Ders programındaki bir ders. Hangi döneme gideceği ve yeni mi yoksa mevcut dersin güncellemesi mi olduğu uygulamada
+ * algoritmayla bulunur (kod, yoksa ad eşleşmesi; `domain/school/scheduleImport`). Boş bırakılan alan mevcut dersi bozmaz.
+ */
+export const importCourseOpSchema = z.object({
+  op: z.literal('import_course'),
+  sourceDumpIds,
+  name: text(120),
+  code: z.string().trim().max(30).nullish(),
+  credit: z.number().min(0).max(60).nullish(),
+  instructor: z.string().trim().max(120).nullish(),
+  instructorEmail: z.string().trim().max(200).nullish(),
+  instructorOfficeHours: z.string().trim().max(300).nullish(),
+  slots: z.array(importSlotSchema).max(20),
+})
+
 export const operationSchema = z.discriminatedUnion('op', [
   createTaskOpSchema,
   createNoteOpSchema,
@@ -99,6 +146,8 @@ export const operationSchema = z.discriminatedUnion('op', [
   createExamOpSchema,
   setProjectNextStepOpSchema,
   addInstructorNoteOpSchema,
+  importTermOpSchema,
+  importCourseOpSchema,
 ])
 
 export const OPERATION_KINDS = operationSchema.options.map((o) => o.shape.op.value)
@@ -118,3 +167,6 @@ export const changesEnvelopeSchema = z.object({
 export type Operation = z.infer<typeof operationSchema>
 export type OperationKind = Operation['op']
 export type Unprocessed = z.infer<typeof unprocessedSchema>
+export type ImportSlot = z.infer<typeof importSlotSchema>
+export type ImportCourseOp = z.infer<typeof importCourseOpSchema>
+export type ImportTermOp = z.infer<typeof importTermOpSchema>
