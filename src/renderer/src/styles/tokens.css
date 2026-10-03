@@ -42,8 +42,10 @@
   --animate-shimmer: shimmer 1.4s ease-in-out infinite;
   --animate-spin: spin .8s linear infinite;
   --animate-toast-in: toast-in .18s ease-out;
+  --animate-tick: tick .2s ease-out;
   @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
   @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+  @keyframes tick { from { opacity: 0; transform: scale(.4); } }
 }
 
 @utility wide { font-stretch: 125%; }

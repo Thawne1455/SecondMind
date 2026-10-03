@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { IpcChannel, IpcEvent, Theme } from './ipc-channels'
 import { aiProcessInputSchema, aiStatusSchema } from './schemas/aiRun'
+import { activityListInputSchema, activityListSchema, inboxSchema } from './schemas/inbox'
 import { dumpCreateInputSchema, dumpItemSchema, dumpStatusSchema } from './schemas/dump'
 import {
   collectionCreateInputSchema,
@@ -116,6 +117,7 @@ import {
 
 export * from './ipc-channels'
 export * from './schemas/aiRun'
+export * from './schemas/inbox'
 export * from './schemas/dump'
 export * from './schemas/knowledge'
 export * from './schemas/mind'
@@ -217,6 +219,48 @@ export const ipcContract = {
   /** Süren çalıştırmayı iptal eder; dökümler bekliyor'a döner. */
   'ai:cancel': {
     input: z.void(),
+    output: z.void(),
+  },
+  // ---------------------------------------------------------------- Onay Kutusu (4d)
+  /** Bekleyen önerisi olan işler (kaynağa göre gruplar) + Düzenle formunun proje/ders seçicileri. */
+  'proposal:list': {
+    input: z.void(),
+    output: inboxSchema,
+  },
+  /** Kenar çubuğu rozeti: bekleyen öneri sayısı. */
+  'proposal:count': {
+    input: z.void(),
+    output: z.object({ pending: z.number() }),
+  },
+  /** Onayla; `edited` verilirse formdaki alanlar önerinin üstüne yazılır ve yeniden doğrulanır. */
+  'proposal:approve': {
+    input: z.object({ id: z.string(), edited: z.record(z.string(), z.unknown()).optional() }),
+    output: z.void(),
+  },
+  'proposal:reject': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** Grubun bekleyen bütün önerileri; her biri kendi transaction'ında, hata verenler bekliyor'da kalır. */
+  'proposal:approveAll': {
+    input: z.object({ jobId: z.string() }),
+    output: z.object({
+      applied: z.number(),
+      failed: z.array(z.object({ id: z.string(), error: z.string() })),
+    }),
+  },
+  'proposal:undo': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** İşlem günlüğü: son `days` günün kayıtları gruplar halinde. */
+  'activity:list': {
+    input: activityListInputSchema,
+    output: activityListSchema,
+  },
+  /** Günlükten geri al (AI önerisi ya da Taha'nın gruplu işlemi). */
+  'activity:undo': {
+    input: z.object({ groupId: z.string() }),
     output: z.void(),
   },
   'collection:list': {

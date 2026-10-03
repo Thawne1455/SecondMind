@@ -1,6 +1,6 @@
 import { and, desc, eq, getTableColumns, getTableName, is, isNull } from 'drizzle-orm'
 import { SQLiteTable, type SQLiteColumn } from 'drizzle-orm/sqlite-core'
-import { ulid } from 'ulid'
+import { UNDO_GROUP_PREFIX } from '../domain/activityText'
 import { logActivity } from './activity'
 import type { Db } from './client'
 import * as schema from './schema'
@@ -34,7 +34,8 @@ export function undoGroup(db: Db, groupId: string, now = new Date()): number {
       .orderBy(desc(activityLog.id))
       .all()
     if (!entries.length) throw new Error('Geri alınacak kayıt yok')
-    const undoGroupId = ulid()
+    // Geri almanın kendi grubu işaretli: günlükte "geri alma" olarak tanınır, kendisi geri alınmaz.
+    const undoGroupId = `${UNDO_GROUP_PREFIX}${groupId}`
     let undone = 0
     for (const e of entries) {
       if (e.targetTable === 'exam_topics' && e.action === 'create') {

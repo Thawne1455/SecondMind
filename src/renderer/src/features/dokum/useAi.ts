@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { AiModel, AiRunResult } from '@shared/ipc'
 import { useToast } from '../../ui'
+import { proposalKeys } from '../onay/useOnay'
 import { dumpKeys } from './useDumps'
 
 export const aiKeys = { status: ['ai', 'status'] as const }
@@ -41,7 +42,7 @@ function resultToast(r: AiRunResult): { message: string; error: boolean } {
 }
 
 /**
- * AppShell'de bir kez: `ai:changed` olayında durum ve döküm listeleri yenilenir; çalıştırma bitince hangi ekranda
+ * AppShell'de bir kez: `ai:changed` olayında durum, döküm listeleri ve Onay Kutusu yenilenir; çalıştırma bitince hangi ekranda
  * olunursa olunsun sonuç toast'u ("7 öneri Onay Kutusu'nda" + Aç).
  */
 export function useAiSync(): void {
@@ -56,6 +57,7 @@ export function useAiSync(): void {
       window.api.on('ai:changed', () => {
         void client.invalidateQueries({ queryKey: aiKeys.status })
         void client.invalidateQueries({ queryKey: dumpKeys.all })
+        void client.invalidateQueries({ queryKey: proposalKeys.all })
       }),
     [client],
   )

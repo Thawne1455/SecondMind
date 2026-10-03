@@ -151,12 +151,19 @@ export function approveProposal(db: Db, id: string, edited?: unknown, now = new 
   let op: Operation = original
   if (edited !== undefined) {
     // Formda gelen alanlar asıl önerinin üstüne; tür ve kaynak dökümler korunur.
-    op = operationSchema.parse({
+    const parsed = operationSchema.safeParse({
       ...original,
       ...(edited as object),
       op: original.op,
       sourceDumpIds: original.sourceDumpIds,
     })
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0]
+      throw new Error(
+        `Öneri geçersiz: ${issue?.path.join('.') || 'alan'} · ${issue?.message ?? ''}`,
+      )
+    }
+    op = parsed.data
   }
   const groupId = ulid()
   db.transaction(() => {

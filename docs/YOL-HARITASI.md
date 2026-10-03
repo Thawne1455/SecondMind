@@ -64,8 +64,17 @@ Görüntü/PDF içeren işler DERİN'e gider.
   ayarında. Durum ana süreçte, `ai:changed` olayı + `ai:status`. İlerleme şeridi ve İptal Döküm'de; sonuç toast'u
   her ekranda. Atlananlar'da elle yönlendirme şimdilik "Yeniden işle" (kuyruğa geri) + sil. Öneri çıkmasa da AI'ın
   gerekçeli atlaması iş başarısı sayılır (`jobSucceeded`).
-- [ ] 4d Onay Kutusu (çizilmemiş ekran: önce düzen planı + onay): gruplar, öneri karosu, onayla / reddet / düzenle,
+- [x] 4d Onay Kutusu (çizilmemiş ekran: önce düzen planı + onay): gruplar, öneri karosu, onayla / reddet / düzenle,
   tümünü onayla, işlem günlüğü ve geri al
+  Kararlar (4d): tek sütun, her AI işi bir grup (yeniden eskiye); bütün önerileri karara bağlanan grup Bekleyenler'den
+  düşer. Karar verilen öneri tek satıra iner (onaylıysa Geri al). Düzenle karoyu yerinde forma çevirir, `operationSchema`
+  ile renderer'da ve ana süreçte doğrulanır. Tarihler gün adı + tarihle ("Cuma 9 Eki"). Fark karosu nota eklemede ve
+  sıradaki adımda. İşlem günlüğü gün gün, filtre AI (varsayılan) / Taha / Tarama / Hepsi, 30 günlük sayfa; Geri al
+  sadece AI'ın ve Taha'nın gruplu işlemlerinde (tekil düzenlemeler listelenir, geri alınmaz; tarama geri alınmaz).
+  Geri almanın kendi grubu `undo:<grup>` (kendisi geri alınmaz). Kenar çubuğunda bekleyen öneri rozeti. Claude Code
+  oturum raporlarının Onay Kutusu'na düşmesi (5e) ayrı iş, henüz yok.
+  Gözlem (ayrı iş, yapılmadı): Qwen göreli tarihi yanlış güne koyuyor (geçmiş zamanlı hatırlatma onaylanamıyor),
+  sınav yerine hatırlatma öneriyor, fikir notuna id yazabiliyor.
 - [ ] 4e Ayarlar > AI: model indir / sil, Claude Code yolu ve test, HIZLI/DERİN seçimi, "AI'a kapalı" koleksiyonlar;
   okul işlemleri (ders programı görselinden dönem/ders/saat/hoca önerisi, DERİN)
 **Bitti sayılır:** 5 karışık döküm (metin + tahta fotoğrafı) işlenip doğru önerilere dönüşüyor, onaylananlar yerine yazılıyor, geri alınabiliyor.

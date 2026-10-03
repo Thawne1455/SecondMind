@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router'
 import { Moon, Settings, Sun } from 'lucide-react'
 import { usePendingDumpCount } from '../features/dokum/useDumps'
+import { usePendingProposalCount } from '../features/onay/useOnay'
 import { SILENT_AFTER_DAYS } from '../features/projeler/labels'
 import { useProjects } from '../features/projeler/useProjects'
 import { useSetSetting, useSetting } from '../lib/settings'
@@ -26,7 +27,7 @@ export function Sidebar() {
   const projects = (useProjects().data ?? []).filter((p) => p.status === 'active').slice(0, 5)
   const counts: Partial<Record<PanelId, number>> = {
     dokum: usePendingDumpCount(),
-    // onay: bekleyen öneri sayısı Aşama 4'te (proposals).
+    onay: usePendingProposalCount(),
   }
 
   return (

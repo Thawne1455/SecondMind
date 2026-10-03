@@ -8,6 +8,7 @@ import { rolloverTasks } from './db/schedule'
 import { folderPathById } from './db/shots'
 import { getSetting } from './db/settings'
 import { cancelAiRun, registerAiIpc } from './ipc/ai'
+import { registerInboxIpc } from './ipc/inbox'
 import { registerAppIpc } from './ipc/app'
 import { registerBridgeIpc } from './ipc/bridge'
 import { registerDumpIpc } from './ipc/dump'
@@ -103,6 +104,7 @@ if (!app.requestSingleInstanceLock()) {
     registerAppIpc(paths)
     registerDumpIpc(paths)
     registerAiIpc(paths)
+    registerInboxIpc()
     registerKnowledgeIpc(paths)
     registerPlanningIpc()
     registerScheduleIpc()
