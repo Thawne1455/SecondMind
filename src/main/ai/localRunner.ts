@@ -116,29 +116,29 @@ export function createLocalRunner(opts: { modelsDir: string }): AiRunner {
     const { model, grammar } = await load(status.path, input.onProgress)
     if (input.signal.aborted) throw new AiCancelledError()
 
-    const { LlamaChatSession } = await import('node-llama-cpp')
+    const { LlamaChatSession, QwenChatWrapper } = await import('node-llama-cpp')
     const context = await model.createContext({ contextSize: CONTEXT_SIZE })
     try {
       const session = new LlamaChatSession({
         contextSequence: context.getSequence(),
         systemPrompt: input.rules,
+        // Düşünme kapalı: grammar dışında kalır ve süreyi uzatır. `budgets: { thoughtTokens: 0 }` yetmiyor; model
+        // düşünme bölümünü yine açıyor ve JSON'un ilk "{" karakteri oraya kaçıyor (çıktı "{"siz ve boş kalıyordu).
+        chatWrapper: new QwenChatWrapper({ thoughts: 'discourage' }),
       })
-      let chars = 0
-      input.onProgress({ stage: 'generating', ratio: 0, message: 'Qwen yazıyor' })
+      // Önce girdi okunur (birkaç on saniye, ilerleme bilgisi yok); ilk parça gelince yazmaya geçer. Çıktının uzunluğu
+      // önceden bilinmediği için yüzde verilmez.
+      let writing = false
+      input.onProgress({ stage: 'generating', message: 'Qwen dökümleri okuyor' })
       const text = await session.prompt(input.input, {
         grammar,
         signal: input.signal,
         maxTokens: MAX_OUTPUT_TOKENS,
         temperature: 0.2,
-        // Düşünme çıktısı grammar'ın dışında kalır ve süreyi uzatır; kapalı.
-        budgets: { thoughtTokens: 0 },
-        onTextChunk: (chunk) => {
-          chars += chunk.length
-          input.onProgress({
-            stage: 'generating',
-            ratio: Math.min(0.95, chars / 3.5 / MAX_OUTPUT_TOKENS),
-            message: 'Qwen yazıyor',
-          })
+        onTextChunk: () => {
+          if (writing) return
+          writing = true
+          input.onProgress({ stage: 'generating', message: 'Qwen önerileri yazıyor' })
         },
       })
       return text

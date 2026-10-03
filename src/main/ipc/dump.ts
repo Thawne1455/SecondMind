@@ -1,5 +1,12 @@
 import { getDb } from '../db/client'
-import { countPendingDumps, createDump, deleteDump, listDumps, restoreDump } from '../db/dump'
+import {
+  countPendingDumps,
+  createDump,
+  deleteDump,
+  listDumps,
+  requeueDump,
+  restoreDump,
+} from '../db/dump'
 import { storeMedia } from '../media'
 import type { DataPaths } from '../paths'
 import { handle } from './handle'
@@ -18,4 +25,6 @@ export function registerDumpIpc(paths: DataPaths): void {
   handle('dump:delete', ({ id }) => deleteDump(getDb(), id))
 
   handle('dump:restore', ({ id }) => restoreDump(getDb(), id))
+
+  handle('dump:requeue', ({ id }) => requeueDump(getDb(), id))
 }

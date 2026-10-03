@@ -1,21 +1,24 @@
 import { and, asc, count, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
 import { ulid } from 'ulid'
-import { MEDIA_URL, type DumpItem, type DumpStatus } from '@shared/ipc'
+import { MEDIA_URL, type DumpItem, type DumpResult, type DumpStatus } from '@shared/ipc'
 import { dumpKind } from '../domain/media'
+import { proposalSummary } from '../domain/proposalSummary'
 import type { MediaRow } from '../media'
 import { logActivity } from './activity'
 import type { Db } from './client'
-import { dumpAttachments, dumpItems, media } from './schema'
+import { dumpAttachments, dumpItems, media, proposals } from './schema'
 
 type DumpRow = typeof dumpItems.$inferSelect
 
-function toItem(row: DumpRow, files: MediaRow[]): DumpItem {
+function toItem(row: DumpRow, files: MediaRow[], results: DumpResult[] = []): DumpItem {
   return {
     id: row.id,
     kind: row.kind,
     content: row.content,
     status: row.status,
     createdAt: row.createdAt.getTime(),
+    skipReason: row.status === 'skipped' ? row.skipReason : null,
+    results,
     attachments: files.map((m) => ({
       mediaId: m.id,
       name: m.originalName,
@@ -50,11 +53,13 @@ export function createDump(db: Db, text: string, files: MediaRow[]): DumpItem {
   })
 }
 
+/** 'pending' kuyruktur: bekleyenler ve şu an işlenenler birlikte gelir. */
 export function listDumps(db: Db, status: DumpStatus): DumpItem[] {
+  const statuses: DumpStatus[] = status === 'pending' ? ['pending', 'processing'] : [status]
   const rows = db
     .select()
     .from(dumpItems)
-    .where(and(eq(dumpItems.status, status), isNull(dumpItems.deletedAt)))
+    .where(and(inArray(dumpItems.status, statuses), isNull(dumpItems.deletedAt)))
     .orderBy(desc(dumpItems.createdAt), desc(dumpItems.id))
     .all()
   if (!rows.length) return []
@@ -74,7 +79,53 @@ export function listDumps(db: Db, status: DumpStatus): DumpItem[] {
   const byDump = new Map<string, MediaRow[]>()
   for (const l of links) byDump.set(l.dumpId, [...(byDump.get(l.dumpId) ?? []), l.media])
 
-  return rows.map((r) => toItem(r, byDump.get(r.id) ?? []))
+  const results = status === 'processed' ? dumpResults(db, rows) : new Map<string, DumpResult[]>()
+  return rows.map((r) => toItem(r, byDump.get(r.id) ?? [], results.get(r.id) ?? []))
+}
+
+/** İşlenen dökümlerin son işindeki öneriler, dökümlere göre. */
+function dumpResults(db: Db, rows: DumpRow[]): Map<string, DumpResult[]> {
+  const jobIds = [...new Set(rows.map((r) => r.jobId).filter((j): j is string => !!j))]
+  const out = new Map<string, DumpResult[]>()
+  if (!jobIds.length) return out
+  const wanted = new Map(rows.map((r) => [r.id, r.jobId]))
+  const found = db
+    .select()
+    .from(proposals)
+    .where(inArray(proposals.jobId, jobIds))
+    .orderBy(asc(proposals.jobId), asc(proposals.sort))
+    .all()
+  for (const p of found) {
+    const result: DumpResult = {
+      proposalId: p.id,
+      op: p.op,
+      summary: proposalSummary(p.payloadJson),
+      status: p.status,
+      undone: p.undoneAt !== null,
+    }
+    for (const dumpId of JSON.parse(p.sourceDumpIdsJson) as string[])
+      if (wanted.get(dumpId) === p.jobId) out.set(dumpId, [...(out.get(dumpId) ?? []), result])
+  }
+  return out
+}
+
+/** Atlanan dökümü yeniden kuyruğa alır. */
+export function requeueDump(db: Db, id: string): void {
+  db.update(dumpItems)
+    .set({ status: 'pending', skipReason: null, updatedAt: new Date() })
+    .where(and(eq(dumpItems.id, id), eq(dumpItems.status, 'skipped'), isNull(dumpItems.deletedAt)))
+    .run()
+}
+
+/** Kuyruktaki (bekleyen) dökümlerin kimlikleri, eskiden yeniye. */
+export function pendingDumpIds(db: Db): string[] {
+  return db
+    .select({ id: dumpItems.id })
+    .from(dumpItems)
+    .where(and(eq(dumpItems.status, 'pending'), isNull(dumpItems.deletedAt)))
+    .orderBy(asc(dumpItems.createdAt), asc(dumpItems.id))
+    .all()
+    .map((r) => r.id)
 }
 
 export function countPendingDumps(db: Db): number {

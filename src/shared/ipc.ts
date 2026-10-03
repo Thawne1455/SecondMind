@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { IpcChannel, IpcEvent, Theme } from './ipc-channels'
+import { aiProcessInputSchema, aiStatusSchema } from './schemas/aiRun'
 import { dumpCreateInputSchema, dumpItemSchema, dumpStatusSchema } from './schemas/dump'
 import {
   collectionCreateInputSchema,
@@ -114,6 +115,7 @@ import {
 } from './schemas/planning'
 
 export * from './ipc-channels'
+export * from './schemas/aiRun'
 export * from './schemas/dump'
 export * from './schemas/knowledge'
 export * from './schemas/mind'
@@ -141,6 +143,8 @@ export const settingValueSchemas = {
   aiClaudePath: z.string().min(1).max(500).nullable(),
   /** AI: DERİN'de Claude Code'un modeli (takma ad ya da tam ad). */
   aiDeepModel: z.string().min(1).max(80),
+  /** AI: "AI ile İşle"de son seçilen model (HIZLI = yerel Qwen, DERİN = Claude Code). */
+  aiModel: z.enum(['fast', 'deep']),
 } as const
 
 export type SettingKey = keyof typeof settingValueSchemas
@@ -152,6 +156,7 @@ export const settingDefaults: { [K in SettingKey]: SettingValue<K> } = {
   aiProfile: '',
   aiClaudePath: null,
   aiDeepModel: 'sonnet',
+  aiModel: 'fast',
 }
 
 const settingKeySchema = z.enum(Object.keys(settingValueSchemas) as [SettingKey, ...SettingKey[]])
@@ -177,6 +182,7 @@ export const ipcContract = {
     input: dumpCreateInputSchema,
     output: dumpItemSchema,
   },
+  /** 'pending' kuyruğu döndürür: bekleyenler ve şu an işlenenler ('processing'). */
   'dump:list': {
     input: z.object({ status: dumpStatusSchema }),
     output: z.array(dumpItemSchema),
@@ -192,6 +198,25 @@ export const ipcContract = {
   },
   'dump:restore': {
     input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** Atlanan dökümü yeniden kuyruğa alır (gerekçe silinir). */
+  'dump:requeue': {
+    input: z.object({ id: z.string() }),
+    output: z.void(),
+  },
+  /** Bekleyen tüm dökümleri işlemeye başlar ve hemen döner; ilerleme `ai:status` + `ai:changed`. */
+  'ai:process': {
+    input: aiProcessInputSchema,
+    output: z.object({ dumps: z.number() }),
+  },
+  'ai:status': {
+    input: z.void(),
+    output: aiStatusSchema,
+  },
+  /** Süren çalıştırmayı iptal eder; dökümler bekliyor'a döner. */
+  'ai:cancel': {
+    input: z.void(),
     output: z.void(),
   },
   'collection:list': {

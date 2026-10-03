@@ -11,6 +11,10 @@ export const ipcChannels = [
   'dump:count',
   'dump:delete',
   'dump:restore',
+  'dump:requeue',
+  'ai:process',
+  'ai:status',
+  'ai:cancel',
   'collection:list',
   'collection:create',
   'collection:rename',
@@ -175,6 +179,8 @@ export const ipcEvents = [
   'projects:changed',
   /** Park penceresi (Ctrl Alt P) yeniden gösterildi: alan temizlenir, proje yeniden seçilir. */
   'park:shown',
+  /** AI çalıştırması ilerledi ya da bitti: durum ve döküm listeleri yenilenir. */
+  'ai:changed',
 ] as const
 export type IpcEvent = (typeof ipcEvents)[number]
 

@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react'
 import { Plus, RefreshCw } from 'lucide-react'
-import { usePendingDumpCount } from '../features/dokum/useDumps'
+import { AiButton } from '../features/dokum/AiButton'
 import { useLastScanAt, useProjects, useScan } from '../features/projeler/useProjects'
 import { errorText } from '../lib/errors'
 import { formatAgo } from '../lib/format'
 import { useNow } from '../lib/useNow'
-import { Badge, Button, cn, useToast } from '../ui'
+import { Button, cn, useToast } from '../ui'
 import { useShell } from './shell-context'
 
 type TopBarProps = {
@@ -19,7 +19,6 @@ type TopBarProps = {
 /** Üst çubuk: solda sayfa başlığı, sağda arama ve genel eylemler. Her sayfa kendisi yerleştirir. */
 export function TopBar({ title, status, className }: TopBarProps) {
   const { openPalette, openQuickDump } = useShell()
-  const dumpCount = usePendingDumpCount()
   const scan = useUpdateButton()
 
   return (
@@ -51,11 +50,7 @@ export function TopBar({ title, status, className }: TopBarProps) {
         Güncelle
         {scan.ago && <span className="ml-2 text-[13px] font-medium text-ink3">{scan.ago}</span>}
       </Button>
-      {/* AI akışı Aşama 4'te; şimdilik sadece görünüm. */}
-      <Button variant="ai">
-        AI ile İşle
-        {dumpCount > 0 && <Badge count={dumpCount} className="ml-2" />}
-      </Button>
+      <AiButton />
       <Button icon={Plus} onClick={openQuickDump}>
         Döküm
       </Button>

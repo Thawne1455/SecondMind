@@ -18,11 +18,21 @@ export type KnownIds = {
 
 export type RejectedOp = { index: number; op: string | null; reason: string }
 
+/** `auto`: AI bu dökümden hiç bahsetmedi; gerekçeyi doğrulama yazdı. */
+export type SkippedDump = Unprocessed & { auto?: true }
+
 export type ValidatedChanges = {
   operations: Operation[]
   rejected: RejectedOp[]
-  unprocessed: Unprocessed[]
+  unprocessed: SkippedDump[]
 }
+
+/**
+ * İş başarılı mı: en az bir geçerli işlem ya da AI'ın kendi gerekçesiyle atladığı bir döküm var. İkisi de yoksa çıktı
+ * işe yaramadı; iş başarısız sayılır ve dökümler bekliyor'a döner.
+ */
+export const jobSucceeded = (v: ValidatedChanges): boolean =>
+  v.operations.length > 0 || v.unprocessed.some((u) => !u.auto)
 
 export class ChangesParseError extends Error {}
 
@@ -48,7 +58,8 @@ function unknownRef(op: Operation, known: KnownIds): string | null {
     case 'create_task':
     case 'create_note':
       return (
-        check(known.projectIds, op.context?.projectId, 'proje') ?? check(known.courseIds, op.context?.courseId, 'ders')
+        check(known.projectIds, op.context?.projectId, 'proje') ??
+        check(known.courseIds, op.context?.courseId, 'ders')
       )
     case 'append_to_note':
       return check(known.noteIds, op.noteId, 'not')
@@ -65,7 +76,8 @@ function unknownRef(op: Operation, known: KnownIds): string | null {
 export function validateChanges(raw: string | unknown, known: KnownIds): ValidatedChanges {
   const data = typeof raw === 'string' ? extractJson(raw) : raw
   const envelope = changesEnvelopeSchema.safeParse(data)
-  if (!envelope.success) throw new ChangesParseError(`Çıktı biçimi geçersiz: ${envelope.error.issues[0]?.message ?? ''}`)
+  if (!envelope.success)
+    throw new ChangesParseError(`Çıktı biçimi geçersiz: ${envelope.error.issues[0]?.message ?? ''}`)
 
   const operations: Operation[] = []
   const rejected: RejectedOp[] = []
@@ -88,12 +100,18 @@ export function validateChanges(raw: string | unknown, known: KnownIds): Validat
 
   // Öneriye dönüşen döküm atlanmış sayılmaz; aynı döküm iki kez atlanmaz.
   const used = new Set(operations.flatMap((o) => o.sourceDumpIds))
-  const unprocessed: Unprocessed[] = []
+  const unprocessed: SkippedDump[] = []
   for (const u of envelope.data.unprocessed)
-    if (known.dumpIds.has(u.dumpId) && !used.has(u.dumpId) && !unprocessed.some((x) => x.dumpId === u.dumpId))
+    if (
+      known.dumpIds.has(u.dumpId) &&
+      !used.has(u.dumpId) &&
+      !unprocessed.some((x) => x.dumpId === u.dumpId)
+    )
       unprocessed.push(u)
   const covered = new Set([...used, ...unprocessed.map((u) => u.dumpId)])
-  for (const d of known.dumpIds) if (!covered.has(d)) unprocessed.push({ dumpId: d, reason: 'AI bu öğe için öneri üretmedi' })
+  for (const d of known.dumpIds)
+    if (!covered.has(d))
+      unprocessed.push({ dumpId: d, reason: 'AI bu öğe için öneri üretmedi', auto: true })
 
   return { operations, rejected, unprocessed }
 }

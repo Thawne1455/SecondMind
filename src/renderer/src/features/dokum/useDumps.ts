@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { DumpCreateInput, DumpStatus } from '@shared/ipc'
 
-const dumpKeys = {
+export const dumpKeys = {
   all: ['dump'] as const,
   list: (status: DumpStatus) => ['dump', 'list', status] as const,
   count: ['dump', 'count'] as const,
@@ -39,3 +39,6 @@ export const useDeleteDump = () =>
 
 export const useRestoreDump = () =>
   useDumpMutation((id: string) => window.api.invoke('dump:restore', { id }))
+
+export const useRequeueDump = () =>
+  useDumpMutation((id: string) => window.api.invoke('dump:requeue', { id }))

@@ -7,7 +7,16 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { storeMedia } from '../media'
 import type { Db } from './client'
-import { countPendingDumps, createDump, deleteDump, listDumps, restoreDump } from './dump'
+import { approveProposal, finishJob, jobProposals, rejectProposal, startJob } from './ai'
+import {
+  countPendingDumps,
+  createDump,
+  deleteDump,
+  listDumps,
+  pendingDumpIds,
+  requeueDump,
+  restoreDump,
+} from './dump'
 import * as schema from './schema'
 
 let db: Db
@@ -76,5 +85,82 @@ describe('döküm sorguları', () => {
     deleteDump(db, id)
     deleteDump(db, id)
     expect(db.select().from(schema.activityLog).all()).toHaveLength(2)
+  })
+})
+
+describe('AI sonrası döküm listeleri', () => {
+  const task = (title: string, sourceDumpIds: string[]) => ({
+    op: 'create_task' as const,
+    sourceDumpIds,
+    title,
+  })
+
+  it('kuyruk işlenenleri de gösterir, bekleyen kimlikleri işlenenleri göstermez', () => {
+    const a = createDump(db, 'kahve filtresi', []).id
+    const b = createDump(db, 'ödev soru 4', []).id
+    startJob(db, { kind: 'dump', model: 'fast', dumpIds: [a], inputSummary: '' })
+    expect(
+      listDumps(db, 'pending')
+        .map((d) => [d.id, d.status])
+        .sort(),
+    ).toEqual(
+      [
+        [a, 'processing'],
+        [b, 'pending'],
+      ].sort(),
+    )
+    expect(pendingDumpIds(db)).toEqual([b])
+    expect(countPendingDumps(db)).toBe(1)
+  })
+
+  it('işlenen döküm dönüştüğü önerileri ve kararlarını taşır; atlanan gerekçesini', () => {
+    const a = createDump(db, 'menü müziği uzun, hocaya mail', []).id
+    const b = createDump(db, 'kahve filtresi', []).id
+    const jobId = startJob(db, { kind: 'dump', model: 'fast', dumpIds: [a, b], inputSummary: '' })
+    finishJob(
+      db,
+      jobId,
+      {
+        operations: [task('Menü müziğini kırp', [a]), task('Hocaya mail at', [a])],
+        rejected: [],
+        unprocessed: [{ dumpId: b, reason: 'Ne yapılacağı belli değil' }],
+      },
+      null,
+    )
+    const [first, second] = jobProposals(db, jobId)
+    approveProposal(db, first!.id)
+    rejectProposal(db, second!.id)
+
+    const [processed] = listDumps(db, 'processed')
+    expect(processed!.skipReason).toBeNull()
+    expect(processed!.results.map((r) => [r.op, r.summary, r.status, r.undone])).toEqual([
+      ['create_task', 'Menü müziğini kırp', 'approved', false],
+      ['create_task', 'Hocaya mail at', 'rejected', false],
+    ])
+
+    const [skipped] = listDumps(db, 'skipped')
+    expect(skipped).toMatchObject({ id: b, skipReason: 'Ne yapılacağı belli değil', results: [] })
+  })
+
+  it('atlanan döküm yeniden kuyruğa alınır, gerekçesi silinir; işlenene etkisi yok', () => {
+    const a = createDump(db, 'menü müziği', []).id
+    const b = createDump(db, 'belirsiz not', []).id
+    const jobId = startJob(db, { kind: 'dump', model: 'fast', dumpIds: [a, b], inputSummary: '' })
+    finishJob(
+      db,
+      jobId,
+      {
+        operations: [task('Bir şey yap', [a])],
+        rejected: [],
+        unprocessed: [{ dumpId: b, reason: 'Anlaşılmadı' }],
+      },
+      null,
+    )
+    requeueDump(db, a)
+    expect(listDumps(db, 'processed').map((d) => d.id)).toEqual([a])
+    requeueDump(db, b)
+    expect(listDumps(db, 'skipped')).toEqual([])
+    const [back] = listDumps(db, 'pending')
+    expect(back).toMatchObject({ id: b, status: 'pending', skipReason: null })
   })
 })

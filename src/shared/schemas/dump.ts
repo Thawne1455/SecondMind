@@ -36,6 +36,18 @@ export const dumpAttachmentSchema = z.object({
   url: z.string(),
 })
 
+/** İşlenen dökümün dönüştüğü öneri (İşlenenler sekmesi). */
+export const dumpResultSchema = z.object({
+  proposalId: z.string(),
+  /** `changes.json` işlem türü (`create_task`...). */
+  op: z.string(),
+  /** Önerinin başlığı ya da metninin ilk satırı. */
+  summary: z.string(),
+  status: z.enum(['pending', 'approved', 'rejected', 'edited']),
+  /** Onaylanıp sonra geri alındı. */
+  undone: z.boolean(),
+})
+
 export const dumpItemSchema = z.object({
   id: z.string(),
   kind: dumpKindSchema,
@@ -44,10 +56,15 @@ export const dumpItemSchema = z.object({
   /** Unix ms. */
   createdAt: z.number(),
   attachments: z.array(dumpAttachmentSchema),
+  /** AI'ın atlama gerekçesi (sadece 'skipped'). */
+  skipReason: z.string().nullable(),
+  /** Dönüştüğü öneriler (sadece 'processed'). */
+  results: z.array(dumpResultSchema),
 })
 
 export type DumpKind = z.infer<typeof dumpKindSchema>
 export type DumpStatus = z.infer<typeof dumpStatusSchema>
 export type DumpAttachment = z.infer<typeof dumpAttachmentSchema>
 export type DumpItem = z.infer<typeof dumpItemSchema>
+export type DumpResult = z.infer<typeof dumpResultSchema>
 export type DumpCreateInput = z.input<typeof dumpCreateInputSchema>

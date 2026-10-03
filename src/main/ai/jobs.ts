@@ -10,7 +10,7 @@ import {
   type AiJobDump,
   type AiModel,
 } from '../domain/aiInput'
-import { validateChanges } from '../domain/changes'
+import { jobSucceeded, validateChanges } from '../domain/changes'
 import { AiCancelledError, type AiProgress, type AiRunner } from './runner'
 
 // "AI ile İşle" akışı (MIMARI.md "AI akışı"): dökümler çalıştırıcıya göre gruplanır, her grup bir iş olur.
@@ -106,13 +106,14 @@ async function runOne(
     report({ stage: 'validating', message: 'Doğrulanıyor' })
     const validated = validateChanges(raw, pkg.known)
     const proposals = finishJob(env.db, jobId, validated, outputPath)
+    const ok = jobSucceeded(validated)
     return {
       jobId,
       model,
-      status: proposals ? 'done' : 'failed',
+      status: ok ? 'done' : 'failed',
       proposals,
       rejected: validated.rejected.length,
-      error: proposals ? null : 'Geçerli öneri çıkmadı',
+      error: ok ? null : 'Geçerli öneri çıkmadı',
     }
   } catch (e) {
     const cancelled = signal.aborted || e instanceof AiCancelledError

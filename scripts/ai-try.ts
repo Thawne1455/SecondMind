@@ -13,16 +13,14 @@ import Database from 'better-sqlite3'
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import { createClaudeRunner, findClaude } from '../src/main/ai/claudeRunner'
 import { processDumps, type JobProgress } from '../src/main/ai/jobs'
 import {
-  createLocalRunner,
   downloadLocalModel,
   disposeLocalModel,
   localModelStatus,
   LOCAL_MODEL,
 } from '../src/main/ai/localRunner'
-import { AiRunError } from '../src/main/ai/runner'
+import { runnerFactory } from '../src/main/ai/runners'
 import { jobProposals } from '../src/main/db/ai'
 import type { Db } from '../src/main/db/client'
 import * as schema from '../src/main/db/schema'
@@ -120,12 +118,7 @@ async function main(): Promise<void> {
       mediaDir: join(args.dataDir, 'media'),
       rules: readFileSync(resolve('resources/ai-agent/CLAUDE.md'), 'utf8'),
       profile: getSetting(db, 'aiProfile'),
-      runner: (model) => {
-        if (model === 'fast') return createLocalRunner({ modelsDir: args.modelsDir })
-        const claudePath = findClaude(getSetting(db, 'aiClaudePath'))
-        if (!claudePath) throw new AiRunError('claude.exe bulunamadı')
-        return createClaudeRunner({ claudePath, model: getSetting(db, 'aiDeepModel') })
-      },
+      runner: runnerFactory(db, args.modelsDir),
     },
     pending,
     args.model,

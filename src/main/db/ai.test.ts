@@ -16,6 +16,7 @@ import {
   startJob,
   undoProposal,
 } from './ai'
+import type { SkippedDump } from '../domain/changes'
 import type { Db } from './client'
 import { createDump } from './dump'
 import { createNote, updateNote } from './knowledge'
@@ -39,11 +40,7 @@ const dumpRow = (id: string) =>
   db.select().from(schema.dumpItems).where(eq(schema.dumpItems.id, id)).get()!
 const log = () => db.select().from(schema.activityLog).all()
 
-function job(
-  ops: Operation[],
-  dumpIds: string[],
-  unprocessed: { dumpId: string; reason: string }[] = [],
-) {
+function job(ops: Operation[], dumpIds: string[], unprocessed: SkippedDump[] = []) {
   const jobId = startJob(
     db,
     { kind: 'dump', model: 'fast', dumpIds, inputSummary: `${dumpIds.length} döküm` },
@@ -84,6 +81,22 @@ describe('iş yaşam döngüsü', () => {
     failJob(db, j2, 'İptal edildi', 'cancelled', now)
     expect(dumpRow(d1).status).toBe('pending')
     expect(jobId).not.toBe(j2)
+  })
+
+  it('işlem yok ama AI gerekçeyle atladıysa iş biter, döküm atlananlara gider', () => {
+    const d1 = dump('a')
+    const d2 = dump('b')
+    job(
+      [],
+      [d1, d2],
+      [
+        { dumpId: d1, reason: 'Görsel boş' },
+        { dumpId: d2, reason: 'AI bu öğe için öneri üretmedi', auto: true },
+      ],
+    )
+    expect(db.select().from(schema.aiJobs).get()!.status).toBe('done')
+    expect(dumpRow(d1)).toMatchObject({ status: 'skipped', skipReason: 'Görsel boş' })
+    expect(dumpRow(d2).status).toBe('skipped')
   })
 
   it('açılışta yarım kalan iş başarısız olur, döküm bekliyor’a döner', () => {

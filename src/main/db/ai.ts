@@ -2,14 +2,14 @@ import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { ulid } from 'ulid'
 import { operationSchema, type Operation } from '@shared/schemas/ai'
 import { applyOperation } from '../ai/apply'
-import type { ValidatedChanges } from '../domain/changes'
+import { jobSucceeded, type ValidatedChanges } from '../domain/changes'
 import type { Db, DbTx } from './client'
 import { aiJobs, dumpItems, proposals } from './schema'
 import { undoGroup } from './undo'
 
 // AI işleri ve öneriler (MIMARI.md "AI akışı"). İş başlayınca dökümleri 'processing'e alır; biterken geçerli işlemler
-// öneri olur, dökümler 'processed' (öneriye dönüştü) ya da 'skipped' (AI'ın gerekçesiyle) olur. Hiç geçerli işlem
-// çıkmazsa iş başarısızdır ve dökümler bekliyor'a döner. Öneri onaylanınca uygulanır, geri alınabilir.
+// öneri olur, dökümler 'processed' (öneriye dönüştü) ya da 'skipped' (AI'ın gerekçesiyle) olur. Ne geçerli işlem ne de
+// AI'ın gerekçeli atlaması çıkarsa iş başarısızdır ve dökümler bekliyor'a döner (`jobSucceeded`). Öneri onaylanınca uygulanır, geri alınabilir.
 
 export type JobKind = (typeof aiJobs.$inferSelect)['kind']
 export type JobModel = (typeof aiJobs.$inferSelect)['model']
@@ -74,7 +74,7 @@ export function recoverStaleJobs(db: Db, now = new Date()): number {
   return stale.length
 }
 
-/** Doğrulanmış çıktıyı yazar. Dönen sayı: oluşan öneri. */
+/** Doğrulanmış çıktıyı yazar. Dönen sayı: oluşan öneri (başarılı iş de 0 öneriyle bitebilir: hepsi atlandıysa). */
 export function finishJob(
   db: Db,
   jobId: string,
@@ -84,7 +84,7 @@ export function finishJob(
 ): number {
   return db.transaction((tx) => {
     const rejectedJson = result.rejected.length ? JSON.stringify(result.rejected) : null
-    if (!result.operations.length) {
+    if (!jobSucceeded(result)) {
       tx.update(aiJobs)
         .set({
           status: 'failed',

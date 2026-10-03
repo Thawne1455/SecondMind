@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import type { Reminder, Task } from '@shared/ipc'
 import { useNoteTitles } from '../features/bilgi/useKnowledge'
+import { useAiSync } from '../features/dokum/useAi'
 import { ReminderWorkspace } from '../features/bugun/ReminderWorkspace'
 import { TaskWorkspace } from '../features/bugun/TaskWorkspace'
 import { planningKeys, useReminders, useTasks } from '../features/bugun/usePlanning'
@@ -47,6 +48,7 @@ export function AppShell() {
   const projects = useProjects().data
   const startMutation = useStartSession()
   useProjectsSync()
+  useAiSync()
   // startSession kararlı kalsın diye güncel liste ref'te.
   const projectsRef = useRef(projects)
   useEffect(() => {

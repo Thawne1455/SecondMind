@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { ChangesParseError, extractJson, validateChanges, type KnownIds } from './changes'
+import {
+  ChangesParseError,
+  extractJson,
+  jobSucceeded,
+  validateChanges,
+  type KnownIds,
+} from './changes'
 
 const known: KnownIds = {
   dumpIds: new Set(['d1', 'd2', 'd3']),
@@ -25,9 +31,25 @@ describe('validateChanges', () => {
       {
         version: 1,
         operations: [
-          { op: 'create_task', sourceDumpIds: ['d1'], title: 'Menü müziğini kırp', context: { projectId: 'p1' } },
-          { op: 'create_reminder', sourceDumpIds: ['d1'], title: 'Hocaya mail', at: '2026-10-01 09:00' },
-          { op: 'create_exam', sourceDumpIds: ['d2'], courseId: 'uydurma', title: 'Vize', date: '2026-11-02' },
+          {
+            op: 'create_task',
+            sourceDumpIds: ['d1'],
+            title: 'Menü müziğini kırp',
+            context: { projectId: 'p1' },
+          },
+          {
+            op: 'create_reminder',
+            sourceDumpIds: ['d1'],
+            title: 'Hocaya mail',
+            at: '2026-10-01 09:00',
+          },
+          {
+            op: 'create_exam',
+            sourceDumpIds: ['d2'],
+            courseId: 'uydurma',
+            title: 'Vize',
+            date: '2026-11-02',
+          },
           { op: 'delete_everything', sourceDumpIds: ['d2'] },
           { op: 'create_idea', sourceDumpIds: ['d2'], title: 'Ritim oyunu' },
         ],
@@ -61,8 +83,26 @@ describe('validateChanges', () => {
     )
     expect(r.unprocessed).toEqual([
       { dumpId: 'd2', reason: 'Hangi derse ait belirsiz' },
-      { dumpId: 'd3', reason: 'AI bu öğe için öneri üretmedi' },
+      { dumpId: 'd3', reason: 'AI bu öğe için öneri üretmedi', auto: true },
     ])
+  })
+
+  it("iş başarısı: işlem ya da AI'ın gerekçeli atlaması gerekir; sadece otomatik atlama yetmez", () => {
+    const empty = { version: 1, operations: [] }
+    expect(jobSucceeded(validateChanges(empty, known))).toBe(false)
+    expect(
+      jobSucceeded(
+        validateChanges({ ...empty, unprocessed: [{ dumpId: 'd2', reason: 'Görsel boş' }] }, known),
+      ),
+    ).toBe(true)
+    expect(
+      jobSucceeded(
+        validateChanges(
+          { ...empty, operations: [{ op: 'create_idea', sourceDumpIds: ['d1'], title: 'X' }] },
+          known,
+        ),
+      ),
+    ).toBe(true)
   })
 
   it('bilinmeyen döküm ve not, çift bağlam reddedilir; sürüm yanlışsa hepsi', () => {
@@ -72,7 +112,13 @@ describe('validateChanges', () => {
         operations: [
           { op: 'append_to_note', sourceDumpIds: ['d1'], noteId: 'n9', appendMd: 'ek' },
           { op: 'create_task', sourceDumpIds: ['d9'], title: 'A' },
-          { op: 'create_note', sourceDumpIds: ['d1'], title: 'A', bodyMd: '', context: { projectId: 'p1', courseId: 'c1' } },
+          {
+            op: 'create_note',
+            sourceDumpIds: ['d1'],
+            title: 'A',
+            bodyMd: '',
+            context: { projectId: 'p1', courseId: 'c1' },
+          },
         ],
       },
       known,

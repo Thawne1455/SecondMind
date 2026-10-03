@@ -57,8 +57,13 @@ Görüntü/PDF içeren işler DERİN'e gider.
 - [x] 4b Çalıştırıcılar: `AiRunner` arayüzü, iş paketi hazırlama (bağlam kırpma, "AI'a kapalı" hariç), yerel Qwen
   (model indirme + ilerleme, yükleme, grammar), Claude Code (`claude -p`, zaman aşımı, iptal); `resources/ai-agent/CLAUDE.md`
   gözden geçirilir, iki çalıştırıcı da aynı kuralları kullanır. Arayüzsüz deneme: `npm run ai:try` (IPC ve ilerleme
-  olayı 4c'de, model indirme ekranı 4e'de). Yerel model gerçek modelle henüz denenmedi (indirme bekliyor).
-- [ ] 4c Döküm: `AI ile İşle` + HIZLI/DERİN, ilerleme ve iptal, İşlenenler / Atlananlar sekmeleri
+  olayı 4c'de, model indirme ekranı 4e'de). Yerel model gerçek modelle denendi (2026-10-03, Vulkan, 8 döküm ~30 sn):
+  JSON geçerli, ama göreli tarihler ve sınav/hatırlatma ayrımı zayıf.
+- [x] 4c Döküm: `AI ile İşle` + HIZLI/DERİN, ilerleme ve iptal, İşlenenler / Atlananlar sekmeleri
+  Kararlar (4c): buton üst çubukta (her ekranda); menüden model seçmek işlemeyi başlatır, son seçim `aiModel`
+  ayarında. Durum ana süreçte, `ai:changed` olayı + `ai:status`. İlerleme şeridi ve İptal Döküm'de; sonuç toast'u
+  her ekranda. Atlananlar'da elle yönlendirme şimdilik "Yeniden işle" (kuyruğa geri) + sil. Öneri çıkmasa da AI'ın
+  gerekçeli atlaması iş başarısı sayılır (`jobSucceeded`).
 - [ ] 4d Onay Kutusu (çizilmemiş ekran: önce düzen planı + onay): gruplar, öneri karosu, onayla / reddet / düzenle,
   tümünü onayla, işlem günlüğü ve geri al
 - [ ] 4e Ayarlar > AI: model indir / sil, Claude Code yolu ve test, HIZLI/DERİN seçimi, "AI'a kapalı" koleksiyonlar;
